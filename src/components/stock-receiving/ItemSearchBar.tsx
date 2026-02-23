@@ -46,6 +46,7 @@ interface ItemSearchBarProps {
 
 export interface ItemSearchBarRef {
   focusAndSelect: () => void;
+  clearSearch: () => void;
 }
 
 // --- Utilities ---
@@ -183,6 +184,12 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           inputRef.current.focus();
           inputRef.current.select();
         }
+      },
+      clearSearch: () => {
+        setSearchTerm('');
+        setResults([]);
+        setShowDropdown(false);
+        setSelectedIndex(-1);
       }
     }));
 
