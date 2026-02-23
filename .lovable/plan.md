@@ -1,113 +1,72 @@
 
 
-## Advanced Noon Order Processing Overhaul
+## Add Search Type Selector and Auto-Chip System to Noon Orders Tab
 
 ### Overview
 
-Transform the current basic Noon Order Processing page into a full-featured, multi-step processing hub using the unified Market Purchases UI pattern (compact stat bars, card-wrapped toolbars, native tables with alternating rows, mobile card layouts).
+Enhance the search bar in the Noon Orders tab with two features:
+1. **Search Type Selector** -- A dropdown before the search input to select what field to search (Default/All, ASIN, SKU, Title, Order Nr, Partner SKU, Country)
+2. **Auto-Chip Creation** -- When a user types and pauses for 1.5 seconds (or presses Enter), the search term automatically becomes a removable chip/badge, allowing multiple search terms to be active simultaneously
 
-### Current State
+### How It Works
 
-The page currently has:
-- A single `NoonOrdersUploader` component with a gradient Card for store selection + upload
-- A `NoonProcessingOrdersTable` with gradient Card styling, basic search, column toggles, and clear-all
-- No batch actions, no status management, no analytics, no filtering by status/store/date
+- A dropdown selector sits to the left of the search input showing the current search type (default: "All")
+- Available search types: All, Order Nr, SKU, Partner SKU, Title, Country
+- When the user types a term and either:
+  - Pauses typing for 1.5 seconds, OR
+  - Presses Enter
+  - The term is converted into a colored chip/badge showing `[Type]: [Value]`
+- Multiple chips can be active at once (e.g., "SKU: ABC123" + "Title: Phone Case")
+- Each chip has an X button to remove it
+- A "Clear all" button appears when more than one chip is active
+- The filtering logic applies all active chips as AND conditions
 
-### New Architecture
-
-Replace the single-component layout with a tabbed interface containing 4 tabs:
+### UI Design
 
 ```text
-+-------------------------------------------------------------------+
-| Noon Order Processing (HuhaHeader01)                              |
-+-------------------------------------------------------------------+
-| [Upload] [Orders] [Analytics] [Stores]                            |
-+-------------------------------------------------------------------+
++---------------------------------------------------------------+
+| [All v] [  Search...                    ] | Columns | Actions |
++---------------------------------------------------------------+
+| Active Chips: [All: phone x] [SKU: ABC x]   Clear all        |
++---------------------------------------------------------------+
 ```
-
----
-
-### Tab 1: Upload Orders
-
-**Redesign the upload experience:**
-- Compact stat bar: Files Uploaded Today | Orders Uploaded | Last Upload | Store Selected
-- Card-wrapped toolbar: Store dropdown + drag-and-drop upload zone + "Upload" button
-- Recent uploads table (native `<table>` with unified styling): File name, rows uploaded, store, date, status
-- Mobile card layout for recent uploads
-
-### Tab 2: Orders Management (Main Tab)
-
-**Major feature upgrades:**
-- Compact stat bar: Total Orders | Pending | Processing | Shipped | Delivered
-- Card-wrapped toolbar with:
-  - Status filter pills (All / Pending / Processing / Shipped / Delivered)
-  - Store filter dropdown
-  - Date range filter (from/to)
-  - Search input
-  - Bulk actions dropdown (Delete Selected, Mark as Processing, Export)
-  - Column toggle (existing, keep)
-  - Item count badge
-- Native `<table>` with unified styling (bg-muted/40 header, alternating rows, hover)
-- Row selection checkboxes for bulk actions
-- Individual row actions: View details, Delete single order
-- Mobile card layout (`md:hidden`) with status badges and swipe-friendly layout
-- Pagination (25/50/100 per page) for large datasets
-- Empty state matching unified pattern
-
-### Tab 3: Analytics
-
-- Compact stat bar: Total Orders | Avg Daily | Top Store | Countries
-- Visual charts using recharts:
-  - Orders per day (bar chart, last 7 days)
-  - Orders by status (pie/donut chart)
-  - Orders by store (horizontal bar)
-  - Orders by country breakdown
-- All wrapped in the unified card pattern
-
-### Tab 4: Store Management
-
-- Move the existing `NoonStoreManagement` component here
-- Wrap in unified styling (stat bar for store count + active/inactive, card toolbar)
-
----
 
 ### Technical Details
 
-**Files to create:**
-| File | Purpose |
-|------|---------|
-| `src/components/noon-processing/NoonUploadTab.tsx` | Upload tab with drag-drop, recent uploads |
-| `src/components/noon-processing/NoonOrdersTab.tsx` | Main orders table with filters, bulk actions, pagination |
-| `src/components/noon-processing/NoonAnalyticsTab.tsx` | Charts and analytics dashboard |
-| `src/components/noon-processing/NoonStoresTab.tsx` | Store management wrapper with unified styling |
+**File to modify:** `src/components/noon-processing/NoonOrdersTab.tsx`
 
-**Files to modify:**
-| File | Change |
-|------|--------|
-| `src/pages/NoonOrderProcessing.tsx` | Replace single component with tabbed layout using HuhaTab01 |
+**State changes:**
+- Replace `searchTerm: string` with `searchChips: Array<{ type: string; value: string }>` 
+- Add `searchType: string` (current dropdown selection, default "All")
+- Add `inputValue: string` (current text in input)
+- Add a `useRef` timer for auto-chip creation (1.5s debounce)
 
-**Files kept as-is (reused internally):**
-- `src/hooks/useNoonStores.ts` -- reused in stores tab
-- `src/components/NoonStoreManagement.tsx` -- embedded in stores tab
+**Search type options:**
+| Label | Field(s) searched |
+|-------|------------------|
+| All (Default) | order_nr, purchase_item_nr, sku, partner_sku, title, order_country_code |
+| Order Nr | order_nr |
+| SKU | sku |
+| Partner SKU | partner_sku |
+| Title | title |
+| Item Nr | purchase_item_nr |
+| Country | order_country_code |
 
-**UI Pattern applied everywhere:**
-- Stat bar: `flex items-center gap-3 p-2.5 rounded-xl bg-card border border-border`
-- Toolbar: `flex items-center gap-3 p-3 rounded-xl bg-card border border-border`
-- Table: native `<table>` inside `border border-border rounded-xl overflow-hidden bg-card`
-- Header: `bg-muted/40 text-xs uppercase tracking-wider`
-- Rows: alternating `bg-muted/10`, hover `bg-muted/20`
-- Mobile: `md:hidden` card layout for every data tab
-- Empty state: centered icon in `h-14 w-14 rounded-2xl bg-muted/50`
+**Filter logic update:**
+- Each chip filters independently based on its type
+- All chips are combined with AND logic
+- When type is "All", the chip searches across all fields (current behavior)
 
-**Key features added:**
-1. Status filter pills with counts
-2. Store filter dropdown
-3. Date range filtering
-4. Row selection with checkboxes
-5. Bulk delete and bulk status update
-6. Pagination controls
-7. Drag-and-drop upload zone
-8. Recent uploads history
-9. Analytics charts (orders/day, by status, by store, by country)
-10. Mobile-responsive card layouts for all data views
+**Auto-chip timer:**
+- `useEffect` watches `inputValue` changes
+- Sets a 1.5-second timeout; if no new keystrokes, auto-creates chip
+- Timer resets on each keystroke
+- Enter key immediately creates chip and clears input
+- Empty/whitespace input is ignored
+- Duplicate chips (same type + value) are prevented
+
+**Chip UI:**
+- Uses the existing `Badge` component with `variant="secondary"`
+- Format: `Type: Value` with an X button
+- Styled consistently with the existing filter chips pattern in the codebase (see `FilterChips.tsx`)
 
