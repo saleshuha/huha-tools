@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CalendarDays, Package, Link2, ChevronLeft, ChevronRight, RotateCcw, ShoppingBag, TrendingUp, ExternalLink, Copy, XCircle, ImageOff } from "lucide-react";
+import { CalendarDays, Package, Link2, ChevronLeft, ChevronRight, RotateCcw, ShoppingBag, TrendingUp, ImageOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useMarketItemCosts } from "@/hooks/useMarketItemCosts";
-import { useMarketPurchaseLinks } from "@/hooks/useMarketPurchaseLinks";
+// Purchase links now managed in PurchaseLinksTab
 import { useProductImages } from "@/hooks/useProductImages";
 import { GenerateMarketLinkDialog } from "./GenerateMarketLinkDialog";
 import { toast } from "sonner";
@@ -32,7 +32,7 @@ const getAmazonFallbackUrl = (asin: string) =>
 export function DailyOrdersTab() {
   const { profile } = useUserProfile();
   const { } = useMarketItemCosts();
-  const { links, deactivateLink } = useMarketPurchaseLinks();
+  
   const { getImageByAsin } = useProductImages();
 
   const getNoonImageUrl = (imageKey: string) =>
@@ -139,23 +139,14 @@ export function DailyOrdersTab() {
   const grandTotal = useMemo(() => items.reduce((s, i) => s + i.totalQty * i.unitCost, 0), [items]);
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
 
-  const recentLinks = useMemo(() => links.slice(0, 5), [links]);
-
-  // Cost is read-only here — managed via Purchase Links only
 
   const goToDate = (dir: "prev" | "next" | "today") => {
     if (dir === "today") setSelectedDate(new Date().toISOString().split("T")[0]);
-    else {
-      const d = dir === "prev" ? subDays(new Date(selectedDate), 1) : addDays(new Date(selectedDate), 1);
-      setSelectedDate(d.toISOString().split("T")[0]);
-    }
+    else if (dir === "prev") setSelectedDate(subDays(new Date(selectedDate), 1).toISOString().split("T")[0]);
+    else setSelectedDate(addDays(new Date(selectedDate), 1).toISOString().split("T")[0]);
   };
 
-  const copyLinkToClipboard = (token: string) => {
-    const url = `${window.location.origin}/market-purchase/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard");
-  };
+  // Cost is read-only here — managed via Purchase Links only
 
   return (
     <div className="space-y-5">
@@ -403,136 +394,6 @@ export function DailyOrdersTab() {
         </>
       )}
 
-      {/* Generated Purchase Links Section */}
-      {recentLinks.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-primary" />
-              Generated Purchase Links
-            </h3>
-            <span className="text-xs text-muted-foreground">{links.length} total</span>
-          </div>
-          <div className="grid gap-3">
-            {recentLinks.map((link) => {
-              const linkItems = (link.items || []) as any[];
-              const itemCount = linkItems.length;
-              const totalQty = linkItems.reduce((s: number, i: any) => s + (i.qty || 0), 0);
-              return (
-                <Card key={link.id} className={`border bg-card hover:shadow-md transition-shadow ${link.is_active ? "border-border" : "border-border/50 opacity-60"}`}>
-                  <CardContent className="py-3 px-4">
-                    {/* Mobile layout */}
-                    <div className="flex flex-col gap-3 sm:hidden">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{link.title || "Untitled Link"}</p>
-                          <Badge variant={link.is_active ? "default" : "secondary"} className="text-[10px] h-5 flex-shrink-0">
-                            {link.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex -space-x-2 overflow-x-auto pb-1">
-                        {linkItems.slice(0, 6).map((item: any, i: number) => {
-                          const imgUrl = item.asin ? getProductImageUrl(item.asin) : null;
-                          const hasFailed = failedImages.has(item.asin);
-                          return (
-                            <div key={i} className="h-14 w-14 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm flex-shrink-0" style={{ zIndex: 6 - i }}>
-                              {imgUrl && !hasFailed ? (
-                                <img src={imgUrl} alt={item.title || item.asin} className="h-full w-full object-contain p-0.5" loading="lazy" onError={() => setFailedImages(prev => new Set(prev).add(item.asin))} />
-                              ) : (
-                                <Package className="h-4 w-4 text-muted-foreground/40" />
-                              )}
-                            </div>
-                          );
-                        })}
-                        {itemCount > 6 && (
-                          <div className="h-14 w-14 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shadow-sm flex-shrink-0">
-                            +{itemCount - 6}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{itemCount} items</span>
-                          <span>•</span>
-                          <span>{totalQty} qty</span>
-                          <span>•</span>
-                          <span>{format(new Date(link.created_at), "MMM d, h:mm a")}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => copyLinkToClipboard(link.link_token)}>
-                            <Copy className="h-3.5 w-3.5 mr-1" /> Copy
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")}>
-                            <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
-                          </Button>
-                          {link.is_active && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)}>
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop layout */}
-                    <div className="hidden sm:flex items-start gap-3">
-                      <div className="flex -space-x-3 flex-shrink-0 pt-0.5">
-                        {linkItems.slice(0, 4).map((item: any, i: number) => {
-                          const imgUrl = item.asin ? getProductImageUrl(item.asin) : null;
-                          const hasFailed = failedImages.has(item.asin);
-                          return (
-                            <div key={i} className="h-12 w-12 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm" style={{ zIndex: 4 - i }}>
-                              {imgUrl && !hasFailed ? (
-                                <img src={imgUrl} alt={item.title || item.asin} className="h-full w-full object-contain p-0.5" loading="lazy" onError={() => setFailedImages(prev => new Set(prev).add(item.asin))} />
-                              ) : (
-                                <Package className="h-4 w-4 text-muted-foreground/40" />
-                              )}
-                            </div>
-                          );
-                        })}
-                        {itemCount > 4 && (
-                          <div className="h-12 w-12 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shadow-sm">
-                            +{itemCount - 4}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground truncate">{link.title || "Untitled Link"}</p>
-                          <Badge variant={link.is_active ? "default" : "secondary"} className="text-[10px] h-5">
-                            {link.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span>{itemCount} items</span>
-                          <span>•</span>
-                          <span>{totalQty} qty</span>
-                          <span>•</span>
-                          <span>{format(new Date(link.created_at), "MMM d, yyyy h:mm a")}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLinkToClipboard(link.link_token)} title="Copy link">
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")} title="Open link">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-                        {link.is_active && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} title="Deactivate link">
-                            <XCircle className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <GenerateMarketLinkDialog
         open={linkDialogOpen}
