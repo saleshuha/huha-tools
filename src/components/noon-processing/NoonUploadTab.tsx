@@ -130,7 +130,7 @@ export function NoonUploadTab({ stores, selectedStoreId, onStoreChange }: NoonUp
     onDrop,
     accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'], 'text/csv': ['.csv'] },
     multiple: false,
-    disabled: uploading,
+    disabled: uploading || !selectedStoreId,
   });
 
   const todayUploads = recentUploads.filter(u => new Date(u.date).toDateString() === new Date().toDateString());
