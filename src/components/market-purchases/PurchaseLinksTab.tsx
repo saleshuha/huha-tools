@@ -135,6 +135,7 @@ export function PurchaseLinksTab() {
             const linkItems = (link.items || []) as any[];
             const itemCount = linkItems.length;
             const totalQty = linkItems.reduce((s: number, i: any) => s + (i.qty || 0), 0);
+            const hasAssignedItems = linkItems.some((i: any) => i.supplier_name || i.supplier);
             return (
               <Card key={link.id} className={`border bg-card hover:shadow-md transition-shadow ${link.is_active ? "border-border" : "border-border/50 opacity-60"}`}>
                 <CardContent className="py-3 px-4">
@@ -184,11 +185,11 @@ export function PurchaseLinksTab() {
                           <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
                         </Button>
                         {link.is_active ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} disabled={hasAssignedItems} title={hasAssignedItems ? "Cannot deactivate: has assigned items" : "Deactivate"}>
                             <XCircle className="h-4 w-4" />
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)} disabled={hasAssignedItems} title={hasAssignedItems ? "Cannot delete: has assigned items" : "Delete"}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
@@ -241,11 +242,11 @@ export function PurchaseLinksTab() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                       {link.is_active ? (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} title="Deactivate link">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} disabled={hasAssignedItems} title={hasAssignedItems ? "Cannot deactivate: has assigned items" : "Deactivate link"}>
                           <XCircle className="h-3.5 w-3.5" />
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)} title="Delete link">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)} disabled={hasAssignedItems} title={hasAssignedItems ? "Cannot delete: has assigned items" : "Delete link"}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
