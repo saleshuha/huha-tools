@@ -488,31 +488,31 @@ export function BillReconciliationTab() {
         <span className="text-xs text-muted-foreground ml-auto">{filteredBills.length} of {bills.length}</span>
       </div>
 
-      {/* Bills Table */}
-      <div className="border border-border rounded-xl overflow-hidden bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 border-b border-border">
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Bill Date</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Supplier</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Reference</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Amount</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Items</TableHead>
-              <TableHead className="text-right text-xs uppercase tracking-wider font-semibold">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {/* Bills Table - Desktop */}
+      <div className="hidden md:block border border-border rounded-xl overflow-hidden bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/40 border-b border-border">
+              <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Bill Date</th>
+              <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supplier</th>
+              <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Reference</th>
+              <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Amount</th>
+              <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Items</th>
+              <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+              <tr>
+                <td colSpan={7} className="text-center py-16 text-muted-foreground">
                   <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   Loading...
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : filteredBills.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-16">
+              <tr>
+                <td colSpan={7} className="text-center py-16">
                   <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
                     <FileText className="h-7 w-7 text-muted-foreground/40" />
                   </div>
@@ -520,10 +520,10 @@ export function BillReconciliationTab() {
                     {bills.length === 0 ? "No bills recorded yet" : "No bills match your filters"}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {bills.length === 0 ? "Click \"New Bill\" when a supplier sends you an invoice." : "Try adjusting your filters."}
+                    {bills.length === 0 ? 'Click "New Bill" when a supplier sends you an invoice.' : "Try adjusting your filters."}
                   </p>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : (
               filteredBills.map((bill, idx) => {
                 const status = statusConfig[bill.status] || statusConfig.pending;
@@ -534,31 +534,30 @@ export function BillReconciliationTab() {
                 const matchPercent = billAmount > 0 && linkedTotal > 0 ? Math.min(100, (linkedTotal / billAmount) * 100) : 0;
 
                 return (
-                  <TableRow
+                  <tr
                     key={bill.id}
                     className={cn(
-                      "border-b border-border/50 hover:bg-muted/20 transition-colors border-l-4",
-                      status.borderColor,
-                      idx % 2 === 0 ? "" : "bg-muted/5"
+                      "border-b border-border/50 hover:bg-muted/20 transition-colors",
+                      idx % 2 === 0 ? "" : "bg-muted/10"
                     )}
                   >
-                    <TableCell className="font-medium text-sm">
+                    <td className="px-4 py-2.5 font-medium text-sm">
                       {format(new Date(bill.bill_date), "dd MMM yyyy")}
-                    </TableCell>
-                    <TableCell className="text-sm">
+                    </td>
+                    <td className="px-3 py-2.5 text-sm">
                       {supplierName || <span className="text-muted-foreground italic text-xs">Unknown</span>}
-                    </TableCell>
-                    <TableCell className="text-xs font-mono">{bill.bill_reference || "—"}</TableCell>
-                    <TableCell className="font-semibold text-sm">
+                    </td>
+                    <td className="px-3 py-2.5 text-xs font-mono">{bill.bill_reference || "—"}</td>
+                    <td className="px-3 py-2.5 font-semibold text-sm">
                       {bill.currency} {billAmount.toLocaleString("en", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-3 py-2.5">
                       <Badge variant="outline" className={cn("gap-1.5", status.badgeClass)}>
                         <span className={cn("h-2 w-2 rounded-full", status.dotColor)} />
                         {bill.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-3 py-2.5">
                       {linkedCount > 0 ? (
                         <div className="flex items-center gap-2">
                           <Progress value={matchPercent} className="h-1.5 w-16" />
@@ -567,48 +566,84 @@ export function BillReconciliationTab() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
                       <div className="flex justify-end gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setDetailTarget(bill)}
-                          title="View Details"
-                        >
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setDetailTarget(bill)} title="View Details">
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
                         {bill.status !== "reconciled" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/5"
-                            onClick={() => setReconcileTarget(bill)}
-                          >
+                          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/5" onClick={() => setReconcileTarget(bill)}>
                             Reconcile
                           </Button>
                         )}
                         {bill.status !== "reconciled" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs text-destructive hover:text-destructive"
-                            onClick={() => {
-                              if (window.confirm("Delete this bill?")) deleteBill.mutate(bill.id);
-                            }}
-                          >
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (window.confirm("Delete this bill?")) deleteBill.mutate(bill.id); }}>
                             Delete
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 );
               })
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Bills - Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : filteredBills.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+              <FileText className="h-7 w-7 text-muted-foreground/40" />
+            </div>
+            <p className="font-medium text-foreground">{bills.length === 0 ? "No bills recorded yet" : "No bills match your filters"}</p>
+            <p className="text-sm text-muted-foreground mt-1">{bills.length === 0 ? 'Click "New Bill" to add one.' : "Try adjusting your filters."}</p>
+          </div>
+        ) : (
+          filteredBills.map((bill) => {
+            const status = statusConfig[bill.status] || statusConfig.pending;
+            const supplierName = getSupplierName(bill);
+            const billAmount = Number(bill.total_amount);
+            const linkedCount = (bill.linked_items || []).length;
+
+            return (
+              <div key={bill.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">{supplierName || "Unknown"}</span>
+                  <Badge variant="outline" className={cn("gap-1 text-[10px]", status.badgeClass)}>
+                    <span className={cn("h-1.5 w-1.5 rounded-full", status.dotColor)} />
+                    {bill.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{format(new Date(bill.bill_date), "dd MMM yyyy")}</span>
+                  <span className="font-mono">{bill.bill_reference || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-bold text-foreground">{bill.currency} {billAmount.toFixed(2)}</span>
+                  {linkedCount > 0 && <span className="text-xs text-muted-foreground">{linkedCount} items linked</span>}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setDetailTarget(bill)}>
+                    <Eye className="h-3 w-3 mr-1" /> Details
+                  </Button>
+                  {bill.status !== "reconciled" && (
+                    <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => setReconcileTarget(bill)}>
+                      Reconcile
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <NewBillDialog
