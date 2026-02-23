@@ -548,6 +548,7 @@ export default function ReceiveStock() {
       toast.success(`Received ${data.quantity} unit(s)`);
       
       setTimeout(() => {
+        searchBarRef.current?.clearSearch();
         searchBarRef.current?.focusAndSelect();
       }, 100);
     }
