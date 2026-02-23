@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Search, Eye, Edit, Trash2, Star, MapPin, Building2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Supplier } from '@/types/supplier';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { SupplierForm } from './SupplierForm';
@@ -184,9 +185,15 @@ export const SupplierManagement = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={supplier.is_active ? 'default' : 'secondary'}>
-                        {supplier.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={supplier.is_active}
+                          onCheckedChange={(checked) => updateSupplier(supplier.id, { is_active: checked })}
+                        />
+                        <span className={`text-xs ${supplier.is_active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {supplier.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
