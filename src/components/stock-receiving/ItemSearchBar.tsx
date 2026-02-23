@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
-import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package } from 'lucide-react';
+import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ImagePreview } from './ImagePreview';
@@ -12,6 +14,22 @@ import { cn } from '@/lib/utils';
 // --- Types ---
 
 type SearchType = 'asin' | 'sku' | 'barcode' | 'title';
+
+interface SearchChip {
+  type: string;
+  value: string;
+}
+
+const SEARCH_TYPE_OPTIONS = [
+  { label: 'All', value: 'All' },
+  { label: 'ASIN', value: 'ASIN' },
+  { label: 'SKU', value: 'SKU' },
+  { label: 'Title', value: 'Title' },
+  { label: 'Serial Nr', value: 'Serial Nr' },
+  { label: 'Barcode', value: 'Barcode' },
+  { label: 'Model Nr', value: 'Model Nr' },
+  { label: 'PO Number', value: 'PO Number' },
+];
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent' | 'po_group' | 'not_found';
@@ -173,10 +191,13 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const [detectedType, setDetectedType] = useState<SearchType>('title');
     const [recentWithLiveData, setRecentWithLiveData] = useState<RecentSearchWithLiveData[]>([]);
     const [loadingRecent, setLoadingRecent] = useState(false);
+    const [searchTypeFilter, setSearchTypeFilter] = useState('All');
+    const [searchChips, setSearchChips] = useState<SearchChip[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const lastInputTime = useRef(0);
     const scanTimer = useRef<ReturnType<typeof setTimeout>>();
+    const chipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useImperativeHandle(ref, () => ({
       focusAndSelect: () => {
@@ -190,8 +211,40 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         setResults([]);
         setShowDropdown(false);
         setSelectedIndex(-1);
+        setSearchChips([]);
       }
     }));
+
+    // Auto-chip creation
+    const createChip = useCallback(() => {
+      const val = searchTerm.trim();
+      if (!val) return;
+      const isDuplicate = searchChips.some(c => c.type === searchTypeFilter && c.value.toLowerCase() === val.toLowerCase());
+      if (!isDuplicate) {
+        setSearchChips(prev => [...prev, { type: searchTypeFilter, value: val }]);
+      }
+      setSearchTerm('');
+      setResults([]);
+      setShowDropdown(false);
+    }, [searchTerm, searchTypeFilter, searchChips]);
+
+    useEffect(() => {
+      if (!searchTerm.trim() || searchTerm.trim().length < 2) return;
+      chipTimerRef.current = setTimeout(() => {
+        createChip();
+      }, 1500);
+      return () => {
+        if (chipTimerRef.current) clearTimeout(chipTimerRef.current);
+      };
+    }, [searchTerm, createChip]);
+
+    const removeChip = useCallback((index: number) => {
+      setSearchChips(prev => prev.filter((_, i) => i !== index));
+    }, []);
+
+    const clearAllChips = useCallback(() => {
+      setSearchChips([]);
+    }, []);
 
     // Fetch live PO data for recent searches
     const fetchRecentLiveData = useCallback(async () => {
@@ -305,6 +358,20 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
 
     // Keyboard navigation
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (showDropdown && selectedIndex >= 0) {
+          e.preventDefault();
+          const selectableResults = results.filter(r => r.type !== 'not_found');
+          const result = selectableResults[selectedIndex];
+          if (result) handleSelect(result);
+        } else if (searchTerm.trim()) {
+          e.preventDefault();
+          if (chipTimerRef.current) clearTimeout(chipTimerRef.current);
+          createChip();
+        }
+        return;
+      }
+
       if (!showDropdown) return;
 
       const selectableResults = results.filter(r => r.type !== 'not_found');
@@ -315,10 +382,6 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, -1));
-      } else if (e.key === 'Enter' && selectedIndex >= 0) {
-        e.preventDefault();
-        const result = selectableResults[selectedIndex];
-        if (result) handleSelect(result);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setShowDropdown(false);
@@ -365,7 +428,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
 
       const timer = setTimeout(() => searchItems(searchTerm), debounceMs);
       return () => clearTimeout(timer);
-    }, [searchTerm, country]);
+    }, [searchTerm, country, searchTypeFilter]);
 
     const searchItems = async (term: string) => {
       setSearching(true);
@@ -402,11 +465,37 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
 
         const titleCondition = buildTitleCondition(resolvedBarcode ? [normalized] : keywords);
 
+        // Build search condition based on searchTypeFilter
+        let poOrCondition: string;
+        switch (searchTypeFilter) {
+          case 'ASIN':
+            poOrCondition = `asin.ilike.%${normalized}%`;
+            break;
+          case 'SKU':
+            poOrCondition = `sku_code.ilike.%${normalized}%`;
+            break;
+          case 'Title':
+            poOrCondition = titleCondition;
+            break;
+          case 'Model Nr':
+            poOrCondition = `model_number.ilike.%${normalized}%`;
+            break;
+          case 'PO Number':
+            poOrCondition = `po_number.ilike.%${normalized}%`;
+            break;
+          case 'Barcode':
+            // Barcode already resolved above, search by resolved ASIN/SKU
+            poOrCondition = `asin.ilike.%${normalized}%,sku_code.ilike.%${normalized}%`;
+            break;
+          default: // 'All' or 'Serial Nr'
+            poOrCondition = `asin.ilike.%${normalized}%,sku_code.ilike.%${normalized}%,model_number.ilike.%${normalized}%,po_number.ilike.%${normalized}%,${titleCondition}`;
+        }
+
         // Search PO orders with increased limit
         const { data: poData, error: poError } = await supabase
           .from('po_orders')
           .select('id, asin, sku_code, model_number, title, po_number, priority, quantity, printed_quantity')
-          .or(`asin.ilike.%${normalized}%,sku_code.ilike.%${normalized}%,model_number.ilike.%${normalized}%,po_number.ilike.%${normalized}%,${titleCondition}`)
+          .or(poOrCondition)
           .in('status', ['pending', 'placed'])
           .limit(50);
 
@@ -430,11 +519,20 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           groupMembers?.forEach(m => poGroupMap.set(m.po_id, m.group_id));
         }
 
-        // Search inventory
+        // Search inventory with type-specific filter
+        let invOrCondition: string;
+        switch (searchTypeFilter) {
+          case 'ASIN': invOrCondition = `asin.ilike.%${normalized}%`; break;
+          case 'SKU': invOrCondition = `sku.ilike.%${normalized}%`; break;
+          case 'Title': invOrCondition = titleCondition; break;
+          case 'Serial Nr': invOrCondition = `serial_number.ilike.%${normalized}%`; break;
+          case 'Barcode': invOrCondition = `asin.ilike.%${normalized}%,sku.ilike.%${normalized}%`; break;
+          default: invOrCondition = `asin.ilike.%${normalized}%,sku.ilike.%${normalized}%,${titleCondition}`; break;
+        }
         let invQuery = supabase
           .from('asin_inventory')
           .select('asin, sku, title, country, serial_number, quantity, status')
-          .or(`asin.ilike.%${normalized}%,sku.ilike.%${normalized}%,${titleCondition}`);
+          .or(invOrCondition);
 
         if (country) invQuery = invQuery.eq('country', country);
         const { data: invData } = await invQuery.limit(10);
@@ -609,55 +707,101 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const typeInfo = searchTerm.trim().length >= 2 ? getSearchTypeLabel(detectedType) : null;
 
     return (
-      <div className="relative">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className={cn(
-            "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
-            isScanMode ? "text-green-500" : "text-muted-foreground"
-          )} />
-          <Input
-            ref={inputRef}
-            placeholder="Search ASIN, SKU, Model, Barcode, or Title..."
-            value={searchTerm}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            className={cn(
-              "pl-10 pr-24 h-12 text-base bg-background/80 border-primary/20 focus:border-primary transition-all",
-              isScanMode && "ring-2 ring-green-500/40 border-green-500/50"
-            )}
-          />
+      <div className="relative space-y-2">
+        {/* Search Input with Type Selector */}
+        <div className="flex gap-2">
+          <Select value={searchTypeFilter} onValueChange={setSearchTypeFilter}>
+            <SelectTrigger className="h-12 w-[130px] shrink-0 border-primary/20 bg-background/80 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              {SEARCH_TYPE_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value} className="text-sm">{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          {/* Right side indicators */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-            {isScanMode && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 border-green-300 animate-pulse">
-                <ScanBarcode className="w-3 h-3 mr-0.5" />
-                Scan
-              </Badge>
-            )}
-            {typeInfo && searchTerm.trim().length >= 2 && !searching && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground">
-                {typeInfo.icon} {typeInfo.label}
-              </Badge>
-            )}
-            {searching && (
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            )}
-            {!searching && resultCount > 0 && showDropdown && !hasRecentOnly && (
-              <Badge className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20" variant="outline">
-                {resultCount}
-              </Badge>
-            )}
-            {searchTerm && (
-              <button onClick={clearSearch} className="p-0.5 rounded hover:bg-muted transition-colors">
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
-            )}
+          <div className="relative flex-1">
+            <Search className={cn(
+              "absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors",
+              isScanMode ? "text-green-500" : "text-muted-foreground"
+            )} />
+            <Input
+              ref={inputRef}
+              placeholder={searchTypeFilter === 'All' ? "Search ASIN, SKU, Model, Barcode, or Title..." : `Search by ${searchTypeFilter}...`}
+              value={searchTerm}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onFocus={handleFocus}
+              onKeyDown={handleKeyDown}
+              disabled={disabled}
+              className={cn(
+                "pl-10 pr-24 h-12 text-base bg-background/80 border-primary/20 focus:border-primary transition-all",
+                isScanMode && "ring-2 ring-green-500/40 border-green-500/50"
+              )}
+            />
+
+            {/* Right side indicators */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {isScanMode && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-green-500/10 text-green-600 border-green-300 animate-pulse">
+                  <ScanBarcode className="w-3 h-3 mr-0.5" />
+                  Scan
+                </Badge>
+              )}
+              {typeInfo && searchTerm.trim().length >= 2 && !searching && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground">
+                  {typeInfo.icon} {typeInfo.label}
+                </Badge>
+              )}
+              {searching && (
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              )}
+              {!searching && resultCount > 0 && showDropdown && !hasRecentOnly && (
+                <Badge className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20" variant="outline">
+                  {resultCount}
+                </Badge>
+              )}
+              {searchTerm && (
+                <button onClick={clearSearch} className="p-0.5 rounded hover:bg-muted transition-colors">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Active Search Chips */}
+        {searchChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground font-medium">Active Filters:</span>
+            {searchChips.map((chip, index) => (
+              <Badge
+                key={index}
+                variant="secondary"
+                className="gap-2 py-1 px-3 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-colors"
+              >
+                <span className="text-xs font-medium">{chip.type}: {chip.value}</span>
+                <button
+                  onClick={() => removeChip(index)}
+                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                  aria-label={`Remove ${chip.type} filter`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+            {searchChips.length > 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllChips}
+                className="h-6 text-xs text-muted-foreground hover:text-destructive"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Dropdown Results */}
         {showDropdown && results.length > 0 && (
