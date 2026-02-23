@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { NoonStore } from '@/hooks/useNoonStores';
-import { Search, Package, Trash2, Settings2, ChevronDown, ChevronLeft, ChevronRight, FileDown, MoreHorizontal, Eye } from 'lucide-react';
+import { Search, Package, Trash2, Settings2, ChevronDown, ChevronLeft, ChevronRight, FileDown, MoreHorizontal, Eye, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FilterChips } from '@/components/order-processing/FilterChips';
+
+interface SearchChip {
+  type: string;
+  value: string;
+}
+
+const SEARCH_TYPE_OPTIONS = [
+  { label: 'All', fields: ['order_nr', 'purchase_item_nr', 'sku', 'partner_sku', 'title', 'order_country_code'] },
+  { label: 'Order Nr', fields: ['order_nr'] },
+  { label: 'SKU', fields: ['sku'] },
+  { label: 'Partner SKU', fields: ['partner_sku'] },
+  { label: 'Title', fields: ['title'] },
+  { label: 'Item Nr', fields: ['purchase_item_nr'] },
+  { label: 'Country', fields: ['order_country_code'] },
+];
 
 interface ProcessingOrder {
   id: string;
@@ -59,7 +76,10 @@ interface NoonOrdersTabProps {
 export function NoonOrdersTab({ stores, selectedStoreId, onStoreChange }: NoonOrdersTabProps) {
   const [orders, setOrders] = useState<ProcessingOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchChips, setSearchChips] = useState<SearchChip[]>([]);
+  const [searchType, setSearchType] = useState('All');
+  const [inputValue, setInputValue] = useState('');
+  const chipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
@@ -91,18 +111,60 @@ export function NoonOrdersTab({ stores, selectedStoreId, onStoreChange }: NoonOr
 
   useEffect(() => { fetchOrders(); }, [selectedStoreId]);
 
+  // Auto-chip creation with 1.5s debounce
+  const createChip = useCallback(() => {
+    const val = inputValue.trim();
+    if (!val) return;
+    const isDuplicate = searchChips.some(c => c.type === searchType && c.value.toLowerCase() === val.toLowerCase());
+    if (!isDuplicate) {
+      setSearchChips(prev => [...prev, { type: searchType, value: val }]);
+    }
+    setInputValue('');
+  }, [inputValue, searchType, searchChips]);
+
+  useEffect(() => {
+    if (!inputValue.trim()) return;
+    chipTimerRef.current = setTimeout(() => {
+      createChip();
+    }, 1500);
+    return () => {
+      if (chipTimerRef.current) clearTimeout(chipTimerRef.current);
+    };
+  }, [inputValue, createChip]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (chipTimerRef.current) clearTimeout(chipTimerRef.current);
+      createChip();
+    }
+  };
+
+  const removeChip = (index: number) => {
+    setSearchChips(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllChips = () => {
+    setSearchChips([]);
+  };
+
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      const matchesSearch = !searchTerm || 
-        order.order_nr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.purchase_item_nr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (order.sku && order.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (order.title && order.title.toLowerCase().includes(searchTerm.toLowerCase()));
+      // Check all chips (AND logic)
+      const matchesChips = searchChips.length === 0 || searchChips.every(chip => {
+        const searchVal = chip.value.toLowerCase();
+        const typeOption = SEARCH_TYPE_OPTIONS.find(t => t.label === chip.type);
+        const fields = typeOption?.fields || SEARCH_TYPE_OPTIONS[0].fields;
+        return fields.some(field => {
+          const fieldValue = (order as any)[field];
+          return fieldValue && String(fieldValue).toLowerCase().includes(searchVal);
+        });
+      });
       const matchesStatus = statusFilter === 'All' || 
         (order.order_status && order.order_status.toLowerCase() === statusFilter.toLowerCase());
-      return matchesSearch && matchesStatus;
+      return matchesChips && matchesStatus;
     });
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchChips, statusFilter]);
 
   const paginatedOrders = useMemo(() => {
     const start = page * pageSize;
@@ -252,15 +314,28 @@ export function NoonOrdersTab({ stores, selectedStoreId, onStoreChange }: NoonOr
           {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        {/* Search */}
-        <div className="relative flex-1 min-w-[160px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={e => { setSearchTerm(e.target.value); setPage(0); }}
-            className="pl-8 h-8 text-xs border-border bg-background"
-          />
+        {/* Search with type selector */}
+        <div className="flex flex-1 min-w-[200px] gap-1.5">
+          <Select value={searchType} onValueChange={setSearchType}>
+            <SelectTrigger className="h-8 w-[120px] text-xs border-border bg-background shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              {SEARCH_TYPE_OPTIONS.map(opt => (
+                <SelectItem key={opt.label} value={opt.label} className="text-xs">{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder={`Search by ${searchType.toLowerCase()}...`}
+              value={inputValue}
+              onChange={e => { setInputValue(e.target.value); setPage(0); }}
+              onKeyDown={handleSearchKeyDown}
+              className="pl-8 h-8 text-xs border-border bg-background"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
@@ -309,6 +384,18 @@ export function NoonOrdersTab({ stores, selectedStoreId, onStoreChange }: NoonOr
           <Badge variant="secondary" className="text-xs">{filteredOrders.length} items</Badge>
         </div>
       </div>
+
+      {/* Search Chips */}
+      {searchChips.length > 0 && (
+        <FilterChips
+          filters={searchChips.map((chip, index) => ({
+            label: chip.type,
+            value: chip.value,
+            onRemove: () => removeChip(index),
+          }))}
+          onClearAll={clearAllChips}
+        />
+      )}
 
       {/* Desktop Table */}
       {filteredOrders.length === 0 ? (
