@@ -1,96 +1,82 @@
 
 
-## Advanced Credit Balance System
+## Advanced Bill Reconciliation System Redesign
 
-### Current State
-- Credit balances are derived from `market_purchase_links` JSONB items where `supplier_name` is set
-- Currently only 1 supplier ("Falestine Market") has assigned items with AED 11.00 total
-- There is **no payment tracking** -- once items are assigned, there's no way to record payments, partial settlements, or reconciliation
-- The current view is read-only cards with a detail dialog
+### The Problem
+
+The current Bill Reconciliation tab is broken -- it tries to reconcile bills against `market_purchases` (which has **0 rows**). Your real data lives in `market_purchase_links` JSONB items. The reconciliation system needs to be completely rewired to work with the same data source as Credit Balances and integrate with the payment ledger (`market_credit_payments`).
 
 ### What Will Change
 
-#### 1. New Database Table: `market_credit_payments`
-A payment ledger to track all payments made against supplier credit:
+#### 1. Rewired Data Source
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| id | uuid | Primary key |
-| user_id | uuid | Owner |
-| supplier_name | text | Matches the supplier name from JSONB items |
-| amount | numeric | Payment amount |
-| payment_date | date | When the payment was made |
-| payment_method | text | Cash, bank transfer, cheque, etc. |
-| reference_number | text | Receipt/transaction reference |
-| notes | text | Optional notes |
-| link_ids | uuid[] | Which purchase links this payment covers (optional) |
-| created_at | timestamptz | Record timestamp |
+Instead of querying empty `market_purchases`, the reconcile dialog will pull unreconciled items from `market_purchase_links` JSONB, grouped by supplier -- the same source as Credit Balances. When creating a new bill, the system will auto-suggest the outstanding amount from credit balances.
 
-RLS policy: users can only see/manage their own payments.
+#### 2. Redesigned Summary Stats Bar
 
-#### 2. Redesigned Credit Balance Tab
+Replace the 3 separate stat cards with a compact horizontal stat bar (matching Daily Orders and Purchase Log style):
+- **Pending** count with amber indicator
+- **Reconciled** count with green indicator
+- **Disputed** count with red indicator
+- **Total Outstanding** amount
+- **Total Reconciled** amount
 
-**Summary Header** (enhanced):
-- Total outstanding, total paid, net balance
-- Number of suppliers with balances
+#### 3. Enhanced New Bill Dialog
 
-**Filter Toolbar**:
-- Filter by supplier (dropdown of all suppliers with balances)
-- Filter by date range (show only items/links from a specific period)
-- Sort by: amount, aging, supplier name
+- Auto-populate supplier dropdown from `market_purchase_links` supplier names (not just the suppliers table)
+- Show the supplier's current outstanding credit balance next to their name
+- "Import from Credit" button that auto-fills the bill amount from the supplier's outstanding balance
+- Option to attach specific purchase link items to the bill
 
-**Supplier Cards** (upgraded):
-- Outstanding amount (items total minus payments)
-- Total paid amount shown alongside
-- Payment progress bar (paid vs outstanding)
-- Aging indicator stays (green/orange/red)
-- Quick "Record Payment" button directly on the card
+#### 4. Redesigned Reconcile Dialog
 
-**Detail Dialog** (when clicking a supplier card):
-- **Two tabs inside**: "Items" and "Payments"
-- **Items tab**: existing item detail table grouped by link/order date
-- **Payments tab**: history of all payments recorded for this supplier with date, amount, method, reference
-- **Record Payment button** at the top of the dialog
+The reconcile dialog will show items from `market_purchase_links` instead of `market_purchases`:
+- **Left side**: Bill details (reference, date, amount, supplier)
+- **Right side**: Matching items from purchase links for that supplier
+- Item-level checkboxes to select which items this bill covers
+- Running total of selected items vs bill amount
+- Variance indicator (over/under)
+- Cross-reference with payments from `market_credit_payments`
 
-#### 3. Record Payment Dialog
-A form dialog triggered from the supplier card or detail view:
-- Pre-filled supplier name
-- Amount field (with "Pay Full" quick-fill button)
-- Payment date picker
-- Payment method dropdown (Cash, Bank Transfer, Cheque, Credit Card, Other)
-- Reference number (optional)
-- Notes (optional)
-- Save button creates a row in `market_credit_payments`
+#### 5. Bill Detail View
 
-#### 4. Payment History Section
-Below the supplier cards grid, a collapsible "Recent Payments" section showing the last 10 payments across all suppliers in a compact table.
+Clicking a bill row opens a detail dialog showing:
+- **Bill Info tab**: Reference, date, amount, status, notes
+- **Matched Items tab**: Items that were reconciled against this bill (from purchase links)
+- **Payment History tab**: Related payments from `market_credit_payments` for that supplier around the bill date
+
+#### 6. Enhanced Table
+
+- Add filter toolbar: filter by status, supplier, date range
+- Add supplier filter dropdown (populated from bills + credit balance suppliers)
+- Mobile-responsive card layout for small screens
+- Alternating row shading with status color-coded left border
+- Expandable rows showing matched items inline
 
 ---
 
 ### Technical Details
 
-**Database migration:**
-- Create `market_credit_payments` table with RLS policies for user-owned data
-
-**New hook:** `src/hooks/useMarketCreditPayments.ts`
-- Query payments by user
-- Create payment mutation
-- Delete payment mutation
-
 **Files to modify:**
 
 | File | Change |
 |------|--------|
-| `src/components/market-purchases/CreditBalanceTab.tsx` | Full rewrite: add filters, payment-aware balance calculation (outstanding = items total - payments), supplier cards with progress bars, detail dialog with Items/Payments tabs, record payment dialog, recent payments section |
-| `src/hooks/useMarketCreditPayments.ts` | New hook for CRUD on `market_credit_payments` |
+| `src/components/market-purchases/BillReconciliationTab.tsx` | Full rewrite: compact stat bar, filter toolbar, enhanced table with expandable rows, mobile cards, bill detail dialog |
+| `src/components/market-purchases/NewBillDialog.tsx` | Add supplier auto-suggestion from purchase links, show outstanding balance, "Import from Credit" button |
+| `src/hooks/useSupplierBills.ts` | Update `reconcileBill` to work with `market_purchase_links` items instead of `market_purchases`, add new `supplier_bills` columns via migration for `linked_item_ids` (JSONB array of item references) |
 
-**Balance calculation logic:**
-```
-For each supplier:
-  items_total = SUM(qty * unit_cost) from all links
-  paid_total = SUM(amount) from market_credit_payments
-  outstanding = items_total - paid_total
-```
+**Database migration:**
+- Add `linked_items` column (JSONB) to `supplier_bills` to store which purchase link items are matched to this bill (array of `{link_id, asin, sku, qty, unit_cost}`)
 
-Suppliers with outstanding = 0 can be hidden or shown in a "Settled" section.
+**Reconciliation flow:**
+1. User creates a bill (supplier, amount, reference, date)
+2. User clicks "Reconcile" on a pending bill
+3. Dialog shows all unreconciled items from `market_purchase_links` for that supplier
+4. User selects items that match the bill
+5. System compares selected items total vs bill amount
+6. If match: status = "reconciled"; if partial: status = "partial"; if mismatch: option to mark "disputed"
+7. Selected item references are stored in `supplier_bills.linked_items` JSONB
+8. Credit balance for that supplier is reduced by reconciled amounts
+
+**No changes to `market_purchase_links` table** -- reconciliation metadata is stored on the bill side via the new `linked_items` JSONB column.
 
