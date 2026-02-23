@@ -3,10 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "sonner";
 
+export interface LinkedItem {
+  link_id: string;
+  asin: string | null;
+  sku: string | null;
+  title: string | null;
+  qty: number;
+  unit_cost: number;
+}
+
 export interface SupplierBill {
   id: string;
   user_id: string;
   supplier_id?: string | null;
+  supplier_name?: string | null;
   bill_reference?: string | null;
   bill_date: string;
   total_amount: number;
@@ -14,6 +24,7 @@ export interface SupplierBill {
   status: "pending" | "partial" | "reconciled" | "disputed";
   notes?: string | null;
   reconciled_at?: string | null;
+  linked_items?: LinkedItem[] | null;
   created_at: string;
   updated_at: string;
   supplier?: { supplier_name: string; company_name?: string } | null;
@@ -21,6 +32,7 @@ export interface SupplierBill {
 
 export interface CreateSupplierBill {
   supplier_id?: string | null;
+  supplier_name?: string | null;
   bill_reference?: string;
   bill_date: string;
   total_amount: number;
@@ -42,7 +54,7 @@ export function useSupplierBills() {
         .eq("user_id", profile.id)
         .order("bill_date", { ascending: false });
       if (error) throw error;
-      return (data || []) as SupplierBill[];
+      return (data || []) as unknown as SupplierBill[];
     },
     enabled: !!profile?.id,
   });
@@ -52,7 +64,12 @@ export function useSupplierBills() {
       if (!profile?.id) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from("supplier_bills")
-        .insert({ ...payload, user_id: profile.id, currency: payload.currency || "AED" })
+        .insert({
+          ...payload,
+          user_id: profile.id,
+          currency: payload.currency || "AED",
+          supplier_name: payload.supplier_name || null,
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -70,45 +87,29 @@ export function useSupplierBills() {
   const reconcileBill = useMutation({
     mutationFn: async ({
       billId,
-      purchaseIds,
+      linkedItems,
       status,
     }: {
       billId: string;
-      purchaseIds: string[];
+      linkedItems: LinkedItem[];
       status: "reconciled" | "partial" | "disputed";
     }) => {
       if (!profile?.id) throw new Error("Not authenticated");
 
-      // Mark purchases as reconciled
-      if (purchaseIds.length > 0) {
-        const { error: purchaseError } = await supabase
-          .from("market_purchases")
-          .update({ status: "reconciled" })
-          .in("id", purchaseIds);
-        if (purchaseError) throw purchaseError;
-
-        // Link items to this bill
-        const { error: itemsError } = await supabase
-          .from("market_purchase_items")
-          .update({ bill_reconciliation_id: billId })
-          .in("purchase_id", purchaseIds);
-        if (itemsError) throw itemsError;
-      }
-
-      // Update bill status
       const { error: billError } = await supabase
         .from("supplier_bills")
         .update({
           status,
+          linked_items: linkedItems as any,
           reconciled_at: status === "reconciled" ? new Date().toISOString() : null,
-        })
+        } as any)
         .eq("id", billId);
       if (billError) throw billError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier_bills"] });
-      queryClient.invalidateQueries({ queryKey: ["market_purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["market_credit_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["market_purchase_links"] });
+      queryClient.invalidateQueries({ queryKey: ["market_credit_payments"] });
       toast.success("Bill reconciled successfully");
     },
     onError: (error: Error) => {

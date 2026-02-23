@@ -5079,10 +5079,12 @@ export type Database = {
           created_at: string
           currency: string
           id: string
+          linked_items: Json | null
           notes: string | null
           reconciled_at: string | null
           status: string
           supplier_id: string | null
+          supplier_name: string | null
           total_amount: number
           updated_at: string
           user_id: string
@@ -5093,10 +5095,12 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          linked_items?: Json | null
           notes?: string | null
           reconciled_at?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_name?: string | null
           total_amount?: number
           updated_at?: string
           user_id: string
@@ -5107,10 +5111,12 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          linked_items?: Json | null
           notes?: string | null
           reconciled_at?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_name?: string | null
           total_amount?: number
           updated_at?: string
           user_id?: string
