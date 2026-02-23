@@ -193,6 +193,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const [loadingRecent, setLoadingRecent] = useState(false);
     const [searchTypeFilter, setSearchTypeFilter] = useState('All');
     const [searchChips, setSearchChips] = useState<SearchChip[]>([]);
+    const [autoChipEnabled, setAutoChipEnabled] = useState(true);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const lastInputTime = useRef(0);
@@ -229,14 +230,14 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     }, [searchTerm, searchTypeFilter, searchChips]);
 
     useEffect(() => {
-      if (!searchTerm.trim() || searchTerm.trim().length < 2) return;
+      if (!autoChipEnabled || !searchTerm.trim() || searchTerm.trim().length < 2) return;
       chipTimerRef.current = setTimeout(() => {
         createChip();
       }, 1500);
       return () => {
         if (chipTimerRef.current) clearTimeout(chipTimerRef.current);
       };
-    }, [searchTerm, createChip]);
+    }, [searchTerm, createChip, autoChipEnabled]);
 
     const removeChip = useCallback((index: number) => {
       setSearchChips(prev => prev.filter((_, i) => i !== index));
@@ -720,6 +721,21 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
               ))}
             </SelectContent>
           </Select>
+
+          <button
+            type="button"
+            onClick={() => setAutoChipEnabled(prev => !prev)}
+            title={autoChipEnabled ? 'Auto-chip ON (1.5s timer) — click to switch to manual' : 'Auto-chip OFF (manual Enter only) — click to enable timer'}
+            className={cn(
+              "h-12 px-3 shrink-0 rounded-md border text-xs font-medium transition-colors flex items-center gap-1.5",
+              autoChipEnabled
+                ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            <Zap className={cn("w-3.5 h-3.5", autoChipEnabled ? "text-primary" : "text-muted-foreground")} />
+            {autoChipEnabled ? 'Auto' : 'Manual'}
+          </button>
 
           <div className="relative flex-1">
             <Search className={cn(
