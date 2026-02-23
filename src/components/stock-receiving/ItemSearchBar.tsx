@@ -473,7 +473,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
             poOrCondition = `asin.ilike.%${normalized}%`;
             break;
           case 'SKU':
-            poOrCondition = `sku_code.ilike.%${normalized}%`;
+            poOrCondition = `sku_code.eq.${normalized}`;
             break;
           case 'Title':
             poOrCondition = titleCondition;
@@ -524,7 +524,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         let invOrCondition: string;
         switch (searchTypeFilter) {
           case 'ASIN': invOrCondition = `asin.ilike.%${normalized}%`; break;
-          case 'SKU': invOrCondition = `sku.ilike.%${normalized}%`; break;
+          case 'SKU': invOrCondition = `sku.eq.${normalized}`; break;
           case 'Title': invOrCondition = titleCondition; break;
           case 'Serial Nr': invOrCondition = `serial_number.ilike.%${normalized}%`; break;
           case 'Barcode': invOrCondition = `asin.ilike.%${normalized}%,sku.ilike.%${normalized}%`; break;
