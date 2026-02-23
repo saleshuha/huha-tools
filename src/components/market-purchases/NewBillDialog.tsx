@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
-import { FileText } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { FileText, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useMarketPurchaseLinks } from "@/hooks/useMarketPurchaseLinks";
+import { useMarketCreditPayments } from "@/hooks/useMarketCreditPayments";
 import type { CreateSupplierBill } from "@/hooks/useSupplierBills";
 
 interface Props {
@@ -18,29 +18,53 @@ interface Props {
 }
 
 export function NewBillDialog({ open, onOpenChange, onSubmit, isLoading }: Props) {
-  const { profile } = useUserProfile();
-  const [suppliers, setSuppliers] = useState<{ id: string; supplier_name: string }[]>([]);
-  const [supplierId, setSupplierId] = useState<string>("none");
+  const { links } = useMarketPurchaseLinks();
+  const { payments } = useMarketCreditPayments();
+
+  const [supplierName, setSupplierName] = useState<string>("none");
   const [billReference, setBillReference] = useState("");
   const [billDate, setBillDate] = useState(new Date().toISOString().split("T")[0]);
   const [totalAmount, setTotalAmount] = useState("");
   const [currency, setCurrency] = useState("AED");
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    if (!open || !profile?.id) return;
-    supabase
-      .from("suppliers")
-      .select("id, supplier_name")
-      .eq("user_id", profile.id)
-      .eq("is_active", true)
-      .order("supplier_name")
-      .then(({ data }) => setSuppliers(data || []));
-  }, [open, profile?.id]);
+  // Build supplier list from purchase links JSONB items
+  const supplierBalances = useMemo(() => {
+    const grouped: Record<string, { total: number; paid: number }> = {};
+    (links || []).forEach((link) => {
+      const items = Array.isArray(link.items) ? link.items : [];
+      items.forEach((item: any) => {
+        const name = item.supplier_name;
+        if (!name) return;
+        if (!grouped[name]) grouped[name] = { total: 0, paid: 0 };
+        grouped[name].total += (item.qty || 0) * (item.unit_cost || 0);
+      });
+    });
+    (payments || []).forEach((p) => {
+      if (grouped[p.supplier_name]) {
+        grouped[p.supplier_name].paid += Number(p.amount);
+      }
+    });
+    return Object.entries(grouped)
+      .map(([name, data]) => ({
+        name,
+        outstanding: Math.max(0, data.total - data.paid),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [links, payments]);
+
+  const selectedBalance = supplierBalances.find((s) => s.name === supplierName);
+
+  const handleImportFromCredit = () => {
+    if (selectedBalance && selectedBalance.outstanding > 0) {
+      setTotalAmount(selectedBalance.outstanding.toFixed(2));
+    }
+  };
 
   const handleSubmit = () => {
     onSubmit({
-      supplier_id: supplierId === "none" ? null : supplierId,
+      supplier_id: null,
+      supplier_name: supplierName === "none" ? null : supplierName,
       bill_reference: billReference || undefined,
       bill_date: billDate,
       total_amount: parseFloat(totalAmount) || 0,
@@ -50,7 +74,7 @@ export function NewBillDialog({ open, onOpenChange, onSubmit, isLoading }: Props
   };
 
   const reset = () => {
-    setSupplierId("none");
+    setSupplierName("none");
     setBillReference("");
     setBillDate(new Date().toISOString().split("T")[0]);
     setTotalAmount("");
@@ -75,18 +99,33 @@ export function NewBillDialog({ open, onOpenChange, onSubmit, isLoading }: Props
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Supplier</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
+            <Select value={supplierName} onValueChange={setSupplierName}>
               <SelectTrigger>
                 <SelectValue placeholder="Select supplier" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">— No Supplier —</SelectItem>
-                {suppliers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>
+                {supplierBalances.map((s) => (
+                  <SelectItem key={s.name} value={s.name}>
+                    {s.name} {s.outstanding > 0 ? `(AED ${s.outstanding.toFixed(2)} outstanding)` : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {selectedBalance && selectedBalance.outstanding > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full text-xs h-8 border-primary/30 text-primary hover:bg-primary/5"
+              onClick={handleImportFromCredit}
+            >
+              <Download className="h-3 w-3 mr-1.5" />
+              Import from Credit — AED {selectedBalance.outstanding.toFixed(2)}
+            </Button>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
