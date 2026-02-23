@@ -1,59 +1,49 @@
 
 
-## Advanced Bill Reconciliation System Redesign
+## Unify UI Design Pattern Across All Market Purchases Tabs
 
-### The Problem
+### Current Inconsistencies
 
-The current Bill Reconciliation tab is broken -- it tries to reconcile bills against `market_purchases` (which has **0 rows**). Your real data lives in `market_purchase_links` JSONB items. The reconciliation system needs to be completely rewired to work with the same data source as Credit Balances and integrate with the payment ledger (`market_credit_payments`).
+After reviewing all 5 tabs, here are the design pattern differences:
 
-### What Will Change
+| Component | Daily Orders | Purchase Log | Item Costs | Credit Balances | Bill Reconciliation |
+|-----------|-------------|-------------|-----------|----------------|-------------------|
+| **Stats** | Compact horizontal bar | Compact horizontal bar | 3 separate Card grid | Gradient hero section | Compact horizontal bar |
+| **Toolbar** | Card wrapper (rounded-xl bg-card border) | Card wrapper | Card wrapper | Bare flex, no wrapper | Card wrapper |
+| **Data Table** | Native `<table>` with rounded-xl wrapper | Native `<table>` | Native `<table>` | Card grid (OK - different data) | Shadcn `<Table>` component |
+| **Table Header** | `bg-muted/40`, uppercase, tracking-wider | Same | Same | N/A | Same style but uses `<TableHead>` |
+| **Row Styling** | Alternating `bg-muted/10`, hover | Same | Same | N/A | Alternating + left border |
+| **Footer** | Grand total row `bg-primary/5` | Same | None | N/A | None |
+| **Mobile Cards** | Custom card layout | Custom card layout | None (no mobile) | N/A | None (no mobile) |
+| **Empty State** | Centered icon + text | Same | Same + action buttons | Same | Same |
 
-#### 1. Rewired Data Source
+### Unified Design Standard (Based on Daily Orders + Purchase Log pattern)
 
-Instead of querying empty `market_purchases`, the reconcile dialog will pull unreconciled items from `market_purchase_links` JSONB, grouped by supplier -- the same source as Credit Balances. When creating a new bill, the system will auto-suggest the outstanding amount from credit balances.
+Every tab will follow this structure top-to-bottom:
 
-#### 2. Redesigned Summary Stats Bar
+1. **Compact Stat Bar**: Horizontal pill-style metrics inside `p-2.5 rounded-xl bg-card border border-border`, with colored dots and a highlighted total on the right
+2. **Toolbar**: Wrapped in `p-3 rounded-xl bg-card border border-border`, containing action buttons, filters, search input, and item count
+3. **Data Table** (desktop): Native `<table>` inside `border border-border rounded-xl overflow-hidden bg-card`, header row `bg-muted/40`, uppercase `text-xs` headers, alternating rows with `bg-muted/10`, hover `bg-muted/20`
+4. **Mobile Cards**: `md:hidden` card layout for all tabs
+5. **Empty State**: Centered with `h-14 w-14 rounded-2xl bg-muted/50` icon container
+6. **Loading**: Centered spinner with text
 
-Replace the 3 separate stat cards with a compact horizontal stat bar (matching Daily Orders and Purchase Log style):
-- **Pending** count with amber indicator
-- **Reconciled** count with green indicator
-- **Disputed** count with red indicator
-- **Total Outstanding** amount
-- **Total Reconciled** amount
+### Changes Per Tab
 
-#### 3. Enhanced New Bill Dialog
+#### Item Costs Tab
+- Replace the 3 separate stat cards with a compact horizontal stat bar (Items Tracked, Avg Cost, Last Updated, Total)
+- No other changes needed -- toolbar and table already match
 
-- Auto-populate supplier dropdown from `market_purchase_links` supplier names (not just the suppliers table)
-- Show the supplier's current outstanding credit balance next to their name
-- "Import from Credit" button that auto-fills the bill amount from the supplier's outstanding balance
-- Option to attach specific purchase link items to the bill
+#### Credit Balances Tab
+- Replace the gradient hero summary section with a compact stat bar (Outstanding, Paid, Total Credit, Suppliers count)
+- Wrap the filter toolbar (supplier dropdown, sort, show settled) inside a card container matching other tabs
+- Keep the supplier cards grid as-is (cards are appropriate for this data type)
+- Wrap the recent payments collapsible in consistent styling
 
-#### 4. Redesigned Reconcile Dialog
-
-The reconcile dialog will show items from `market_purchase_links` instead of `market_purchases`:
-- **Left side**: Bill details (reference, date, amount, supplier)
-- **Right side**: Matching items from purchase links for that supplier
-- Item-level checkboxes to select which items this bill covers
-- Running total of selected items vs bill amount
-- Variance indicator (over/under)
-- Cross-reference with payments from `market_credit_payments`
-
-#### 5. Bill Detail View
-
-Clicking a bill row opens a detail dialog showing:
-- **Bill Info tab**: Reference, date, amount, status, notes
-- **Matched Items tab**: Items that were reconciled against this bill (from purchase links)
-- **Payment History tab**: Related payments from `market_credit_payments` for that supplier around the bill date
-
-#### 6. Enhanced Table
-
-- Add filter toolbar: filter by status, supplier, date range
-- Add supplier filter dropdown (populated from bills + credit balance suppliers)
-- Mobile-responsive card layout for small screens
-- Alternating row shading with status color-coded left border
-- Expandable rows showing matched items inline
-
----
+#### Bill Reconciliation Tab
+- Replace shadcn `<Table>/<TableHead>/<TableRow>/<TableCell>` with native `<table>/<thead>/<tr>/<th>/<td>` to match other tabs exactly
+- Add mobile card layout (`md:hidden`) for bills on small screens
+- Keep all functionality (reconcile, detail, delete) intact
 
 ### Technical Details
 
@@ -61,22 +51,9 @@ Clicking a bill row opens a detail dialog showing:
 
 | File | Change |
 |------|--------|
-| `src/components/market-purchases/BillReconciliationTab.tsx` | Full rewrite: compact stat bar, filter toolbar, enhanced table with expandable rows, mobile cards, bill detail dialog |
-| `src/components/market-purchases/NewBillDialog.tsx` | Add supplier auto-suggestion from purchase links, show outstanding balance, "Import from Credit" button |
-| `src/hooks/useSupplierBills.ts` | Update `reconcileBill` to work with `market_purchase_links` items instead of `market_purchases`, add new `supplier_bills` columns via migration for `linked_item_ids` (JSONB array of item references) |
+| `src/components/market-purchases/ItemCostsTab.tsx` | Replace 3 Card stat grid (lines 132-166) with compact horizontal stat bar |
+| `src/components/market-purchases/CreditBalanceTab.tsx` | Replace gradient hero (lines 230-268) with compact stat bar; wrap filter toolbar (lines 271-306) in card container |
+| `src/components/market-purchases/BillReconciliationTab.tsx` | Replace shadcn Table components with native table elements; add mobile card layout for bills |
 
-**Database migration:**
-- Add `linked_items` column (JSONB) to `supplier_bills` to store which purchase link items are matched to this bill (array of `{link_id, asin, sku, qty, unit_cost}`)
-
-**Reconciliation flow:**
-1. User creates a bill (supplier, amount, reference, date)
-2. User clicks "Reconcile" on a pending bill
-3. Dialog shows all unreconciled items from `market_purchase_links` for that supplier
-4. User selects items that match the bill
-5. System compares selected items total vs bill amount
-6. If match: status = "reconciled"; if partial: status = "partial"; if mismatch: option to mark "disputed"
-7. Selected item references are stored in `supplier_bills.linked_items` JSONB
-8. Credit balance for that supplier is reduced by reconciled amounts
-
-**No changes to `market_purchase_links` table** -- reconciliation metadata is stored on the bill side via the new `linked_items` JSONB column.
+All features, logic, dialogs, and functionality remain 100% intact -- only the visual containers and layout patterns change.
 
