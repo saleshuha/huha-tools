@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link2, Package, Copy, ExternalLink, XCircle, Search } from "lucide-react";
+import { Link2, Package, Copy, ExternalLink, XCircle, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ const getAmazonFallbackUrl = (asin: string) =>
   `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX100_.jpg`;
 
 export function PurchaseLinksTab() {
-  const { links, deactivateLink } = useMarketPurchaseLinks();
+  const { links, deactivateLink, deleteLink } = useMarketPurchaseLinks();
   const { getImageByAsin } = useProductImages();
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -183,9 +183,13 @@ export function PurchaseLinksTab() {
                         <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")}>
                           <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
                         </Button>
-                        {link.is_active && (
+                        {link.is_active ? (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)}>
                             <XCircle className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)}>
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -236,9 +240,13 @@ export function PurchaseLinksTab() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")} title="Open link">
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
-                      {link.is_active && (
+                      {link.is_active ? (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} title="Deactivate link">
                           <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteLink.mutate(link.id)} title="Delete link">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
                     </div>

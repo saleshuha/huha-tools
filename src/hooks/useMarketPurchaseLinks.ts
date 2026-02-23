@@ -84,11 +84,27 @@ export function useMarketPurchaseLinks() {
     },
   });
 
+  const deleteLink = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("market_purchase_links")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["market_purchase_links"] });
+      toast.success("Link deleted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return {
     links: linksQuery.data || [],
     isLoading: linksQuery.isLoading,
     createLink,
     deactivateLink,
+    deleteLink,
     refetch: linksQuery.refetch,
   };
 }
