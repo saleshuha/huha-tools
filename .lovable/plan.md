@@ -1,59 +1,113 @@
 
 
-## Unify UI Design Pattern Across All Market Purchases Tabs
+## Advanced Noon Order Processing Overhaul
 
-### Current Inconsistencies
+### Overview
 
-After reviewing all 5 tabs, here are the design pattern differences:
+Transform the current basic Noon Order Processing page into a full-featured, multi-step processing hub using the unified Market Purchases UI pattern (compact stat bars, card-wrapped toolbars, native tables with alternating rows, mobile card layouts).
 
-| Component | Daily Orders | Purchase Log | Item Costs | Credit Balances | Bill Reconciliation |
-|-----------|-------------|-------------|-----------|----------------|-------------------|
-| **Stats** | Compact horizontal bar | Compact horizontal bar | 3 separate Card grid | Gradient hero section | Compact horizontal bar |
-| **Toolbar** | Card wrapper (rounded-xl bg-card border) | Card wrapper | Card wrapper | Bare flex, no wrapper | Card wrapper |
-| **Data Table** | Native `<table>` with rounded-xl wrapper | Native `<table>` | Native `<table>` | Card grid (OK - different data) | Shadcn `<Table>` component |
-| **Table Header** | `bg-muted/40`, uppercase, tracking-wider | Same | Same | N/A | Same style but uses `<TableHead>` |
-| **Row Styling** | Alternating `bg-muted/10`, hover | Same | Same | N/A | Alternating + left border |
-| **Footer** | Grand total row `bg-primary/5` | Same | None | N/A | None |
-| **Mobile Cards** | Custom card layout | Custom card layout | None (no mobile) | N/A | None (no mobile) |
-| **Empty State** | Centered icon + text | Same | Same + action buttons | Same | Same |
+### Current State
 
-### Unified Design Standard (Based on Daily Orders + Purchase Log pattern)
+The page currently has:
+- A single `NoonOrdersUploader` component with a gradient Card for store selection + upload
+- A `NoonProcessingOrdersTable` with gradient Card styling, basic search, column toggles, and clear-all
+- No batch actions, no status management, no analytics, no filtering by status/store/date
 
-Every tab will follow this structure top-to-bottom:
+### New Architecture
 
-1. **Compact Stat Bar**: Horizontal pill-style metrics inside `p-2.5 rounded-xl bg-card border border-border`, with colored dots and a highlighted total on the right
-2. **Toolbar**: Wrapped in `p-3 rounded-xl bg-card border border-border`, containing action buttons, filters, search input, and item count
-3. **Data Table** (desktop): Native `<table>` inside `border border-border rounded-xl overflow-hidden bg-card`, header row `bg-muted/40`, uppercase `text-xs` headers, alternating rows with `bg-muted/10`, hover `bg-muted/20`
-4. **Mobile Cards**: `md:hidden` card layout for all tabs
-5. **Empty State**: Centered with `h-14 w-14 rounded-2xl bg-muted/50` icon container
-6. **Loading**: Centered spinner with text
+Replace the single-component layout with a tabbed interface containing 4 tabs:
 
-### Changes Per Tab
+```text
++-------------------------------------------------------------------+
+| Noon Order Processing (HuhaHeader01)                              |
++-------------------------------------------------------------------+
+| [Upload] [Orders] [Analytics] [Stores]                            |
++-------------------------------------------------------------------+
+```
 
-#### Item Costs Tab
-- Replace the 3 separate stat cards with a compact horizontal stat bar (Items Tracked, Avg Cost, Last Updated, Total)
-- No other changes needed -- toolbar and table already match
+---
 
-#### Credit Balances Tab
-- Replace the gradient hero summary section with a compact stat bar (Outstanding, Paid, Total Credit, Suppliers count)
-- Wrap the filter toolbar (supplier dropdown, sort, show settled) inside a card container matching other tabs
-- Keep the supplier cards grid as-is (cards are appropriate for this data type)
-- Wrap the recent payments collapsible in consistent styling
+### Tab 1: Upload Orders
 
-#### Bill Reconciliation Tab
-- Replace shadcn `<Table>/<TableHead>/<TableRow>/<TableCell>` with native `<table>/<thead>/<tr>/<th>/<td>` to match other tabs exactly
-- Add mobile card layout (`md:hidden`) for bills on small screens
-- Keep all functionality (reconcile, detail, delete) intact
+**Redesign the upload experience:**
+- Compact stat bar: Files Uploaded Today | Orders Uploaded | Last Upload | Store Selected
+- Card-wrapped toolbar: Store dropdown + drag-and-drop upload zone + "Upload" button
+- Recent uploads table (native `<table>` with unified styling): File name, rows uploaded, store, date, status
+- Mobile card layout for recent uploads
+
+### Tab 2: Orders Management (Main Tab)
+
+**Major feature upgrades:**
+- Compact stat bar: Total Orders | Pending | Processing | Shipped | Delivered
+- Card-wrapped toolbar with:
+  - Status filter pills (All / Pending / Processing / Shipped / Delivered)
+  - Store filter dropdown
+  - Date range filter (from/to)
+  - Search input
+  - Bulk actions dropdown (Delete Selected, Mark as Processing, Export)
+  - Column toggle (existing, keep)
+  - Item count badge
+- Native `<table>` with unified styling (bg-muted/40 header, alternating rows, hover)
+- Row selection checkboxes for bulk actions
+- Individual row actions: View details, Delete single order
+- Mobile card layout (`md:hidden`) with status badges and swipe-friendly layout
+- Pagination (25/50/100 per page) for large datasets
+- Empty state matching unified pattern
+
+### Tab 3: Analytics
+
+- Compact stat bar: Total Orders | Avg Daily | Top Store | Countries
+- Visual charts using recharts:
+  - Orders per day (bar chart, last 7 days)
+  - Orders by status (pie/donut chart)
+  - Orders by store (horizontal bar)
+  - Orders by country breakdown
+- All wrapped in the unified card pattern
+
+### Tab 4: Store Management
+
+- Move the existing `NoonStoreManagement` component here
+- Wrap in unified styling (stat bar for store count + active/inactive, card toolbar)
+
+---
 
 ### Technical Details
 
-**Files to modify:**
+**Files to create:**
+| File | Purpose |
+|------|---------|
+| `src/components/noon-processing/NoonUploadTab.tsx` | Upload tab with drag-drop, recent uploads |
+| `src/components/noon-processing/NoonOrdersTab.tsx` | Main orders table with filters, bulk actions, pagination |
+| `src/components/noon-processing/NoonAnalyticsTab.tsx` | Charts and analytics dashboard |
+| `src/components/noon-processing/NoonStoresTab.tsx` | Store management wrapper with unified styling |
 
+**Files to modify:**
 | File | Change |
 |------|--------|
-| `src/components/market-purchases/ItemCostsTab.tsx` | Replace 3 Card stat grid (lines 132-166) with compact horizontal stat bar |
-| `src/components/market-purchases/CreditBalanceTab.tsx` | Replace gradient hero (lines 230-268) with compact stat bar; wrap filter toolbar (lines 271-306) in card container |
-| `src/components/market-purchases/BillReconciliationTab.tsx` | Replace shadcn Table components with native table elements; add mobile card layout for bills |
+| `src/pages/NoonOrderProcessing.tsx` | Replace single component with tabbed layout using HuhaTab01 |
 
-All features, logic, dialogs, and functionality remain 100% intact -- only the visual containers and layout patterns change.
+**Files kept as-is (reused internally):**
+- `src/hooks/useNoonStores.ts` -- reused in stores tab
+- `src/components/NoonStoreManagement.tsx` -- embedded in stores tab
+
+**UI Pattern applied everywhere:**
+- Stat bar: `flex items-center gap-3 p-2.5 rounded-xl bg-card border border-border`
+- Toolbar: `flex items-center gap-3 p-3 rounded-xl bg-card border border-border`
+- Table: native `<table>` inside `border border-border rounded-xl overflow-hidden bg-card`
+- Header: `bg-muted/40 text-xs uppercase tracking-wider`
+- Rows: alternating `bg-muted/10`, hover `bg-muted/20`
+- Mobile: `md:hidden` card layout for every data tab
+- Empty state: centered icon in `h-14 w-14 rounded-2xl bg-muted/50`
+
+**Key features added:**
+1. Status filter pills with counts
+2. Store filter dropdown
+3. Date range filtering
+4. Row selection with checkboxes
+5. Bulk delete and bulk status update
+6. Pagination controls
+7. Drag-and-drop upload zone
+8. Recent uploads history
+9. Analytics charts (orders/day, by status, by store, by country)
+10. Mobile-responsive card layouts for all data views
 
