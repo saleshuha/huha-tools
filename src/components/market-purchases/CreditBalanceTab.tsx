@@ -227,48 +227,35 @@ export function CreditBalanceTab() {
   return (
     <div className="space-y-5">
       {/* Summary Header */}
-      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-primary/5 p-5">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
-        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
-              <TrendingDown className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Outstanding</p>
-              <p className="text-xl font-bold text-destructive">AED {totalOutstanding.toLocaleString("en", { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Paid</p>
-              <p className="text-xl font-bold text-emerald-600">AED {totalPaid.toLocaleString("en", { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <CreditCard className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Credit</p>
-              <p className="text-xl font-bold text-primary">AED {totalItemsCredit.toLocaleString("en", { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center gap-3 p-2.5 rounded-xl bg-card border border-border">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-destructive" />
+          <span className="text-xs text-muted-foreground">Outstanding</span>
+          <span className="text-sm font-bold text-destructive">AED {totalOutstanding.toLocaleString("en", { minimumFractionDigits: 2 })}</span>
         </div>
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>{paidPercent.toFixed(0)}% paid</span>
-            <span>{allSupplierNames.length} suppliers</span>
-          </div>
-          <Progress value={paidPercent} className="h-2" />
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="text-xs text-muted-foreground">Paid</span>
+          <span className="text-sm font-bold text-emerald-600">AED {totalPaid.toLocaleString("en", { minimumFractionDigits: 2 })}</span>
         </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+          <span className="text-xs text-muted-foreground">Total Credit</span>
+          <span className="text-sm font-bold text-primary">AED {totalItemsCredit.toLocaleString("en", { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1.5 bg-primary/5 px-3 py-1 rounded-lg">
+          <Users className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs text-muted-foreground">Suppliers</span>
+          <span className="text-sm font-bold text-primary">{allSupplierNames.length}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">{paidPercent.toFixed(0)}% paid</div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-card border border-border">
         <Select value={filterSupplier} onValueChange={setFilterSupplier}>
           <SelectTrigger className="w-[180px] h-8 text-xs">
             <Filter className="h-3 w-3 mr-1" />
@@ -303,6 +290,8 @@ export function CreditBalanceTab() {
           <CheckCircle2 className="h-3 w-3 mr-1" />
           {showSettled ? "Hide Settled" : "Show Settled"}
         </Button>
+        <div className="flex-1" />
+        <span className="text-xs text-muted-foreground">{filteredBalances.length} suppliers</span>
       </div>
 
       {/* Supplier Cards */}

@@ -129,40 +129,30 @@ export function ItemCostsTab() {
   return (
     <div className="space-y-5">
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-card border border-border">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Package className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Items Tracked</p>
-              <p className="text-lg font-bold text-foreground">{costs.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border border-border">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-              <DollarSign className="h-4 w-4 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Avg Cost</p>
-              <p className="text-lg font-bold text-foreground">AED {avgCost.toFixed(2)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border border-border">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-sky-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Last Updated</p>
-              <p className="text-sm font-medium text-foreground">{lastUpdated ? new Date(lastUpdated).toLocaleDateString() : "—"}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap items-center gap-3 p-2.5 rounded-xl bg-card border border-border">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+          <span className="text-xs text-muted-foreground">Items Tracked</span>
+          <span className="text-sm font-bold text-foreground">{costs.length}</span>
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="text-xs text-muted-foreground">Avg Cost</span>
+          <span className="text-sm font-bold text-foreground">AED {avgCost.toFixed(2)}</span>
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+          <span className="text-xs text-muted-foreground">Last Updated</span>
+          <span className="text-sm font-bold text-foreground">{lastUpdated ? new Date(lastUpdated).toLocaleDateString() : "—"}</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1.5 bg-primary/5 px-3 py-1 rounded-lg">
+          <DollarSign className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs text-muted-foreground">Total</span>
+          <span className="text-sm font-bold text-primary">AED {costs.reduce((s, c) => s + c.unit_cost, 0).toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Toolbar */}
