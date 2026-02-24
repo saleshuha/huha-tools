@@ -54,7 +54,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   const [records, setRecords] = useState<ProcessedOrderRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<'processed_at' | 'order_number'>('processed_at');
+  const [sortField, setSortField] = useState<'processed_at' | 'order_number' | 'serial_number' | 'quantity_processed' | 'new_stock'>('processed_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedRecord, setSelectedRecord] = useState<ProcessedOrderRecord | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'asin' | 'sku'>('all');
@@ -149,8 +149,13 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
       );
     })
     .sort((a, b) => {
-      const aVal = sortField === 'processed_at' ? a.processed_at : a.order_number;
-      const bVal = sortField === 'processed_at' ? b.processed_at : b.order_number;
+      if (sortField === 'quantity_processed' || sortField === 'new_stock') {
+        const aVal = sortField === 'quantity_processed' ? a.quantity_processed : (a.new_stock ?? 0);
+        const bVal = sortField === 'quantity_processed' ? b.quantity_processed : (b.new_stock ?? 0);
+        return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+      }
+      const aVal = a[sortField] ?? '';
+      const bVal = b[sortField] ?? '';
       return sortDir === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
     });
 
@@ -159,7 +164,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   const uniqueProducts = new Set(filtered.map(r => r.asin || r.sku).filter(Boolean)).size;
   const pickedCount = filtered.filter(r => r.picked_from_bin).length;
 
-  const toggleSort = (field: 'processed_at' | 'order_number') => {
+  const toggleSort = (field: typeof sortField) => {
     if (sortField === field) {
       setSortDir(prev => (prev === 'desc' ? 'asc' : 'desc'));
     } else {
@@ -168,7 +173,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
     }
   };
 
-  const SortIcon = ({ field }: { field: 'processed_at' | 'order_number' }) => {
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
     if (sortField !== field) return null;
     return sortDir === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />;
   };
@@ -296,9 +301,15 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
                     <span className="flex items-center gap-1">Order <SortIcon field="order_number" /></span>
                   </th>
                   <th className="text-left p-2 font-medium">ASIN / SKU</th>
-                  <th className="text-left p-2 font-medium">Serial #</th>
-                  <th className="text-center p-2 font-medium">Qty</th>
-                  <th className="text-center p-2 font-medium">Stock</th>
+                  <th className="text-left p-2 font-medium cursor-pointer hover:text-primary" onClick={() => toggleSort('serial_number')}>
+                    <span className="flex items-center gap-1">Serial # <SortIcon field="serial_number" /></span>
+                  </th>
+                  <th className="text-center p-2 font-medium cursor-pointer hover:text-primary" onClick={() => toggleSort('quantity_processed')}>
+                    <span className="flex items-center justify-center gap-1">Qty <SortIcon field="quantity_processed" /></span>
+                  </th>
+                  <th className="text-center p-2 font-medium cursor-pointer hover:text-primary" onClick={() => toggleSort('new_stock')}>
+                    <span className="flex items-center justify-center gap-1">Stock <SortIcon field="new_stock" /></span>
+                  </th>
                   <th className="text-center p-2 font-medium">Type</th>
                   <th
                     className="text-left p-2 font-medium cursor-pointer hover:text-primary"
