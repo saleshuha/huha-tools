@@ -3807,6 +3807,42 @@ export type Database = {
         }
         Relationships: []
       }
+      shipped_orders: {
+        Row: {
+          asin: string
+          created_at: string
+          file_name: string | null
+          id: string
+          quantity: number
+          sku: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sku_costs: {
         Row: {
           cost: number
