@@ -4721,15 +4721,6 @@ export const POTracker = () => {
                                 >
                                   {printStatus === 'complete' ? 'Done' : printStatus === 'partial' ? 'Partial' : 'Pending'}
                                 </Badge>
-                                <Button variant="ghost" size="sm" disabled={isDisabledByLocation} onClick={e => {
-                            e.stopPropagation();
-                            if (isDisabledByLocation) return;
-                            setSelectedPOForLabels(group.poNumber);
-                            setSelectedPOsForLabels(new Set([group.poNumber]));
-                            setLabelsStep('print');
-                          }} className="h-7 px-2.5 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-150">
-                                  <Printer className="h-3.5 w-3.5" />
-                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>;
