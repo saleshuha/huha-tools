@@ -705,6 +705,48 @@ export type Database = {
         }
         Relationships: []
       }
+      fba_inventory: {
+        Row: {
+          asin: string
+          condition: string | null
+          created_at: string
+          file_name: string | null
+          fnsku: string | null
+          id: string
+          quantity: number
+          sku: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          condition?: string | null
+          created_at?: string
+          file_name?: string | null
+          fnsku?: string | null
+          id?: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          condition?: string | null
+          created_at?: string
+          file_name?: string | null
+          fnsku?: string | null
+          id?: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_records: {
         Row: {
           amount: number

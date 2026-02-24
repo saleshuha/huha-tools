@@ -1,9 +1,5 @@
-// IndexedDB storage for FBA Inventory data persistence
-
-const DB_NAME = 'fba-inventory-db';
-const DB_VERSION = 1;
-const STORE_NAME = 'fba-data';
-const DATA_KEY = 'current-session';
+// Supabase storage for FBA Inventory data persistence
+import { supabase } from '@/integrations/supabase/client';
 
 export interface FBAInventoryItem {
   asin: string;
@@ -22,99 +18,109 @@ export interface StoredFBAInventory {
   totalQuantity: number;
 }
 
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-}
-
 export async function saveFBAInventory(
   items: FBAInventoryItem[],
   fileName?: string
 ): Promise<void> {
-  try {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
 
-    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  // Clear existing data first
+  await supabase
+    .from('fba_inventory')
+    .delete()
+    .eq('user_id', user.id);
 
-    const data: StoredFBAInventory = {
-      items,
-      fileName,
-      lastModified: new Date().toISOString(),
-      totalItems: items.length,
-      totalQuantity,
-    };
+  // Batch insert in chunks of 500
+  const chunkSize = 500;
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    const rows = chunk.map(item => ({
+      user_id: user.id,
+      asin: item.asin,
+      quantity: item.quantity,
+      sku: item.sku || null,
+      fnsku: item.fnsku || null,
+      title: item.title || null,
+      condition: item.condition || null,
+      file_name: fileName || null,
+    }));
 
-    store.put(data, DATA_KEY);
+    const { error } = await supabase
+      .from('fba_inventory')
+      .insert(rows);
 
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      transaction.onerror = () => {
-        db.close();
-        reject(transaction.error);
-      };
-    });
-  } catch (error) {
-    console.error('Failed to save FBA inventory data:', error);
+    if (error) {
+      console.error('Failed to save FBA inventory chunk:', error);
+      throw error;
+    }
   }
 }
 
 export async function loadFBAInventory(): Promise<StoredFBAInventory | null> {
-  try {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(DATA_KEY);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => {
-        db.close();
-        resolve(request.result || null);
-      };
-      request.onerror = () => {
-        db.close();
-        reject(request.error);
-      };
-    });
-  } catch (error) {
-    console.error('Failed to load FBA inventory data:', error);
-    return null;
+  // Fetch all rows with pagination
+  let allRows: any[] = [];
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('fba_inventory')
+      .select('*')
+      .eq('user_id', user.id)
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error('Failed to load FBA inventory:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
   }
+
+  if (allRows.length === 0) return null;
+
+  const items: FBAInventoryItem[] = allRows.map(row => ({
+    asin: row.asin,
+    quantity: row.quantity,
+    sku: row.sku || undefined,
+    fnsku: row.fnsku || undefined,
+    title: row.title || undefined,
+    condition: row.condition || undefined,
+  }));
+
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const fileName = allRows[0]?.file_name || undefined;
+  const lastModified = allRows.reduce((latest: string, row: any) => {
+    return row.updated_at > latest ? row.updated_at : latest;
+  }, allRows[0].updated_at);
+
+  return {
+    items,
+    fileName,
+    lastModified,
+    totalItems: items.length,
+    totalQuantity,
+  };
 }
 
 export async function clearFBAInventory(): Promise<void> {
-  try {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    store.delete(DATA_KEY);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
 
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      transaction.onerror = () => {
-        db.close();
-        reject(transaction.error);
-      };
-    });
-  } catch (error) {
-    console.error('Failed to clear FBA inventory data:', error);
+  const { error } = await supabase
+    .from('fba_inventory')
+    .delete()
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('Failed to clear FBA inventory:', error);
+    throw error;
   }
 }
