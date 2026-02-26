@@ -675,20 +675,15 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       if (result.type === 'not_found') return;
 
       if (result.type === 'recent') {
-        // Reconstruct a proper search result from recent data and directly open it
-        const reconstructed: SearchResult = {
-          type: 'po',
-          asin: result.asin,
-          sku_code: result.sku_code,
-          title: result.title,
-          image_url: result.image_url,
-          searched_term: result.searched_term,
-        };
-        addRecentSearch(result.searched_term || '', reconstructed);
-        setShowDropdown(false);
-        setSearchTerm('');
+        // Set the search term to trigger a fresh search via the useEffect
+        const term = result.searched_term || '';
+        setSearchTerm(term);
+        setShowDropdown(true);
         setSelectedIndex(-1);
-        onItemSelect(reconstructed);
+        // Trigger search immediately
+        if (term.length >= 3) {
+          searchItems(term);
+        }
         return;
       }
 
