@@ -675,14 +675,15 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       if (result.type === 'not_found') return;
 
       if (result.type === 'recent') {
-        // Set the search term to trigger a fresh search via the useEffect
         const term = result.searched_term || '';
         setSearchTerm(term);
-        setShowDropdown(true);
         setSelectedIndex(-1);
-        // Trigger search immediately
+        // Directly trigger search and keep dropdown open
         if (term.length >= 3) {
-          searchItems(term);
+          setSearching(true);
+          setShowDropdown(true);
+          // Use setTimeout to ensure state updates have flushed
+          setTimeout(() => searchItems(term), 0);
         }
         return;
       }
