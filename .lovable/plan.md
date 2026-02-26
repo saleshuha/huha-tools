@@ -1,72 +1,46 @@
 
 
-## Add Search Type Selector and Auto-Chip System to Noon Orders Tab
+## Plan: Align PO Tracker Page UI with Market Purchases Design Pattern
 
-### Overview
+### What Changes
+Purely visual/layout changes to match the Market Purchases design pattern. No functional or logic changes.
 
-Enhance the search bar in the Noon Orders tab with two features:
-1. **Search Type Selector** -- A dropdown before the search input to select what field to search (Default/All, ASIN, SKU, Title, Order Nr, Partner SKU, Country)
-2. **Auto-Chip Creation** -- When a user types and pauses for 1.5 seconds (or presses Enter), the search term automatically becomes a removable chip/badge, allowing multiple search terms to be active simultaneously
+### Two Areas to Modify
 
-### How It Works
+**1. `src/pages/POTrackerPage.tsx` (Page Header)**
 
-- A dropdown selector sits to the left of the search input showing the current search type (default: "All")
-- Available search types: All, Order Nr, SKU, Partner SKU, Title, Country
-- When the user types a term and either:
-  - Pauses typing for 1.5 seconds, OR
-  - Presses Enter
-  - The term is converted into a colored chip/badge showing `[Type]: [Value]`
-- Multiple chips can be active at once (e.g., "SKU: ABC123" + "Title: Phone Case")
-- Each chip has an X button to remove it
-- A "Clear all" button appears when more than one chip is active
-- The filtering logic applies all active chips as AND conditions
+Current: Uses `HuhaHeader01` component with separate refresh button and timestamp pill.
 
-### UI Design
+Target: Replace with the same "Gradient Hero Header" pattern used in Market Purchases:
+- Rounded-xl container with `bg-gradient-to-br from-primary/10 via-card to-sky/10` and decorative blur circles
+- Icon in a `h-12 w-12 rounded-xl bg-primary/10 border border-primary/20` box
+- Title as `text-2xl font-bold text-foreground`
+- Subtitle as `text-muted-foreground text-sm`
+- Move the "Hard Refresh" button and "Last updated" timestamp into the header's right side area
+- Remove the `HuhaHeader01` import; use standard `p-6 space-y-6` outer wrapper instead of `min-h-screen bg-gradient-surface`
 
-```text
-+---------------------------------------------------------------+
-| [All v] [  Search...                    ] | Columns | Actions |
-+---------------------------------------------------------------+
-| Active Chips: [All: phone x] [SKU: ABC x]   Clear all        |
-+---------------------------------------------------------------+
-```
+**2. `src/components/POTracker.tsx` (Tabs and Inner Header)**
 
-### Technical Details
+Current:
+- Lines 3535-3542: Internal "Purchase Order Dashboard" heading with `text-2xl font-semibold`
+- Lines 3581-3616: TabsList with `bg-background/60 backdrop-blur-md` styling and `data-[state=active]:bg-primary/10` triggers
 
-**File to modify:** `src/components/noon-processing/NoonOrdersTab.tsx`
+Target: Match Market Purchases tab styling:
+- Remove the internal "Purchase Order Dashboard" h2/p block (since the page header already has it)
+- Update TabsList to: `grid w-full grid-cols-7 max-w-5xl h-auto p-1 bg-muted/50 rounded-xl`
+- Update each TabsTrigger to: `flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all`
+- Use `<span className="hidden sm:inline">` for tab labels (matching Market Purchases responsive pattern)
+- TabsContent uses `mt-6` spacing
 
-**State changes:**
-- Replace `searchTerm: string` with `searchChips: Array<{ type: string; value: string }>` 
-- Add `searchType: string` (current dropdown selection, default "All")
-- Add `inputValue: string` (current text in input)
-- Add a `useRef` timer for auto-chip creation (1.5s debounce)
+### Files Modified
+1. `src/pages/POTrackerPage.tsx` - Header redesign
+2. `src/components/POTracker.tsx` - Tab styling update, remove duplicate header
 
-**Search type options:**
-| Label | Field(s) searched |
-|-------|------------------|
-| All (Default) | order_nr, purchase_item_nr, sku, partner_sku, title, order_country_code |
-| Order Nr | order_nr |
-| SKU | sku |
-| Partner SKU | partner_sku |
-| Title | title |
-| Item Nr | purchase_item_nr |
-| Country | order_country_code |
-
-**Filter logic update:**
-- Each chip filters independently based on its type
-- All chips are combined with AND logic
-- When type is "All", the chip searches across all fields (current behavior)
-
-**Auto-chip timer:**
-- `useEffect` watches `inputValue` changes
-- Sets a 1.5-second timeout; if no new keystrokes, auto-creates chip
-- Timer resets on each keystroke
-- Enter key immediately creates chip and clears input
-- Empty/whitespace input is ignored
-- Duplicate chips (same type + value) are prevented
-
-**Chip UI:**
-- Uses the existing `Badge` component with `variant="secondary"`
-- Format: `Type: Value` with an X button
-- Styled consistently with the existing filter chips pattern in the codebase (see `FilterChips.tsx`)
+### What Stays the Same
+- All tab content components remain untouched
+- All state management, hooks, data fetching unchanged
+- All 7 tabs and their functionality preserved
+- Hard Refresh logic preserved (just repositioned)
+- URL tab syncing preserved
+- Loading skeleton preserved
 
