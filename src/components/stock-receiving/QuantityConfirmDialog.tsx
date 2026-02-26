@@ -137,12 +137,21 @@ export function QuantityConfirmDialog({
       const isInventoryItem = item.type === 'inventory';
       let allPOs: any[] = [];
 
+      const itemMatchConditions: string[] = [];
+      if (item.asin) itemMatchConditions.push(`asin.eq.${item.asin}`);
+      if (item.sku_code) itemMatchConditions.push(`sku_code.eq.${item.sku_code}`);
+      if (item.model_number) itemMatchConditions.push(`model_number.eq.${item.model_number}`);
+
       if (item.type === 'po_group' && item.po_group) {
-        const { data, error } = await supabase.from('po_orders').select('*')
+        let query = supabase.from('po_orders').select('*')
           .eq('user_id', user.id)
           .in('po_number', item.po_group.po_numbers)
           .in('status', ['pending', 'placed'])
           .eq('country', country);
+
+        if (itemMatchConditions.length > 0) query = query.or(itemMatchConditions.join(','));
+
+        const { data, error } = await query;
         if (error) throw error;
         allPOs = data || [];
       } else if (item.po_numbers && item.po_numbers.length > 0) {
@@ -152,11 +161,7 @@ export function QuantityConfirmDialog({
           .in('status', ['pending', 'placed'])
           .eq('country', country);
 
-        const conditions = [];
-        if (item.asin) conditions.push(`asin.eq.${item.asin}`);
-        if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
-        if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
-        if (conditions.length > 0) query = query.or(conditions.join(','));
+        if (itemMatchConditions.length > 0) query = query.or(itemMatchConditions.join(','));
 
         const { data, error } = await query;
         if (error) throw error;
@@ -175,12 +180,29 @@ export function QuantityConfirmDialog({
         }
       }
 
-      // Filter out fully printed POs
-      const pendingPOs = allPOs.filter(po => po.quantity - (po.printed_quantity || 0) > 0);
-      const sortedPOs = pendingPOs.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      // Filter out fully printed POs and merge duplicate lines from the same PO
+      const pendingPOs: any[] = allPOs.filter((po: any) => po.quantity - (po.printed_quantity || 0) > 0);
+      const mergedPOs: any[] = Array.from(
+        pendingPOs.reduce((acc, po: any) => {
+          const key = po.po_number || po.id;
+          const existing = acc.get(key);
+
+          if (!existing) {
+            acc.set(key, { ...po });
+          } else {
+            existing.quantity = (existing.quantity || 0) + (po.quantity || 0);
+            existing.printed_quantity = (existing.printed_quantity || 0) + (po.printed_quantity || 0);
+            existing.priority = Math.min(existing.priority ?? 999, po.priority ?? 999);
+          }
+
+          return acc;
+        }, new Map<string, any>()).values()
+      ).filter((po: any) => po.quantity - (po.printed_quantity || 0) > 0);
+
+      const sortedPOs: any[] = mergedPOs.sort((a: any, b: any) => (a.priority || 999) - (b.priority || 999));
       setAvailablePOs(sortedPOs);
 
-      const totalPending = sortedPOs.reduce((sum, po) => {
+      const totalPending = sortedPOs.reduce((sum: number, po: any) => {
         return sum + (po.quantity - (po.printed_quantity || 0));
       }, 0);
 
