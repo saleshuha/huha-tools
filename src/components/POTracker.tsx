@@ -5999,7 +5999,7 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className={`min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}>
+                          <TableHead className={`w-[220px] min-w-[220px] font-bold border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm flex-shrink-0"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock</span>
@@ -6360,6 +6360,29 @@ export const POTracker = () => {
                       // Apply sorting to labels tab (only if not preserving original order)
                       if (!originalOrderPreserved) {
                         ordersToDisplay.sort((a, b) => {
+                          // Handle synthetic sort fields for stock column
+                          if (sortField === 'instock_qty') {
+                            const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
+                            const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
+                            const aQty = aMatch && aMatch.status === 'in-stock' ? aMatch.quantity : 0;
+                            const bQty = bMatch && bMatch.status === 'in-stock' ? bMatch.quantity : 0;
+                            const result = sortDirection === 'asc' ? aQty - bQty : bQty - aQty;
+                            if (result !== 0) return result;
+                            const stableMap = stableLabelsOrderRef.current;
+                            return (stableMap.get(a.id) ?? Infinity) - (stableMap.get(b.id) ?? Infinity);
+                          }
+                          if (sortField === 'serial_number_qty') {
+                            const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
+                            const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
+                            const aSN = aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
+                            const bSN = bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
+                            const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
+                            const result = sortDirection === 'asc' ? cmp : -cmp;
+                            if (result !== 0) return result;
+                            const stableMap = stableLabelsOrderRef.current;
+                            return (stableMap.get(a.id) ?? Infinity) - (stableMap.get(b.id) ?? Infinity);
+                          }
+
                           let aValue: string | number | undefined;
                           let bValue: string | number | undefined;
                           if (sortField === 'combined_title') {
