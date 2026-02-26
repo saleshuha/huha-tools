@@ -472,7 +472,7 @@ export const POTracker = () => {
   }, [labelSearchQuery]);
 
   // Sorting handler
-  const handleSort = (field: keyof POOrder | 'combined_title') => {
+  const handleSort = (field: keyof POOrder | 'combined_title' | 'instock_qty' | 'serial_number_qty') => {
     console.log('🔄 SORT: Sorting by field:', field, 'Current field:', sortField, 'Current direction:', sortDirection);
     if (sortField === field) {
       const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
@@ -6003,10 +6003,10 @@ export const POTracker = () => {
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm flex-shrink-0"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock</span>
-                              <div className="flex items-center ml-auto rounded-md border border-border/40 overflow-hidden bg-muted/30">
+                              <div className="flex items-center ml-auto rounded-lg border border-border/40 overflow-hidden bg-muted/30">
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('serial_number_qty' as any); }}
-                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold transition-all ${sortField === 'serial_number_qty' ? 'bg-primary/15 text-primary shadow-sm' : 'hover:bg-muted/80 text-muted-foreground'}`}
+                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('serial_number_qty'); }}
+                                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer rounded-l-md ${sortField === 'serial_number_qty' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/80 text-muted-foreground'}`}
                                   title="Sort by Serial Number"
                                 >
                                   S/N
@@ -6016,10 +6016,10 @@ export const POTracker = () => {
                                     <ArrowUpDown className="h-3 w-3 opacity-40" />
                                   )}
                                 </button>
-                                <div className="w-px h-4 bg-border/60" />
+                                <div className="w-px h-5 bg-border/60" />
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('instock_qty' as any); }}
-                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold transition-all ${sortField === 'instock_qty' ? 'bg-primary/15 text-primary shadow-sm' : 'hover:bg-muted/80 text-muted-foreground'}`}
+                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('instock_qty'); }}
+                                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer rounded-r-md ${sortField === 'instock_qty' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/80 text-muted-foreground'}`}
                                   title="Sort by In-Stock Quantity"
                                 >
                                   Qty
