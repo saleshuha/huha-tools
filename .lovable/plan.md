@@ -1,74 +1,52 @@
 
 
-## Plan: Fix Serial Number Sorting — Push Blank S/N Rows to Bottom
+## Inventory Table — Sorting & Pagination Fixes
 
-### Root Cause
+### Issues Found
 
-The current S/N sort logic at lines 2124-2131 (global sorter) and 6374-6383 (Labels sorter) extracts serial numbers but treats empty strings (`''`) as valid comparable values. When most rows have no inventory match or no serial number, they all compare as `'' vs ''` which returns `0`, making the sort appear broken — only "Pending" status items (which happen to lack serial numbers) seem to move.
+1. **Sorting crashes for 3 sort fields**: The `useAsinInventoryPaginated` hook maps `sortBy` values to Supabase column names but only handles `dateAdded` → `date_added` and `serialNumber` → `serial_number`. The values `restock`, `exportMode`, and `performance` are passed directly as column names to `query.order()`, but these columns don't exist in `asin_inventory`. This causes a Supabase error (400) and breaks the query entirely.
 
-The fix: items **with** a serial number should always sort before items **without** one, regardless of ascending/descending direction. Among items with serial numbers, sort normally by the S/N value.
+2. **Sort mapping incomplete for valid fields**: `quantity`, `asin`, `status`, `title` happen to match DB column names and work by luck, but `restock` should map to `eligible_for_restock`.
 
-### Changes to `src/components/POTracker.tsx`
+3. **`exportMode` and `performance` can't be sorted server-side**: `exportMode` is stored in a separate `export_mode_preferences` table, and `performance` is computed client-side from `useComprehensivePerformance`. These need to fall back to a default sort (e.g. `date_added`) at the DB level, with optional client-side re-sorting of the current page.
 
-#### 1. Fix global sorter (lines 2124-2131)
+4. **`performanceFilter` not applied**: The `performanceFilter` state is passed to `QuickControlsBar` UI but never used in the paginated query or any filtering logic.
 
-Replace the `serial_number_qty` branch with logic that:
-- Extracts S/N from match (same chain: `serialNumbers?.[0] || serialNumber || inventoryItem?.serial_number`)
-- If one has S/N and the other doesn't → the one with S/N comes first (regardless of direction)
-- If both have S/N → compare with `localeCompare({ numeric: true, sensitivity: 'base' })`, respecting direction
-- If neither has S/N → return 0 (stable tiebreaker handles it)
+### Plan
 
-```typescript
-if (sortField === 'serial_number_qty') {
-  const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
-  const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
-  const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
-  const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
-  const aHas = aSN.length > 0;
-  const bHas = bSN.length > 0;
-  // Push blanks to bottom always
-  if (aHas && !bHas) return -1;
-  if (!aHas && bHas) return 1;
-  if (!aHas && !bHas) return 0;
-  // Both have S/N — sort by value respecting direction
-  const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
-  return sortDirection === 'asc' ? cmp : -cmp;
-}
-```
+#### File: `src/hooks/useAsinInventoryPaginated.ts`
 
-#### 2. Fix Labels sorter (lines 6374-6383)
-
-Apply the identical logic, keeping the stable tiebreaker for equal results:
+**Fix sort field mapping** (lines 143-148):
+- `restock` → `eligible_for_restock`
+- `exportMode` → fall back to `date_added` (can't sort server-side)
+- `performance` → fall back to `date_added` (can't sort server-side)
+- `quantity` → `quantity` (already works, but make explicit)
+- `title` → `title` (already works, but make explicit)
+- `asin` → `asin` (already works, but make explicit)
+- `status` → `status` (already works, but make explicit)
 
 ```typescript
-if (sortField === 'serial_number_qty') {
-  const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
-  const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
-  const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
-  const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
-  const aHas = aSN.length > 0;
-  const bHas = bSN.length > 0;
-  if (aHas && !bHas) return -1;
-  if (!aHas && bHas) return 1;
-  if (!aHas && !bHas) {
-    const stableMap = stableLabelsOrderRef.current;
-    return (stableMap.get(a.id) ?? Infinity) - (stableMap.get(b.id) ?? Infinity);
-  }
-  const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
-  const result = sortDirection === 'asc' ? cmp : -cmp;
-  if (result !== 0) return result;
-  const stableMap = stableLabelsOrderRef.current;
-  return (stableMap.get(a.id) ?? Infinity) - (stableMap.get(b.id) ?? Infinity);
-}
+const sortFieldMap: Record<string, string> = {
+  dateAdded: 'date_added',
+  serialNumber: 'serial_number',
+  restock: 'eligible_for_restock',
+  exportMode: 'date_added',  // no DB column — fallback
+  performance: 'date_added', // computed client-side — fallback
+  asin: 'asin',
+  quantity: 'quantity',
+  status: 'status',
+  title: 'title',
+};
+const sortField = sortFieldMap[filters.sortBy || 'dateAdded'] || 'date_added';
 ```
+
+#### File: `src/components/AsinInventory.tsx`
+
+**Add client-side re-sort for `exportMode` and `performance`**: After receiving `inventory` from the paginated hook, if `sortBy` is `exportMode` or `performance`, apply a `useMemo` sort on the current page's items using the `exportModes` map or `performanceMap` respectively. This gives correct per-page ordering even though the DB can't sort these fields globally.
+
+**Apply `performanceFilter`**: If `performanceFilter !== 'all'`, filter the `inventory` array client-side using `performanceMap` data before rendering. This is already partly set up in `QuickControlsBar` but never wired through.
 
 ### Files Modified
-
-- `src/components/POTracker.tsx` — 2 edits (global sorter ~line 2124, Labels sorter ~line 6374)
-
-### Expected Behavior After Fix
-
-- Click **S/N asc**: rows with serial numbers appear first sorted A→Z, then all rows without S/N at bottom
-- Click **S/N desc**: rows with serial numbers appear first sorted Z→A, then all rows without S/N at bottom
-- Rows without inventory matches or serial numbers never jump above rows that have them
+- `src/hooks/useAsinInventoryPaginated.ts` — Fix sort field mapping
+- `src/components/AsinInventory.tsx` — Client-side re-sort for exportMode/performance, wire performanceFilter
 
