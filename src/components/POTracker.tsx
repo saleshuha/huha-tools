@@ -2124,8 +2124,8 @@ export const POTracker = () => {
         if (sortField === 'serial_number_qty') {
           const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
           const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
-          const aSN = aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
-          const bSN = bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
+          const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
+          const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
           if (aSN < bSN) return sortDirection === 'asc' ? -1 : 1;
           if (aSN > bSN) return sortDirection === 'asc' ? 1 : -1;
           return 0;
@@ -6374,8 +6374,8 @@ export const POTracker = () => {
                           if (sortField === 'serial_number_qty') {
                             const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
                             const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
-                            const aSN = aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
-                            const bSN = bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
+                            const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
+                            const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
                             const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
                             const result = sortDirection === 'asc' ? cmp : -cmp;
                             if (result !== 0) return result;
