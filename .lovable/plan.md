@@ -1,54 +1,44 @@
 
 
-## Redesign Stock History Dialog as a Clean Ledger/Log View
+## Fix: Stock Receiving Search & Dialog Showing Wrong Item Type
 
-### Current Issues
-- Analytics tab adds complexity without much value for quick stock checks
-- Card-based activity feed is visually heavy and hard to scan
-- Too many nested tabs (main tabs + sub-tabs)
-- Filters take up too much vertical space
+### Root Cause (3 bugs found)
 
-### Design: Clean Ledger Table
+**Bug 1 — Dialog always loads POs regardless of item type**: `QuantityConfirmDialog.loadAvailablePOs()` (line 125) runs for every item, including `type: 'inventory'`. It queries `po_orders` by ASIN/SKU without filtering by status or excluding fully printed POs. So an inventory item opens and shows "Found in 1 PO" — confusing because the user clicked an inventory result.
 
-Replace the current card-based activity feed + analytics tabs with a single clean **ledger table** — similar to an accounting journal or bank statement.
+**Bug 2 — Fully printed POs appear in dialog**: The search correctly filters out fully printed POs (`quantity - printed_quantity > 0` at line 506-508), but `loadAvailablePOs()` in the dialog has no such filter. So POs that were already fully printed still show up.
 
-**Layout:**
-```text
-┌──────────────────────────────────────────────────────┐
-│ 📦 Stock Ledger — B0FPBJ1CBC (02158)    [Export][↻] │
-│ Current Stock: 5 units  |  Net Change: +3            │
-├──────────────────────────────────────────────────────┤
-│ [Search...] [Type ▾] [Direction ▾] [Date Range] [User▾] │
-├──────────────────────────────────────────────────────┤
-│ DATE        │ USER    │ TYPE    │ CHANGE │ BALANCE │ NOTE │
-│─────────────┼─────────┼─────────┼────────┼─────────┼──────│
-│ Jan 08 15:53│ Zain H. │ Restock │  +1    │   1     │ ...  │
-│ Jan 07 10:20│ System  │ PO      │  +2    │   0     │ ...  │
-│ ...         │         │         │        │         │      │
-└──────────────────────────────────────────────────────┘
+**Bug 3 — Inventory items hidden when PO exists**: At line 628-629, if a PO result already exists with the same ASIN, the inventory result is skipped entirely (`if (!exists)`). This means if there's even 1 pending PO for ASIN B0DYGKYDBF, the inventory entry is suppressed from results — user never sees the "In inventory" option.
+
+### Fixes
+
+#### 1. `src/components/stock-receiving/QuantityConfirmDialog.tsx` — Filter POs properly
+
+In `loadAvailablePOs()`:
+- Add `.in('status', ['pending', 'placed'])` to all PO queries
+- Exclude fully printed POs after fetch: filter where `quantity - (printed_quantity || 0) > 0`
+- When no pending POs found for an inventory item, set `maxQuantity = 999` (no PO cap) and show "No pending POs — receiving to inventory" message
+
+#### 2. `src/components/stock-receiving/ItemSearchBar.tsx` — Show inventory results even when PO exists
+
+At line 628-643, change the dedup logic: instead of skipping inventory items when a PO exists, always include them but mark them clearly. This lets the user choose whether to receive against the PO or directly to inventory.
+
+Change from:
+```typescript
+if (!exists) { searchResults.push({ type: 'inventory', ... }); }
+```
+To:
+```typescript
+// Always show inventory results (user may want to receive to stock, not PO)
+searchResults.push({ type: 'inventory', ... });
 ```
 
-### Changes
+#### 3. `src/components/stock-receiving/QuantityConfirmDialog.tsx` — Inventory-aware display
 
-#### 1. `src/components/StockHistoryDialog.tsx` — Major rewrite
-- Remove `mainTab` state, `HuhaTab01`, analytics tab, `StockHistoryStats` and `StockHistoryChart` imports
-- Remove sub-tabs (All/PO/Restock/B2B) — filter by type dropdown is sufficient
-- Add a compact summary bar showing current stock level and net change
-- Replace the card list with a `<table>` ledger view
-- Each row: date, user (truncated), type badge (compact), change (+/-), running balance, reason (truncated with tooltip)
-- Expandable row detail on click (shows notes, metadata, source, cost)
-- Keep filters but make them a single compact row
+- For `item.type === 'inventory'`: show "Receiving to Inventory" header, display POs as optional context ("Also found in X pending POs") rather than primary view
+- Set `maxQuantity = 999` for inventory items when no POs are pending (currently it stays at whatever the PO total is, which can be 0 and block submission)
 
-#### 2. `src/components/stock-history/StockHistoryChangeCard.tsx` — Keep as-is (not used in new design, but preserved for backward compat)
-
-#### 3. New: `src/components/stock-history/StockLedgerRow.tsx`
-- Table row component for a single stock change entry
-- Compact: date | user | type pill | +/- change (green/red) | running balance | reason
-- Click to expand inline details (notes, metadata, cost, source)
-- Color-coded change amounts: green for increase, red for decrease
-
-### Files
-- **Edit**: `src/components/StockHistoryDialog.tsx` — Replace with ledger table layout
-- **Create**: `src/components/stock-history/StockLedgerRow.tsx` — Ledger row component
-- **Keep**: All other stock-history files unchanged (filters, export still used)
+### Files Modified
+- `src/components/stock-receiving/QuantityConfirmDialog.tsx` — Add status/printed filters to PO query, inventory-aware display logic, fix maxQuantity for inventory
+- `src/components/stock-receiving/ItemSearchBar.tsx` — Remove dedup that hides inventory when PO exists
 
