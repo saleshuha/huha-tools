@@ -131,7 +131,7 @@ export const POTracker = () => {
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
 
   // Sorting state
-  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode'>('po_number');
+  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
 
@@ -2119,6 +2119,16 @@ export const POTracker = () => {
           const aQty = aMatch && aMatch.status === 'in-stock' ? aMatch.quantity : 0;
           const bQty = bMatch && bMatch.status === 'in-stock' ? bMatch.quantity : 0;
           return sortDirection === 'asc' ? aQty - bQty : bQty - aQty;
+        }
+        // Handle special case for serial number sorting (from inventory match)
+        if (sortField === 'serial_number_qty') {
+          const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
+          const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
+          const aSN = aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
+          const bSN = bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
+          if (aSN < bSN) return sortDirection === 'asc' ? -1 : 1;
+          if (aSN > bSN) return sortDirection === 'asc' ? 1 : -1;
+          return 0;
         }
         if (sortField === 'combined_title') {
           aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
@@ -5989,30 +5999,34 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className={`min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}>
-                            <div className="flex items-center gap-1">
-                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
+                          <TableHead className={`min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm flex-shrink-0"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock</span>
-                              <div className="flex items-center gap-0.5 ml-auto">
+                              <div className="flex items-center ml-auto rounded-md border border-border/40 overflow-hidden bg-muted/30">
                                 <button
-                                  onClick={() => !originalOrderPreserved && handleSort('serial_number' as any)}
-                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${sortField === 'serial_number' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground'}`}
+                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('serial_number_qty' as any); }}
+                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold transition-all ${sortField === 'serial_number_qty' ? 'bg-primary/15 text-primary shadow-sm' : 'hover:bg-muted/80 text-muted-foreground'}`}
                                   title="Sort by Serial Number"
                                 >
                                   S/N
-                                  {sortField === 'serial_number' && (
-                                    <ChevronUp className={`h-3 w-3 ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                  {sortField === 'serial_number_qty' ? (
+                                    sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3 opacity-40" />
                                   )}
                                 </button>
-                                <div className="w-px h-3 bg-border/60" />
+                                <div className="w-px h-4 bg-border/60" />
                                 <button
-                                  onClick={() => !originalOrderPreserved && handleSort('instock_qty' as any)}
-                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${sortField === 'instock_qty' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground'}`}
+                                  onClick={(e) => { e.stopPropagation(); !originalOrderPreserved && handleSort('instock_qty' as any); }}
+                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold transition-all ${sortField === 'instock_qty' ? 'bg-primary/15 text-primary shadow-sm' : 'hover:bg-muted/80 text-muted-foreground'}`}
                                   title="Sort by In-Stock Quantity"
                                 >
                                   Qty
-                                  {sortField === 'instock_qty' && (
-                                    <ChevronUp className={`h-3 w-3 ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                  {sortField === 'instock_qty' ? (
+                                    sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3 opacity-40" />
                                   )}
                                 </button>
                               </div>
