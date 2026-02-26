@@ -1,6 +1,5 @@
 import { POTracker } from '@/components/POTracker';
 import { ShoppingCart, RefreshCw, Clock } from 'lucide-react';
-import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,6 @@ export default function POTrackerPage() {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Use the query to track when data is refreshed
   const { data: poOrders } = usePOOrdersQuery(authChecked && !!userAuth);
 
   useEffect(() => {
@@ -39,8 +37,6 @@ export default function POTrackerPage() {
     checkAuth();
   }, [profile, profileLoading]);
 
-  // Track page view
-  // Update last refresh timestamp when data changes
   useEffect(() => {
     if (poOrders && poOrders.length > 0) {
       setLastRefreshTime(new Date());
@@ -77,36 +73,38 @@ export default function POTrackerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
-        <div className="flex items-center justify-between mb-8">
-          <HuhaHeader01
-            icon={<ShoppingCart className="w-5 h-5 text-primary-foreground" />}
-            title="Amazon Retail"
-            subtitle="Track purchase orders and manage SKU inventory for Amazon supplier with advanced analytics and automated matching"
-            badges={[
-              {
-                label: "Purchase Order Management",
-                variant: "secondary" as const,
-                className: "bg-green-500/20 text-green-700 dark:text-green-300"
-              }
-            ]}
-            className="flex-1"
-          />
+    <div className="p-6 space-y-6">
+      {/* Gradient Hero Header */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-card to-sky-500/10 border border-border/40 p-6">
+        {/* Decorative blur circles */}
+        <div className="absolute -top-6 -right-6 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-sky-500/10 rounded-full blur-2xl" />
+        
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <ShoppingCart className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Amazon Retail</h1>
+              <p className="text-muted-foreground text-sm">
+                Track purchase orders and manage SKU inventory with advanced analytics
+              </p>
+            </div>
+          </div>
+          
           {authChecked && userAuth && (
-            <div className="flex items-center gap-3 ml-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 backdrop-blur-sm px-4 py-2 rounded-xl border border-border/20 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-border/20">
                 <Clock className="h-3 w-3" />
-                <span>
-                  Last updated: {lastRefreshTime.toLocaleTimeString()}
-                </span>
+                <span>{lastRefreshTime.toLocaleTimeString()}</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleHardRefresh}
                 disabled={isRefreshing}
-                className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200"
+                className="rounded-lg"
               >
                 <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
                 {isRefreshing ? 'Refreshing...' : 'Hard Refresh'}
@@ -114,8 +112,9 @@ export default function POTrackerPage() {
             </div>
           )}
         </div>
-        <POTracker />
       </div>
+
+      <POTracker />
     </div>
   );
 }

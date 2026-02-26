@@ -3533,13 +3533,6 @@ export const POTracker = () => {
       </div>;
   }
   return <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold mb-2">Purchase Order Dashboard</h2>
-          <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
-        </div>
-        
-      </div>
 
 
       <Tabs value={activeTab} onValueChange={newTab => {
@@ -3578,40 +3571,34 @@ export const POTracker = () => {
       });
       setActiveTab(newTab);
     }} className="w-full">
-        <TabsList className="grid w-full grid-cols-7 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
-          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-7 max-w-5xl h-auto p-1 bg-muted/50 rounded-xl">
+          <TabsTrigger value="upload" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <FileUp className="h-4 w-4" />
-            Uploads
+            <span className="hidden sm:inline">Uploads</span>
           </TabsTrigger>
-          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="overview" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <Package className="h-4 w-4" />
-            <span className="hidden lg:inline">PO Overview</span>
-            <span className="lg:hidden">Overview</span>
+            <span className="hidden sm:inline">PO Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="labels" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <Printer className="h-4 w-4" />
-            <span className="hidden lg:inline">Print Labels</span>
-            <span className="lg:hidden">Labels</span>
+            <span className="hidden sm:inline">Print Labels</span>
           </TabsTrigger>
-          <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <Calculator className="h-4 w-4" />
-            <span className="hidden lg:inline">Profit Analyzer</span>
-            <span className="lg:hidden">Profit</span>
+            <span className="hidden sm:inline">Profit</span>
           </TabsTrigger>
-          <TabsTrigger value="shipped-orders" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="shipped-orders" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <Truck className="h-4 w-4" />
-            <span className="hidden lg:inline">Shipped Orders</span>
-            <span className="lg:hidden">Shipped</span>
+            <span className="hidden sm:inline">Shipped</span>
           </TabsTrigger>
-          <TabsTrigger value="fba-inventory" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="fba-inventory" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <Package className="h-4 w-4" />
-            <span className="hidden lg:inline">FBA Inventory</span>
-            <span className="lg:hidden">FBA</span>
+            <span className="hidden sm:inline">FBA</span>
           </TabsTrigger>
-          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="purchase-links" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <ExternalLink className="h-4 w-4" />
-            <span className="hidden lg:inline">Purchase Links</span>
-            <span className="lg:hidden">Links</span>
+            <span className="hidden sm:inline">Links</span>
           </TabsTrigger>
         </TabsList>
 
