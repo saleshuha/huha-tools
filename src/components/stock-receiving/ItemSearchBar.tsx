@@ -532,8 +532,9 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         }
         let invQuery = supabase
           .from('asin_inventory')
-          .select('asin, sku, title, country, serial_number, quantity, status')
-          .or(invOrCondition);
+          .select('asin, sku, title, country, serial_number, quantity, status, is_active')
+          .or(invOrCondition)
+          .or('is_active.is.null,is_active.eq.true');
 
         if (country) invQuery = invQuery.eq('country', country);
         const { data: invData } = await invQuery.limit(10);
