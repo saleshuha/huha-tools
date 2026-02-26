@@ -3637,7 +3637,7 @@ export const POTracker = () => {
           <div className="space-y-4">
             {/* Toolbar */}
             <ToolbarBar>
-              <div className="relative flex-1 min-w-[200px]">
+              <div className="relative flex-1 min-w-[400px] max-w-2xl">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
                 <Input type="text" placeholder="Search PO number, ASIN, model, serial number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 pr-10 h-8 text-sm rounded-lg" />
                 {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
