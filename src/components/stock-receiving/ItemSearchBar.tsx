@@ -624,9 +624,17 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           });
         }
 
-        // Process inventory results
-        // Always show inventory results (user may want to receive to stock, not PO)
+        // Process inventory results — deduplicate by ASIN so only one inventory entry per product
+        const seenInventoryAsins = new Set<string>();
         invData?.forEach(item => {
+          const key = item.asin || item.sku || '';
+          if (seenInventoryAsins.has(key)) return;
+          seenInventoryAsins.add(key);
+          
+          // Count total inventory rows for this ASIN
+          const invCount = invData.filter(i => (i.asin || i.sku) === key).length;
+          const totalQty = invData.filter(i => (i.asin || i.sku) === key).reduce((sum, i) => sum + (i.quantity || 0), 0);
+          
           searchResults.push({
             type: 'inventory',
             asin: item.asin,
@@ -634,9 +642,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
             title: item.title,
             serial_number: item.serial_number,
             resolved_barcode: resolvedBarcode,
-            context: item.serial_number
-              ? `In inventory (SN: ${item.serial_number})`
-              : `In inventory • ${item.status || 'active'}`,
+            context: `In inventory • ${totalQty} unit${totalQty !== 1 ? 's' : ''} in stock`,
             image_url: item.asin ? imageMap.get(item.asin) : undefined
           });
         });
