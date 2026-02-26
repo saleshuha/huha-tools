@@ -4688,80 +4688,104 @@ export const POTracker = () => {
             </Card> :
         // Step 2: Label Printing Interface
         <div className="space-y-4">
-              {/* Clean Header */}
-              <div className="rounded-xl bg-card border border-border p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => {
-                        setLabelsStep('list');
-                        setSelectedPOForLabels(null);
-                        setSelectedPOsForLabels(new Set());
-                        setSelectedForPrint(new Map());
-                        setOriginalOrderPreserved(false);
-                      }} 
-                      className="h-8 rounded-lg"
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-1.5" />
-                      Back
-                    </Button>
-                    
-                    <div className="h-6 w-px bg-border" />
-                    
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                      <Printer className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h1 className="text-lg font-bold text-foreground">Print Labels</h1>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                          {selectedPOsForLabels.size > 1 
-                            ? `${selectedPOsForLabels.size} Purchase Orders` 
-                            : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
-                        </Badge>
+              {/* Enhanced Modern Header with Animated Gradient */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-accent/5 to-background border border-border/30 shadow-lg animate-fade-in">
+                {/* Animated Decorative Elements */}
+                <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-float" />
+                <div className="absolute bottom-0 left-0 w-56 h-56 bg-gradient-to-tr from-accent/15 via-accent/5 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4 animate-float-delayed" />
+                <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 animate-pulse-soft" />
+                
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      {/* Back Button with Enhanced Hover */}
+                      <Button 
+                        variant="outline" 
+                        size="lg" 
+                        onClick={() => {
+                          setLabelsStep('list');
+                          setSelectedPOForLabels(null);
+                          setSelectedPOsForLabels(new Set());
+                          setSelectedForPrint(new Map());
+                          setOriginalOrderPreserved(false);
+                        }} 
+                        className="group relative h-12 px-5 font-semibold border-2 border-border/40 hover:border-primary/50 bg-background/80 backdrop-blur-sm hover:bg-primary/5 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-primary/5"
+                      >
+                        <ArrowLeft className="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+                        <span>Back to PO List</span>
+                      </Button>
+                      
+                      {/* Animated Separator */}
+                      <div className="h-10 w-px bg-gradient-to-b from-transparent via-border/60 to-transparent" />
+                      
+                      {/* Title Section with Enhanced Typography */}
+                      <div className="flex items-center gap-4 animate-slide-in-left">
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-primary/30 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+                          <div className="relative p-3.5 bg-gradient-to-br from-primary via-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow duration-300">
+                            <Printer className="h-6 w-6 text-primary-foreground animate-icon-bounce" />
+                          </div>
+                        </div>
+                        <div>
+                          <h1 className="text-2xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text tracking-tight">
+                            Print Labels
+                          </h1>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-medium shadow-sm hover:shadow-md transition-shadow">
+                              {selectedPOsForLabels.size > 1 
+                                ? `${selectedPOsForLabels.size} Purchase Orders` 
+                                : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground/80">
+                              • Select items and configure print settings
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Quick Stats */}
-                  <div className="hidden lg:flex items-center gap-2">
-                    {(() => {
-                      const selectedPOsList = selectedPOsForLabels.size > 0 
-                        ? Array.from(selectedPOsForLabels) 
-                        : selectedPOForLabels 
-                          ? [selectedPOForLabels] 
-                          : [];
-                      const ordersCount = poOrders.filter(order => 
-                        selectedPOsList.includes(order.po_number) && order.status !== 'cancelled'
-                      ).length;
-                      const unitsCount = poOrders
-                        .filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled')
-                        .reduce((sum, o) => sum + (o.quantity || 0), 0);
-                      
-                      return (
-                        <>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 text-sm">
-                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Items</span>
-                            <span className="font-semibold">{ordersCount}</span>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 text-sm">
-                            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Units</span>
-                            <span className="font-semibold">{unitsCount}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
+                    
+                    {/* Enhanced Quick Stats in Header */}
+                    <div className="hidden lg:flex items-center gap-3 animate-slide-in-right">
+                      {(() => {
+                        const selectedPOsList = selectedPOsForLabels.size > 0 
+                          ? Array.from(selectedPOsForLabels) 
+                          : selectedPOForLabels 
+                            ? [selectedPOForLabels] 
+                            : [];
+                        const ordersCount = poOrders.filter(order => 
+                          selectedPOsList.includes(order.po_number) && order.status !== 'cancelled'
+                        ).length;
+                        const unitsCount = poOrders
+                          .filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled')
+                          .reduce((sum, o) => sum + (o.quantity || 0), 0);
+                        
+                        return (
+                          <>
+                            <div className="group flex items-center gap-2.5 px-4 py-2.5 bg-background/70 backdrop-blur-md rounded-xl border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
+                              <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                <Package className="h-4 w-4 text-primary" />
+                              </div>
+                              <span className="text-sm font-semibold">{ordersCount}</span>
+                              <span className="text-xs text-muted-foreground">items</span>
+                            </div>
+                            <div className="group flex items-center gap-2.5 px-4 py-2.5 bg-background/70 backdrop-blur-md rounded-xl border border-border/40 hover:border-accent-foreground/40 hover:bg-accent/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
+                              <div className="p-1.5 bg-accent/50 rounded-lg group-hover:bg-accent transition-colors">
+                                <ShoppingCart className="h-4 w-4 text-accent-foreground" />
+                              </div>
+                              <span className="text-sm font-semibold">{unitsCount}</span>
+                              <span className="text-xs text-muted-foreground">units</span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Print Settings Panel */}
-              <Card className="rounded-xl bg-card border border-border">
-                <CardHeader className={cn("border-b border-border cursor-pointer transition-colors", isPrintConfigCollapsed ? "bg-muted/20 hover:bg-muted/30 py-3" : "bg-muted/10 hover:bg-muted/20 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
+              {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
+                <CardHeader className={cn("border-b border-border/20 cursor-pointer transition-all duration-200", isPrintConfigCollapsed ? "bg-muted/20 hover:bg-muted/30 py-3" : "bg-muted/10 hover:bg-muted/20 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
                   {isPrintConfigCollapsed ? (
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 {/* Title */}
@@ -4876,14 +4900,17 @@ export const POTracker = () => {
                   tabTitle: `Print Config - ${newTab}`
                 });
               }}>
-                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/50 p-1.5 rounded-xl border border-border">
-                      <TabsTrigger value="template" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-background/60 backdrop-blur-md p-1.5 rounded-xl border border-border/20 shadow-sm">
+                      <TabsTrigger value="template" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Template & Layout
                       </TabsTrigger>
-                      <TabsTrigger value="quality" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                      <TabsTrigger value="quality" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Print Quality
                       </TabsTrigger>
-                      <TabsTrigger value="advanced" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                      <TabsTrigger value="advanced" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Advanced
                       </TabsTrigger>
                     </TabsList>
@@ -5161,9 +5188,9 @@ export const POTracker = () => {
                 </CardContent>}
 
                 {/* Print Action Section - Only in Expanded State */}
-                {!isPrintConfigCollapsed && <CardContent className="p-4 border-t border-border max-h-[180px] overflow-y-auto">
+                {!isPrintConfigCollapsed && <CardContent className="p-4 border-t border-border/30 bg-gradient-to-b from-card/80 to-card max-h-[180px] overflow-y-auto">
                   {/* Compact Status Bar */}
-                  <div className="flex items-center gap-4 mb-3 p-2.5 bg-muted/30 rounded-lg border border-border text-sm">
+                  <div className="flex items-center gap-4 mb-3 p-2.5 bg-gradient-to-r from-muted/30 to-muted/50 rounded-md border border-border/20 text-sm">
                     {/* QZ Status */}
                     <div className="flex items-center gap-1.5">
                       {qzConnected ? <>
@@ -5280,7 +5307,7 @@ export const POTracker = () => {
                   </div>
 
                   {/* Compact Connection Alert */}
-                  {!qzConnected && <div className="mt-3 p-2.5 bg-warning/10 border border-warning/20 rounded-lg">
+                  {!qzConnected && <div className="mt-3 p-2.5 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-md animate-fade-in">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-3.5 w-3.5 text-warning flex-shrink-0" />
@@ -5302,22 +5329,30 @@ export const POTracker = () => {
                   </CardContent>}
               </Card>
 
-              {/* Items Selection Table */}
-              <Card className="rounded-xl bg-card border border-border overflow-hidden">
-                <CardHeader className="border-b border-border pb-3">
+              {/* Enhanced Items Selection Table with Refined Styling */}
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-md hover:shadow-lg transition-shadow duration-300 rounded-2xl overflow-hidden animate-fade-in">
+                <CardHeader className="bg-gradient-to-r from-muted/20 via-muted/10 to-transparent backdrop-blur-sm border-b border-border/20 pb-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <Package className="h-4 w-4 text-primary" />
+                      <div className="flex items-center gap-4">
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="relative p-2.5 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl border border-primary/20 group-hover:border-primary/30 transition-colors">
+                            <Package className="h-5 w-5 text-primary" />
+                          </div>
                         </div>
                         <div>
-                          <CardTitle className="text-base font-semibold">Select Items to Print</CardTitle>
-                          <p className="text-xs text-muted-foreground mt-0.5">Choose items for your print job</p>
+                          <CardTitle className="text-lg font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text">
+                            Select Items to Print
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground/80 mt-1">
+                            Choose which items to include in your print job
+                          </p>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        {originalOrderPreserved && <Button variant="outline" size="sm" onClick={() => setOriginalOrderPreserved(false)} className="text-xs h-8 rounded-lg">
+                      {/* Enhanced Toolbar */}
+                      <div className="flex items-center gap-3">
+                        {originalOrderPreserved && <Button variant="outline" size="sm" onClick={() => setOriginalOrderPreserved(false)} className="text-xs border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                             <ArrowUpDown className="h-3 w-3 mr-1" />
                             Enable Sorting
                           </Button>}
@@ -5336,11 +5371,11 @@ export const POTracker = () => {
                     } else {
                       setSelectedForPrint(prev => {
                         const newMap = new Map(prev);
-                        currentPageIds.forEach(id => newMap.set(id, 1));
+                        currentPageIds.forEach(id => newMap.set(id, 1)); // Default quantity of 1
                         return newMap;
                       });
                     }
-                  }} className="h-8 text-xs rounded-lg">
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                             {(() => {
                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                       const allPOOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number)).filter(order => order.status !== 'cancelled');
@@ -5359,29 +5394,34 @@ export const POTracker = () => {
                           variant="outline" 
                           size="sm" 
                           onClick={() => setShowQuantityMatchingDialog(true)}
-                          className="h-8 text-xs rounded-lg"
+                          className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200"
                         >
                           <ClipboardList className="h-3 w-3 mr-1" />
                           Qty Report
                         </Button>
                         
-                        <Badge variant={selectedForPrint.size > 0 ? "default" : "outline"} className={`font-medium ${selectedForPrint.size > 0 ? 'bg-primary/10 text-primary border-primary/20' : ''}`}>
-                          {selectedForPrint.size} selected
+                        <Badge variant={selectedForPrint.size > 0 ? "default" : "outline"} className={`font-medium transition-colors ${selectedForPrint.size > 0 ? 'bg-primary/10 text-primary border-primary/20' : ''}`}>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${selectedForPrint.size > 0 ? 'bg-primary' : 'bg-muted-foreground'}`}></div>
+                            {selectedForPrint.size} selected
+                          </div>
                         </Badge>
                       </div>
                     </div>
                 </CardHeader>
 
-                {/* Compact Metrics Stat Bar */}
-                <div className="px-4 py-3 border-b border-border">
+                {/* Enhanced Modern Metrics Dashboard with Animations */}
+                <div className="px-5 py-5 bg-gradient-to-r from-muted/10 via-background to-muted/10 border-b border-border/20">
                   {(() => {
                 const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                 const ordersForMetrics = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
 
+                // Calculate metrics
                 const totalItems = ordersForMetrics.length;
                 const totalUnits = ordersForMetrics.reduce((sum, o) => sum + (o.quantity || 0), 0);
                 const printedItems = ordersForMetrics.filter(o => (o.printed_quantity || 0) > 0).length;
                 const printedUnits = ordersForMetrics.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+                const fullyPrintedItems = ordersForMetrics.filter(o => (o.printed_quantity || 0) >= (o.quantity || 0) && (o.printed_quantity || 0) > 0).length;
                 const partiallyPrintedItems = ordersForMetrics.filter(o => {
                   const printed = o.printed_quantity || 0;
                   const total = o.quantity || 0;
@@ -5389,76 +5429,210 @@ export const POTracker = () => {
                 }).length;
                 const pendingItems = totalItems - printedItems;
                 const pendingUnits = totalUnits - printedUnits;
+
+                // Sunsky matching metrics
                 const sunskyMatchedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).length;
+                const sunskyPrintedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).length;
+                const sunskyPrintedUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+                const sunskyPendingItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.quantity || 0) - (o.printed_quantity || 0) > 0).length;
+                const sunskyPendingUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).reduce((sum, o) => sum + Math.max(0, (o.quantity || 0) - (o.printed_quantity || 0)), 0);
+                
                 const printProgress = totalUnits > 0 ? Math.round((printedUnits / totalUnits) * 100) : 0;
                 
-                return <CompactStatBar items={[
-                  { icon: Package, label: 'Total', value: `${totalItems} · ${totalUnits}u`, highlight: true },
-                  { icon: CheckCircle2, label: 'Printed', value: `${printedItems} · ${printedUnits}u` },
-                  { icon: Clock, label: 'Pending', value: `${pendingItems} · ${pendingUnits}u` },
-                  { icon: AlertTriangle, label: 'Partial', value: partiallyPrintedItems },
-                  { icon: Package, label: 'Sunsky', value: sunskyMatchedItems },
-                  { icon: Printer, label: 'Progress', value: `${printProgress}%` },
-                ]} />;
+                return <div className="space-y-4">
+                        {/* Enhanced Metrics Cards Grid with Staggered Animation */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 stagger-children">
+                          {/* Total Items Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-background via-background to-muted/30 rounded-xl border border-border/40 shadow-sm hover:shadow-lg hover:shadow-primary/5 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors duration-300">
+                                  <Package className="h-4 w-4 text-primary" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total</span>
+                              </div>
+                              <div className="text-2xl font-bold text-foreground tracking-tight">{totalItems}</div>
+                              <div className="text-xs text-muted-foreground/80 mt-1 font-medium">{totalUnits} units</div>
+                            </div>
+                          </div>
+                          
+                          {/* Printed Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-emerald-50/80 via-green-50/50 to-green-100/40 dark:from-green-950/40 dark:via-green-900/30 dark:to-green-950/20 rounded-xl border border-green-200/60 dark:border-green-800/40 shadow-sm hover:shadow-lg hover:shadow-green-500/5 hover:border-green-400/50 dark:hover:border-green-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-green-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-green-500/15 rounded-lg group-hover:bg-green-500/25 transition-colors duration-300">
+                                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">Printed</span>
+                              </div>
+                              <div className="text-2xl font-bold text-green-700 dark:text-green-400 tracking-tight">{printedItems}</div>
+                              <div className="text-xs text-green-600/70 dark:text-green-400/70 mt-1 font-medium">{printedUnits} units</div>
+                            </div>
+                          </div>
+                          
+                          {/* Pending Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-orange-100/40 dark:from-orange-950/40 dark:via-orange-900/30 dark:to-orange-950/20 rounded-xl border border-orange-200/60 dark:border-orange-800/40 shadow-sm hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-400/50 dark:hover:border-orange-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-orange-500/15 rounded-lg group-hover:bg-orange-500/25 transition-colors duration-300">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-400 uppercase tracking-wider">Pending</span>
+                              </div>
+                              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400 tracking-tight">{pendingItems}</div>
+                              <div className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1 font-medium">{pendingUnits} units</div>
+                            </div>
+                          </div>
+                          
+                          {/* Partial Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-yellow-50/80 via-amber-50/50 to-yellow-100/40 dark:from-yellow-950/40 dark:via-yellow-900/30 dark:to-yellow-950/20 rounded-xl border border-yellow-200/60 dark:border-yellow-800/40 shadow-sm hover:shadow-lg hover:shadow-yellow-500/5 hover:border-yellow-400/50 dark:hover:border-yellow-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-yellow-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-yellow-500/15 rounded-lg group-hover:bg-yellow-500/25 transition-colors duration-300">
+                                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wider">Partial</span>
+                              </div>
+                              <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400 tracking-tight">{partiallyPrintedItems}</div>
+                              <div className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-1 font-medium">items</div>
+                            </div>
+                          </div>
+                          
+                          {/* Sunsky Matched Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-sky-50/80 via-blue-50/50 to-blue-100/40 dark:from-blue-950/40 dark:via-blue-900/30 dark:to-blue-950/20 rounded-xl border border-blue-200/60 dark:border-blue-800/40 shadow-sm hover:shadow-lg hover:shadow-blue-500/5 hover:border-blue-400/50 dark:hover:border-blue-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-blue-500/15 rounded-lg group-hover:bg-blue-500/25 transition-colors duration-300">
+                                  <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Sunsky</span>
+                              </div>
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">{sunskyMatchedItems}</span>
+                                <span className="text-xs text-blue-600/60 font-medium">matched</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs mt-1.5 font-medium">
+                                <span className="text-green-600 dark:text-green-400">✓ {sunskyPrintedItems}</span>
+                                <span className="text-muted-foreground/50">|</span>
+                                <span className="text-orange-600 dark:text-orange-400">⏳ {sunskyPendingItems}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-violet-50/80 via-purple-50/50 to-purple-100/40 dark:from-purple-950/40 dark:via-purple-900/30 dark:to-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-800/40 shadow-sm hover:shadow-lg hover:shadow-purple-500/5 hover:border-purple-400/50 dark:hover:border-purple-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-purple-500/15 rounded-lg group-hover:bg-purple-500/25 transition-colors duration-300">
+                                  <Printer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Progress</span>
+                              </div>
+                              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400 tracking-tight">{printProgress}%</div>
+                              <div className="w-full h-2 bg-purple-200/60 dark:bg-purple-900/50 rounded-full mt-2.5 overflow-hidden shadow-inner">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-purple-500 via-purple-500 to-violet-500 rounded-full transition-all duration-700 ease-out relative"
+                                  style={{ width: `${printProgress}%` }}
+                                >
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>;
               })()}
                 </div>
 
-                <CardContent className="px-4 py-4">
-                  <div className="mb-4 space-y-3">
-                    <ToolbarBar>
-                      <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                      <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
-                        <SelectTrigger className="w-[120px] h-8 border-none bg-transparent focus:ring-0 text-sm font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border shadow-lg z-[100]">
-                          <SelectItem value="all">All Fields</SelectItem>
-                          <SelectItem value="asin">ASIN Only</SelectItem>
-                          <SelectItem value="sku">SKU Only</SelectItem>
-                          <SelectItem value="serial">Serial Number</SelectItem>
-                          <SelectItem value="title">Title Only</SelectItem>
-                          <SelectItem value="po_number">PO Number</SelectItem>
-                          <SelectItem value="barcode">Scanned Barcode</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      <div className="h-6 w-px bg-border" />
-                      
-                      <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
-                        <SelectTrigger className="w-[100px] h-8 border-none bg-transparent focus:ring-0 text-sm">
-                          <SelectValue placeholder="Chip Mode" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border shadow-lg z-[100]">
-                          <SelectItem value="auto">Auto</SelectItem>
-                          <SelectItem value="manual">Manual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      {chipMode === 'auto' && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-lg">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Input 
-                            type="number" min="1" max="10" value={chipDelay} 
-                            onChange={e => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))} 
-                            className="w-10 h-6 border-none bg-transparent text-center p-0 focus-visible:ring-0 text-sm font-medium" 
-                          />
-                          <span className="text-xs text-muted-foreground">sec</span>
+                <CardContent className="px-4 py-5">
+                  {/* Modern Search & Filter Section */}
+                  <div className="mb-6 space-y-4">
+                    {/* Search Bar Row */}
+                    <div className="flex gap-3">
+                      {/* Search Options Panel */}
+                      <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-muted/30 to-muted/10 backdrop-blur-sm rounded-xl border border-border/30 shadow-sm">
+                        {/* Search Type */}
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-primary/10 rounded-lg">
+                            <Search className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
+                            <SelectTrigger className="w-[120px] h-8 border-none bg-transparent focus:ring-0 text-sm font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-lg z-[100]">
+                              <SelectItem value="all">All Fields</SelectItem>
+                              <SelectItem value="asin">ASIN Only</SelectItem>
+                              <SelectItem value="sku">SKU Only</SelectItem>
+                              <SelectItem value="serial">Serial Number</SelectItem>
+                              <SelectItem value="title">Title Only</SelectItem>
+                              <SelectItem value="po_number">PO Number</SelectItem>
+                              <SelectItem value="barcode">Scanned Barcode</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      )}
+                        
+                        <div className="h-6 w-px bg-border/50" />
+                        
+                        {/* Chip Mode */}
+                        <div className="flex items-center gap-2">
+                          <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
+                            <SelectTrigger className="w-[100px] h-8 border-none bg-transparent focus:ring-0 text-sm">
+                              <SelectValue placeholder="Chip Mode" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-lg z-[100]">
+                              <SelectItem value="auto">Auto</SelectItem>
+                              <SelectItem value="manual">Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {chipMode === 'auto' && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-background/60 rounded-lg">
+                              <Clock className="h-3.5 w-3.5 text-primary" />
+                              <Input 
+                                type="number" 
+                                min="1" 
+                                max="10" 
+                                value={chipDelay} 
+                                onChange={e => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))} 
+                                className="w-10 h-6 border-none bg-transparent text-center p-0 focus-visible:ring-0 text-sm font-medium" 
+                              />
+                              <span className="text-xs text-muted-foreground">sec</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       
                       {/* Main Search Input */}
-                      <div className="relative flex-1 min-w-[200px]">
-                        <div className="flex flex-wrap items-center gap-2 pl-3 pr-10 py-2 min-h-[40px] bg-background border border-border rounded-lg focus-within:border-primary/50 transition-colors">
+                      <div className="relative group flex-1">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                          <div className="p-1.5 bg-primary/10 rounded-lg group-focus-within:bg-primary/20 transition-colors">
+                            <Search className="h-4 w-4 text-primary" />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pl-14 pr-12 py-3 min-h-[52px] bg-gradient-to-r from-background to-muted/10 backdrop-blur-sm border-2 border-border/30 focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/5 hover:border-primary/30 transition-all duration-300 rounded-xl">
                           {searchTags.map((tag, index) => (
                             <Badge 
                               key={index} 
                               variant="secondary" 
-                              className="bg-primary text-primary-foreground px-2 py-1 text-xs flex items-center gap-1"
+                              className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground px-3 py-1.5 text-sm flex items-center gap-1.5 border-0 shadow-md hover:shadow-lg transition-shadow animate-scale-in"
                             >
                               {tag}
                               <button 
                                 onClick={() => setSearchTags(prev => prev.filter((_, i) => i !== index))} 
-                                className="ml-0.5 hover:bg-primary-foreground/20 rounded-full p-0.5"
+                                className="ml-1 hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -5496,18 +5670,22 @@ export const POTracker = () => {
                         </div>
                         {(labelSearchQuery || searchTags.length > 0) && (
                           <Button 
-                            variant="ghost" size="sm" 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive z-10 rounded-lg" 
-                            onClick={() => { setLabelSearchQuery(''); setSearchTags([]); }}
+                            variant="ghost" 
+                            size="sm" 
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors z-10 rounded-lg" 
+                            onClick={() => {
+                              setLabelSearchQuery('');
+                              setSearchTags([]);
+                            }}
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                    </ToolbarBar>
+                    </div>
                     
-                    {/* Filter Toolbar */}
-                    <ToolbarBar>
+                    {/* Filter Pills Row */}
+                    <div className="flex items-center gap-3 flex-wrap p-3 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 rounded-xl border border-border/20">
                       {/* Print Status Filter */}
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
@@ -5774,69 +5952,103 @@ export const POTracker = () => {
                           {instockFilter.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{getSelectedPOsOrdersByInstock().length}</Badge>}
                         </Button>
                       </div>
-                    </ToolbarBar>
+                    </div>
                   </div>
                   
-                  {/* Table Container */}
-                  <div className="border border-border rounded-xl overflow-hidden bg-card">
+                  {/* Modern Table Container */}
+                  <div className="rounded-2xl border border-border/30 overflow-hidden shadow-lg bg-gradient-to-b from-card to-card/50 backdrop-blur-sm">
                     <Table className="w-full table-fixed">
-                      <TableHeader className="sticky top-0 bg-muted/40 border-b border-border z-10">
-                        <TableRow className="border-b border-border">
-                          <TableHead className="w-12 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <TableHeader className="bg-gradient-to-r from-muted/40 via-muted/30 to-muted/40 backdrop-blur-md sticky top-0 z-10">
+                        <TableRow className="border-b-2 border-border/30">
+                          <TableHead className="w-12 font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center justify-center">
-                              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                              <div className="p-1.5 bg-primary/10 rounded-lg">
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              </div>
                             </div>
                           </TableHead>
-                          <TableHead className="w-20 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Image
+                          <TableHead className="w-20 font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 bg-muted/50 rounded">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
+                            </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/30 select-none min-w-[140px] max-w-[180px] text-xs font-medium uppercase tracking-wider text-muted-foreground ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
-                            <div className="flex items-center gap-1.5">
-                              SKU/Model
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[140px] max-w-[180px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">SKU/Model</span>
                               {sortField === 'sku_code' && !originalOrderPreserved && (
-                                <ChevronUp className={`h-3 w-3 text-primary ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                <div className={`p-1 rounded-md bg-primary/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-primary" />
+                                </div>
                               )}
                               {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && (
                                 <Badge variant="outline" className="text-[10px] ml-auto bg-muted/50">Original</Badge>
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Stock Qty
+                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
+                            </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/30 select-none min-w-[250px] max-w-[350px] text-xs font-medium uppercase tracking-wider text-muted-foreground ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
-                            <div className="flex items-center gap-1.5">
-                              Title & ASIN
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[250px] max-w-[350px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-accent to-accent/70 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Title & ASIN</span>
                               {sortField === 'combined_title' && !originalOrderPreserved && (
-                                <ChevronUp className={`h-3 w-3 text-primary ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                <div className={`p-1 rounded-md bg-accent/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-accent" />
+                                </div>
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[100px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Shipped Qty
+                          {/* Shipped Qty Header - NEW */}
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-violet-500 to-violet-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Shipped Qty</span>
+                            </div>
                           </TableHead>
-                          <TableHead className="min-w-[100px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            FBA Inv Qty
+                          {/* FBA Inventory Qty Header - NEW */}
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">FBA Inv Qty</span>
+                            </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/30 select-none text-xs font-medium uppercase tracking-wider text-muted-foreground ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
-                            <div className="flex items-center gap-1.5">
-                              PO Qty
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">PO Qty</span>
                               {sortField === 'quantity' && !originalOrderPreserved && (
-                                <ChevronUp className={`h-3 w-3 text-primary ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                <div className={`p-1 rounded-md bg-emerald-500/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                </div>
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[100px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Print Qty
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print Qty</span>
+                            </div>
                           </TableHead>
-                          <TableHead className="min-w-[160px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Print Status
+                          <TableHead className="min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print Status</span>
+                            </div>
                           </TableHead>
-                          <TableHead className="min-w-[140px] text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:bg-muted/30" onClick={() => handleSort('scanned_barcode' as any)}>
-                            <div className="flex items-center gap-1.5">
-                              Scanned Barcode
+                          <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" onClick={() => handleSort('scanned_barcode' as any)}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Scanned Barcode</span>
                               {sortField === 'scanned_barcode' && (
-                                <ChevronUp className={`h-3 w-3 text-primary ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                <ChevronUp className={`h-3 w-3 text-primary transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                               )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -5845,15 +6057,24 @@ export const POTracker = () => {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-40">
-                                  <DropdownMenuItem onClick={() => setBarcodeFilter('all')} className={barcodeFilter === 'all' ? 'bg-primary/10' : ''}>All</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setBarcodeFilter('has-barcode')} className={barcodeFilter === 'has-barcode' ? 'bg-primary/10' : ''}>Has Barcode</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setBarcodeFilter('no-barcode')} className={barcodeFilter === 'no-barcode' ? 'bg-primary/10' : ''}>No Barcode</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('all')} className={barcodeFilter === 'all' ? 'bg-primary/10' : ''}>
+                                    All
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('has-barcode')} className={barcodeFilter === 'has-barcode' ? 'bg-primary/10' : ''}>
+                                    Has Barcode
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('no-barcode')} className={barcodeFilter === 'no-barcode' ? 'bg-primary/10' : ''}>
+                                    No Barcode
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[100px] text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Actions
+                          <TableHead className="min-w-[100px] font-bold bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Actions</span>
+                            </div>
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -6168,8 +6389,9 @@ export const POTracker = () => {
                       const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                       return paginatedOrders.map((order, index) => {
                         return <React.Fragment key={order.id}>
-                              <TableRow className={cn("transition-colors hover:bg-muted/20 border-b border-border", index % 2 === 1 && "bg-muted/10", selectedForPrint.has(order.id) && 'bg-primary/10', order.printed_quantity >= order.quantity && 'bg-muted/5', order._partiallyPrinted && 'bg-muted/5')}>
-                                <TableCell className="w-12 p-3">
+                              <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${order.printed_quantity >= order.quantity ? 'bg-green-50 dark:bg-green-950/20' : ''} ${order._partiallyPrinted ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                                {/* Enhanced Checkbox Cell */}
+                                <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                    <div className="flex items-center justify-center">
                                      <Checkbox checked={order._isConsolidated ? order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
                                   const newSelected = new Map(selectedForPrint);
@@ -6935,28 +7157,40 @@ export const POTracker = () => {
                 const ordersForSelectedPOs = poOrders.filter(order => selectedPOsList.includes(order.po_number)).filter(order => order.status !== 'cancelled').filter(order => !labelSearchQuery || order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) || order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) || order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) || order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) || order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase()));
                 const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
                 if (totalPages <= 1) return null;
-                return <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm text-muted-foreground">
-                           <div className="flex items-center gap-2">
-                             <p className="text-sm text-muted-foreground">
-                               Page {labelCurrentPage} of {totalPages} ({ordersForSelectedPOs.length} items)
-                             </p>
-                           </div>
+                return <div className="flex items-center justify-between px-6 py-4 border-t border-border/30 bg-gradient-to-r from-muted/20 to-muted/30">
+                           <div className="flex items-center gap-3">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-primary rounded-full"></div>
+                               <p className="text-sm text-muted-foreground font-medium">
+                                 Page {labelCurrentPage} of {totalPages}
+                               </p>
+                             </div>
+                             <div className="text-sm text-muted-foreground">
+                               ({ordersForSelectedPOs.length} items total)
+                             </div>
+                          </div>
                           <div className="flex items-center space-x-3">
-                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.max(1, prev - 1))} disabled={labelCurrentPage === 1}>
-                              Previous
+                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.max(1, prev - 1))} disabled={labelCurrentPage === 1} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded bg-gradient-to-r from-primary/20 to-accent/20"></div>
+                                Previous
+                              </div>
                             </Button>
                             <div className="flex items-center gap-1">
                               {Array.from({
                         length: Math.min(5, totalPages)
                       }, (_, i) => {
                         const pageNum = Math.max(1, Math.min(totalPages - 4, labelCurrentPage - 2)) + i;
-                        return <Button key={pageNum} variant={pageNum === labelCurrentPage ? "default" : "outline"} size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, pageNum)} className="w-8 h-8 p-0">
+                        return <Button key={pageNum} variant={pageNum === labelCurrentPage ? "default" : "outline"} size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, pageNum)} className={`w-8 h-8 p-0 ${pageNum === labelCurrentPage ? 'bg-primary text-primary-foreground shadow-glow' : 'hover:bg-accent/10 hover:border-accent/30'} transition-all`}>
                                     {pageNum}
                                   </Button>;
                       })}
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.min(totalPages, prev + 1))} disabled={labelCurrentPage === totalPages}>
-                              Next
+                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.min(totalPages, prev + 1))} disabled={labelCurrentPage === totalPages} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
+                              <div className="flex items-center gap-2">
+                                Next
+                                <div className="w-3 h-3 rounded bg-gradient-to-r from-accent/20 to-primary/20"></div>
+                              </div>
                             </Button>
                           </div>
                         </div>;

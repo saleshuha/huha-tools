@@ -1,55 +1,103 @@
 
 
-## Plan: Redesign Print Labels UI to Match Unified Design System
+## Plan: Standardize PO Tracker Sub-Tab UI to Match Market Purchases Design Pattern
 
 ### Summary
-Replace the heavy animated gradient styling in the Print Labels tab with the clean, consistent design pattern used across Market Purchases and the recently updated PO Tracker tabs. Uses `CompactStatBar`, `ToolbarBar`, and `DataTableWrapper` components. Zero functional changes.
+Create reusable UI components extracted from the Market Purchases design pattern, then apply them across all PO Tracker tab contents. No functional or logic changes -- purely visual consistency.
 
-### Section-by-Section Changes
+### What Gets Created (Reusable Components)
 
-**1. Header (lines 4692-4784)**
-Current: Animated gradient background with blur circles, icon glows, bounce animations, `animate-float`, `animate-slide-in-left/right`.
-New: Clean `rounded-xl bg-card border border-border` container. Back button as simple `variant="outline" size="sm"`. Title with standard icon box (`h-10 w-10 rounded-lg bg-primary/10 border border-primary/20`). Quick stats as inline pills matching `CompactStatBar` item styling.
+**1. `src/components/ui/compact-stat-bar.tsx`** -- Universal stat bar component
+- Renders a horizontal row of stat items in `p-2.5 rounded-xl bg-card border border-border` container
+- Each item: icon + label + value in `px-3 py-1.5 rounded-lg bg-muted/50`
+- Supports a highlighted "total" item with `bg-primary/10`
+- Replaces the current 9-card metrics grid in Overview tab with a compact inline version
 
-**2. Print Settings Panel (lines 4787-5330)**
-Current: `bg-card/50 backdrop-blur-sm border-border/20 shadow-sm rounded-xl` with gradient headers.
-New: Simple `rounded-xl bg-card border border-border` card. Collapsed bar uses `ToolbarBar` pattern. Inner sub-tabs for Template/Quality/Advanced use the standard `bg-muted/50 rounded-xl` tab styling (matching the main 7-tab pattern). Remove `backdrop-blur`, `shadow-glow`, `animate-fade-in` throughout.
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│ 📦 POs 14  │  📋 Items 1136  │  📊 In Stock 238  │  ... │ Total 2411 │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-**3. Metrics Dashboard (lines 5414-5557)**
-Current: 6 large animated gradient cards with blur circles, hover lifts, stagger animations, shimmer effects.
-New: Replace entire grid with `CompactStatBar` showing: Total (items + units), Printed (items + units), Pending (items + units), Partial (items), Sunsky (matched count), Progress (percentage). Same data, compact horizontal pills.
+**2. `src/components/ui/toolbar-bar.tsx`** -- Universal toolbar wrapper
+- Consistent `flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card border border-border` container
+- Used for search bars, filter buttons, action buttons across all tabs
+- Provides slot-based composition (left content, spacer, right content)
 
-**4. Search & Filters (lines 5559-5956)**
-Current: Two separate rows -- search options panel + main search input, then filter pills row. Heavy gradient backgrounds.
-New: Wrap in two `ToolbarBar` containers:
-- **Toolbar 1**: Search type select + chip mode + main search input (keep tag-based search behavior)
-- **Toolbar 2**: All filter groups (Print Status, Source, Fulfillment, In Stock) with their Print Preview buttons. Use `flex-wrap` for responsive layout. Remove gradient backgrounds, keep the filter logic.
+**3. `src/components/ui/data-table.tsx`** -- Universal table wrapper component
+- Wraps native `<table>` with `border border-border rounded-xl overflow-hidden bg-card`
+- Standard header: `bg-muted/40 border-b border-border` with `text-xs uppercase tracking-wider text-muted-foreground`
+- Zebra striping: alternating `bg-muted/10` rows
+- Hover: `hover:bg-muted/20 transition-colors`
+- Matches the Market Purchases table pattern exactly
 
-**5. Items Table (lines 5959-7152)**
-Current: `rounded-2xl border-border/30 shadow-lg bg-gradient-to-b` with gradient header, colored dot indicators per column, heavy row hover effects.
-New: Wrap in `DataTableWrapper`. Apply `dataTableHeaderClass` to `TableHeader`. Apply `dataTableHeadClass` to each `TableHead`. Apply `dataTableRowClass(index)` to each row. Remove:
-- Gradient backgrounds on headers
-- Colored dot indicators before column names
-- `bg-gradient-to-r hover:from-primary/10 hover:to-accent/10` row effects
-- `shadow-lg`, `backdrop-blur`, animated checkbox scaling
-Keep: All cell content, badges, popovers, action buttons unchanged.
+### What Gets Updated (Tab Content Styling)
 
-**6. Pagination (lines 7155-7197)**
-Current: Custom pagination with gradient backgrounds and decorative dots.
-New: Use `DataTableFooter` wrapper. Simple `Previous | 1 2 3 | Next` with standard button styling. Remove gradient backgrounds and decorative elements.
+**Tab 1: Overview** (lines ~3605-4222)
+- Replace the 9-card `POMetricsCard` grid with the new `CompactStatBar` -- same data, compact horizontal layout
+- Keep the clickable filter behavior (onClick still sets `selectedMetricFilter`)
+- Wrap search + action buttons in `ToolbarBar`
+- Restyle the grouped/detailed tables using `DataTable` wrapper conventions: consistent header classes, zebra striping, rounded corners
+- Restyle pagination to match: compact `flex items-center justify-between` with muted text
+
+**Tab 2: Uploads** (lines ~4224-4328)
+- Wrap the card header actions in a `ToolbarBar` for "Load All POs" and "Delete Today's Uploads" buttons
+- Standardize button styling: `h-8 text-xs gap-1.5` pattern with rounded-lg
+
+**Tab 3: Print Labels** (lines ~4330-7241)
+- Already fairly well-styled; minor alignment:
+  - Standardize the PO selection table header to use `bg-muted/40` + uppercase tracking pattern
+  - Wrap search/location controls in `ToolbarBar`
+
+**Tab 4: Profit Analyzer** -- delegates to `<ProductProfitAnalyzer />`, minimal changes needed
+
+**Tab 5: Shipped Orders** (ShippedOrdersUpload.tsx)
+- Add `CompactStatBar` at top showing Total Items, Total Qty, Last Modified
+- Wrap search + actions in `ToolbarBar`
+- Restyle the data table with `DataTable` conventions (zebra rows, rounded border, uppercase headers)
+- Add mobile card layout (md:hidden) matching Market Purchases responsive pattern
+
+**Tab 6: FBA Inventory** (FBAInventoryUpload.tsx)
+- Same treatment as Shipped Orders: stat bar, toolbar, standardized table
+
+**Tab 7: Purchase Links** -- delegates to `<PurchaseLinkManagement />`, already has its own styling
+
+### Design Pattern Reference (from Market Purchases)
+
+```text
+┌─ Compact Stat Bar ──────────────────────────────────────────────┐
+│ [icon] Label  Value  │  [icon] Label  Value  │  ... │  Total   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Toolbar Bar ───────────────────────────────────────────────────┐
+│ 🔍 Search input     │  Filters  │  Refresh  │        N entries │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Data Table ────────────────────────────────────────────────────┐
+│  IMAGE │ PRODUCT │ QTY │ STATUS │ ACTIONS                      │  ← uppercase, muted
+├────────┼─────────┼─────┼────────┼──────────────────────────────┤
+│  ...   │  ...    │ ... │  ...   │  ...                         │  ← white
+│  ...   │  ...    │ ... │  ...   │  ...                         │  ← bg-muted/10
+│  ...   │  ...    │ ... │  ...   │  ...                         │  ← white
+└────────┴─────────┴─────┴────────┴──────────────────────────────┘
+```
+
+### Files to Create
+1. `src/components/ui/compact-stat-bar.tsx`
+2. `src/components/ui/toolbar-bar.tsx`
+3. `src/components/ui/data-table-wrapper.tsx`
 
 ### Files to Modify
-1. `src/components/POTracker.tsx` -- Lines 4690-7200 (Print Labels tab content only)
+1. `src/components/POTracker.tsx` -- Overview tab: swap metrics grid for stat bar, standardize tables/toolbar
+2. `src/components/po/ShippedOrdersUpload.tsx` -- Add stat bar, toolbar, standardized table + mobile cards
+3. `src/components/po/FBAInventoryUpload.tsx` -- Same treatment as Shipped Orders
 
-### What Stays Exactly the Same
-- All state management (selectedForPrint, customPrintQuantities, searchTags, etc.)
-- All filter logic (print status, source, fulfillment, in-stock, barcode)
-- All button click handlers (handleDirectPrint, handleSingleItemPrint, handleReprintWithoutTracking, etc.)
-- All cell content (image popovers, SKU/model badges, stock qty logic, print status badges, barcode display, action buttons)
-- All dialog/modal interactions
-- QZ Tray connection logic
-- Print settings configuration (template, DPI, darkness, copies)
-- Tag-based search with chip mode
-- Consolidation logic for multi-PO selection
-- Sorting and pagination logic
+### What Stays the Same
+- All data fetching, hooks, state management
+- All button click handlers and business logic
+- All dialog/modal content
+- Print Labels tab detailed print flow
+- Profit Analyzer component internals
+- Purchase Links component internals
+- POMetricsCard component file (kept for potential reuse elsewhere, just not rendered in Overview)
 
