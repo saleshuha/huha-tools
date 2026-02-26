@@ -675,7 +675,20 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       if (result.type === 'not_found') return;
 
       if (result.type === 'recent') {
-        setSearchTerm(result.searched_term || '');
+        // Reconstruct a proper search result from recent data and directly open it
+        const reconstructed: SearchResult = {
+          type: 'po',
+          asin: result.asin,
+          sku_code: result.sku_code,
+          title: result.title,
+          image_url: result.image_url,
+          searched_term: result.searched_term,
+        };
+        addRecentSearch(result.searched_term || '', reconstructed);
+        setShowDropdown(false);
+        setSearchTerm('');
+        setSelectedIndex(-1);
+        onItemSelect(reconstructed);
         return;
       }
 
