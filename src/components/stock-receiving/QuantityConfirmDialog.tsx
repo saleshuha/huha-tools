@@ -127,11 +127,19 @@ export function QuantityConfirmDialog({
     setLoadingPOs(true);
     
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User not authenticated');
+        setLoadingPOs(false);
+        return;
+      }
+
       const isInventoryItem = item.type === 'inventory';
       let allPOs: any[] = [];
 
       if (item.type === 'po_group' && item.po_group) {
         const { data, error } = await supabase.from('po_orders').select('*')
+          .eq('user_id', user.id)
           .in('po_number', item.po_group.po_numbers)
           .in('status', ['pending', 'placed'])
           .eq('country', country);
@@ -139,6 +147,7 @@ export function QuantityConfirmDialog({
         allPOs = data || [];
       } else if (item.po_numbers && item.po_numbers.length > 0) {
         let query = supabase.from('po_orders').select('*')
+          .eq('user_id', user.id)
           .in('po_number', item.po_numbers)
           .in('status', ['pending', 'placed'])
           .eq('country', country);
@@ -155,9 +164,9 @@ export function QuantityConfirmDialog({
       } else {
         // Search by ASIN/SKU/model across all POs
         const filters = [];
-        if (item.asin) filters.push(supabase.from('po_orders').select('*').eq('asin', item.asin).in('status', ['pending', 'placed']).eq('country', country));
-        if (item.sku_code) filters.push(supabase.from('po_orders').select('*').eq('sku_code', item.sku_code).in('status', ['pending', 'placed']).eq('country', country));
-        if (item.model_number) filters.push(supabase.from('po_orders').select('*').eq('model_number', item.model_number).in('status', ['pending', 'placed']).eq('country', country));
+        if (item.asin) filters.push(supabase.from('po_orders').select('*').eq('user_id', user.id).eq('asin', item.asin).in('status', ['pending', 'placed']).eq('country', country));
+        if (item.sku_code) filters.push(supabase.from('po_orders').select('*').eq('user_id', user.id).eq('sku_code', item.sku_code).in('status', ['pending', 'placed']).eq('country', country));
+        if (item.model_number) filters.push(supabase.from('po_orders').select('*').eq('user_id', user.id).eq('model_number', item.model_number).in('status', ['pending', 'placed']).eq('country', country));
         
         if (filters.length > 0) {
           const results = await Promise.all(filters.map(f => f));
