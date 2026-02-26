@@ -356,6 +356,45 @@ export function AsinInventory() {
     }
   }, [inventory, exportModes, exportModesLoaded]);
   
+  // Client-side re-sort for fields that can't be sorted server-side (exportMode, performance)
+  // and apply performanceFilter
+  const processedInventory = useMemo(() => {
+    let items = [...inventory];
+
+    // Apply performanceFilter client-side
+    if (performanceFilter !== 'all') {
+      items = items.filter(item => {
+        const perf = performanceMap.get(item.id);
+        if (!perf) return performanceFilter === 'No Sales';
+        return perf.performance_category === performanceFilter;
+      });
+    }
+
+    // Client-side re-sort for exportMode
+    if (sortBy === 'exportMode') {
+      items.sort((a, b) => {
+        const aMode = exportModes[a.id] || 'global';
+        const bMode = exportModes[b.id] || 'global';
+        const cmp = aMode.localeCompare(bMode);
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    // Client-side re-sort for performance
+    if (sortBy === 'performance') {
+      items.sort((a, b) => {
+        const aPerf = performanceMap.get(a.id);
+        const bPerf = performanceMap.get(b.id);
+        const aScore = aPerf?.performance_score ?? -1;
+        const bScore = bPerf?.performance_score ?? -1;
+        const cmp = aScore - bScore;
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return items;
+  }, [inventory, sortBy, sortOrder, performanceFilter, performanceMap, exportModes]);
+
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -1711,9 +1750,9 @@ export function AsinInventory() {
                 <thead className="bg-muted/50">
                    <tr className="border-b">
                      <th className="w-12 p-3 text-left border-r">
-                        <Checkbox checked={selectedItems.size === inventory.length && inventory.length > 0} onCheckedChange={checked => {
+                         <Checkbox checked={selectedItems.size === processedInventory.length && processedInventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
-                      setSelectedItems(new Set(inventory.map(item => item.id)));
+                      setSelectedItems(new Set(processedInventory.map(item => item.id)));
                     } else {
                       setSelectedItems(new Set());
                     }
@@ -1817,7 +1856,7 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                   {inventory.map(item => <tr key={item.id} className={cn(
+                   {processedInventory.map(item => <tr key={item.id} className={cn(
                      "border-b hover:bg-muted/25 transition-colors",
                      item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
                    )}>
@@ -2075,7 +2114,7 @@ export function AsinInventory() {
             </div>
           </CardContent>
         </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {inventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+          {processedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
                  <div className="space-y-4">
                    <div className="flex items-start justify-between">
