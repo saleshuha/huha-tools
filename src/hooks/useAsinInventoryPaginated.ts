@@ -140,10 +140,19 @@ export function useAsinInventoryPaginated(
       query = query.gte('date_added', sevenDaysAgo.toISOString());
     }
 
-    // Apply sorting
-    const sortField = filters.sortBy === 'dateAdded' ? 'date_added' :
-                     filters.sortBy === 'serialNumber' ? 'serial_number' :
-                     filters.sortBy || 'date_added';
+    // Apply sorting — map UI sort keys to actual DB column names
+    const sortFieldMap: Record<string, string> = {
+      dateAdded: 'date_added',
+      serialNumber: 'serial_number',
+      restock: 'eligible_for_restock',
+      exportMode: 'date_added',  // no DB column — fallback
+      performance: 'date_added', // computed client-side — fallback
+      asin: 'asin',
+      quantity: 'quantity',
+      status: 'status',
+      title: 'title',
+    };
+    const sortField = sortFieldMap[filters.sortBy || 'dateAdded'] || 'date_added';
     const ascending = filters.sortOrder === 'asc';
     query = query.order(sortField, { ascending });
 
