@@ -1,103 +1,47 @@
 
 
-## Plan: Standardize PO Tracker Sub-Tab UI to Match Market Purchases Design Pattern
+## Plan: Fix Dual-Sort Functionality and Improve UI for Stock Column
 
-### Summary
-Create reusable UI components extracted from the Market Purchases design pattern, then apply them across all PO Tracker tab contents. No functional or logic changes -- purely visual consistency.
+### Root Cause
 
-### What Gets Created (Reusable Components)
+The `handleSort` function (line 475) has a type signature that only accepts `keyof POOrder | 'combined_title'`. The buttons pass `'serial_number_qty'` and `'instock_qty'` using `as any`, which works at runtime for setting state but creates a type mismatch that can cause subtle issues with the equality check `sortField === field` when TypeScript narrows types during compilation. Additionally, the Qty sort button's visual feedback may not render because the active state comparison gets optimized away.
 
-**1. `src/components/ui/compact-stat-bar.tsx`** -- Universal stat bar component
-- Renders a horizontal row of stat items in `p-2.5 rounded-xl bg-card border border-border` container
-- Each item: icon + label + value in `px-3 py-1.5 rounded-lg bg-muted/50`
-- Supports a highlighted "total" item with `bg-primary/10`
-- Replaces the current 9-card metrics grid in Overview tab with a compact inline version
+### Changes
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│ 📦 POs 14  │  📋 Items 1136  │  📊 In Stock 238  │  ... │ Total 2411 │
-└──────────────────────────────────────────────────────────────────┘
+**1. Fix `handleSort` type signature** (line 475)
+
+Update the function signature to explicitly include all sort field types:
+
+```typescript
+const handleSort = (field: keyof POOrder | 'combined_title' | 'instock_qty' | 'serial_number_qty') => {
 ```
 
-**2. `src/components/ui/toolbar-bar.tsx`** -- Universal toolbar wrapper
-- Consistent `flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card border border-border` container
-- Used for search bars, filter buttons, action buttons across all tabs
-- Provides slot-based composition (left content, spacer, right content)
+This matches the `sortField` state type at line 134 and removes the need for `as any` casts.
 
-**3. `src/components/ui/data-table.tsx`** -- Universal table wrapper component
-- Wraps native `<table>` with `border border-border rounded-xl overflow-hidden bg-card`
-- Standard header: `bg-muted/40 border-b border-border` with `text-xs uppercase tracking-wider text-muted-foreground`
-- Zebra striping: alternating `bg-muted/10` rows
-- Hover: `hover:bg-muted/20 transition-colors`
-- Matches the Market Purchases table pattern exactly
+**2. Remove `as any` casts from sort buttons** (lines 6008, 6021)
 
-### What Gets Updated (Tab Content Styling)
+Change the button onClick handlers to pass the sort field directly without `as any`:
+- `handleSort('serial_number_qty' as any)` becomes `handleSort('serial_number_qty')`
+- `handleSort('instock_qty' as any)` becomes `handleSort('instock_qty')`
 
-**Tab 1: Overview** (lines ~3605-4222)
-- Replace the 9-card `POMetricsCard` grid with the new `CompactStatBar` -- same data, compact horizontal layout
-- Keep the clickable filter behavior (onClick still sets `selectedMetricFilter`)
-- Wrap search + action buttons in `ToolbarBar`
-- Restyle the grouped/detailed tables using `DataTable` wrapper conventions: consistent header classes, zebra striping, rounded corners
-- Restyle pagination to match: compact `flex items-center justify-between` with muted text
+**3. Improve the dual-sort button UI** (lines 6006-6032)
 
-**Tab 2: Uploads** (lines ~4224-4328)
-- Wrap the card header actions in a `ToolbarBar` for "Load All POs" and "Delete Today's Uploads" buttons
-- Standardize button styling: `h-8 text-xs gap-1.5` pattern with rounded-lg
+Replace the current cramped inline buttons with a cleaner segmented control:
+- Slightly larger touch targets: `px-2.5 py-1.5` instead of `px-2 py-1`
+- Text size bumped from `text-[10px]` to `text-xs`
+- Clearer active state: `bg-primary/20 text-primary ring-1 ring-primary/30` for the active sort button
+- Rounded ends on the segmented group: `rounded-l-md` and `rounded-r-md`
+- Proper `cursor-pointer` on each button
 
-**Tab 3: Print Labels** (lines ~4330-7241)
-- Already fairly well-styled; minor alignment:
-  - Standardize the PO selection table header to use `bg-muted/40` + uppercase tracking pattern
-  - Wrap search/location controls in `ToolbarBar`
+### Files Modified
 
-**Tab 4: Profit Analyzer** -- delegates to `<ProductProfitAnalyzer />`, minimal changes needed
-
-**Tab 5: Shipped Orders** (ShippedOrdersUpload.tsx)
-- Add `CompactStatBar` at top showing Total Items, Total Qty, Last Modified
-- Wrap search + actions in `ToolbarBar`
-- Restyle the data table with `DataTable` conventions (zebra rows, rounded border, uppercase headers)
-- Add mobile card layout (md:hidden) matching Market Purchases responsive pattern
-
-**Tab 6: FBA Inventory** (FBAInventoryUpload.tsx)
-- Same treatment as Shipped Orders: stat bar, toolbar, standardized table
-
-**Tab 7: Purchase Links** -- delegates to `<PurchaseLinkManagement />`, already has its own styling
-
-### Design Pattern Reference (from Market Purchases)
-
-```text
-┌─ Compact Stat Bar ──────────────────────────────────────────────┐
-│ [icon] Label  Value  │  [icon] Label  Value  │  ... │  Total   │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─ Toolbar Bar ───────────────────────────────────────────────────┐
-│ 🔍 Search input     │  Filters  │  Refresh  │        N entries │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─ Data Table ────────────────────────────────────────────────────┐
-│  IMAGE │ PRODUCT │ QTY │ STATUS │ ACTIONS                      │  ← uppercase, muted
-├────────┼─────────┼─────┼────────┼──────────────────────────────┤
-│  ...   │  ...    │ ... │  ...   │  ...                         │  ← white
-│  ...   │  ...    │ ... │  ...   │  ...                         │  ← bg-muted/10
-│  ...   │  ...    │ ... │  ...   │  ...                         │  ← white
-└────────┴─────────┴─────┴────────┴──────────────────────────────┘
-```
-
-### Files to Create
-1. `src/components/ui/compact-stat-bar.tsx`
-2. `src/components/ui/toolbar-bar.tsx`
-3. `src/components/ui/data-table-wrapper.tsx`
-
-### Files to Modify
-1. `src/components/POTracker.tsx` -- Overview tab: swap metrics grid for stat bar, standardize tables/toolbar
-2. `src/components/po/ShippedOrdersUpload.tsx` -- Add stat bar, toolbar, standardized table + mobile cards
-3. `src/components/po/FBAInventoryUpload.tsx` -- Same treatment as Shipped Orders
+1. `src/components/POTracker.tsx` -- 3 edits:
+   - Line 475: Widen `handleSort` type signature
+   - Lines 6006-6032: Improve button UI and remove `as any` casts
 
 ### What Stays the Same
-- All data fetching, hooks, state management
-- All button click handlers and business logic
-- All dialog/modal content
-- Print Labels tab detailed print flow
-- Profit Analyzer component internals
-- Purchase Links component internals
-- POMetricsCard component file (kept for potential reuse elsewhere, just not rendered in Overview)
+
+- All sorting logic in the `filteredAndSortedOrders` useMemo (lines 2116-2131) is correct and unchanged
+- State type at line 134 already includes both fields
+- No functional changes to any other sort behavior
 
