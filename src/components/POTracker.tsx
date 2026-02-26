@@ -5989,10 +5989,33 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
-                            <div className="flex items-center gap-2">
+                          <TableHead className={`min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}>
+                            <div className="flex items-center gap-1">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Stock</span>
+                              <div className="flex items-center gap-0.5 ml-auto">
+                                <button
+                                  onClick={() => !originalOrderPreserved && handleSort('serial_number' as any)}
+                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${sortField === 'serial_number' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground'}`}
+                                  title="Sort by Serial Number"
+                                >
+                                  S/N
+                                  {sortField === 'serial_number' && (
+                                    <ChevronUp className={`h-3 w-3 ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                  )}
+                                </button>
+                                <div className="w-px h-3 bg-border/60" />
+                                <button
+                                  onClick={() => !originalOrderPreserved && handleSort('instock_qty' as any)}
+                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${sortField === 'instock_qty' ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground'}`}
+                                  title="Sort by In-Stock Quantity"
+                                >
+                                  Qty
+                                  {sortField === 'instock_qty' && (
+                                    <ChevronUp className={`h-3 w-3 ${sortDirection === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </TableHead>
                           <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[250px] max-w-[350px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
