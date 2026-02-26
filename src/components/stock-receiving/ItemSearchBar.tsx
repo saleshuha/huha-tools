@@ -625,22 +625,20 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         }
 
         // Process inventory results
+        // Always show inventory results (user may want to receive to stock, not PO)
         invData?.forEach(item => {
-          const exists = searchResults.find(r => r.asin === item.asin || r.sku_code === item.sku);
-          if (!exists) {
-            searchResults.push({
-              type: 'inventory',
-              asin: item.asin,
-              sku_code: item.sku,
-              title: item.title,
-              serial_number: item.serial_number,
-              resolved_barcode: resolvedBarcode,
-              context: item.serial_number
-                ? `In inventory (SN: ${item.serial_number})`
-                : `In inventory • ${item.status || 'active'}`,
-              image_url: item.asin ? imageMap.get(item.asin) : undefined
-            });
-          }
+          searchResults.push({
+            type: 'inventory',
+            asin: item.asin,
+            sku_code: item.sku,
+            title: item.title,
+            serial_number: item.serial_number,
+            resolved_barcode: resolvedBarcode,
+            context: item.serial_number
+              ? `In inventory (SN: ${item.serial_number})`
+              : `In inventory • ${item.status || 'active'}`,
+            image_url: item.asin ? imageMap.get(item.asin) : undefined
+          });
         });
 
         if (searchResults.length === 0) {

@@ -127,55 +127,66 @@ export function QuantityConfirmDialog({
     setLoadingPOs(true);
     
     try {
-      let query = supabase.from('po_orders').select('*');
+      const isInventoryItem = item.type === 'inventory';
+      let allPOs: any[] = [];
 
       if (item.type === 'po_group' && item.po_group) {
-        query = query.in('po_number', item.po_group.po_numbers);
+        const { data, error } = await supabase.from('po_orders').select('*')
+          .in('po_number', item.po_group.po_numbers)
+          .in('status', ['pending', 'placed'])
+          .eq('country', country);
+        if (error) throw error;
+        allPOs = data || [];
       } else if (item.po_numbers && item.po_numbers.length > 0) {
-        query = query.in('po_number', item.po_numbers);
-      }
+        let query = supabase.from('po_orders').select('*')
+          .in('po_number', item.po_numbers)
+          .in('status', ['pending', 'placed'])
+          .eq('country', country);
 
-      const conditions = [];
-      if (item.asin) conditions.push(`asin.eq.${item.asin}`);
-      if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
-      if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
+        const conditions = [];
+        if (item.asin) conditions.push(`asin.eq.${item.asin}`);
+        if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
+        if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
+        if (conditions.length > 0) query = query.or(conditions.join(','));
 
-      if (conditions.length > 0) {
-        query = query.or(conditions.join(','));
-      }
-      
-      if (!item.po_numbers || item.po_numbers.length === 0) {
+        const { data, error } = await query;
+        if (error) throw error;
+        allPOs = data || [];
+      } else {
+        // Search by ASIN/SKU/model across all POs
         const filters = [];
-        if (item.asin) filters.push(supabase.from('po_orders').select('*').eq('asin', item.asin).eq('country', country));
-        if (item.sku_code) filters.push(supabase.from('po_orders').select('*').eq('sku_code', item.sku_code).eq('country', country));
-        if (item.model_number) filters.push(supabase.from('po_orders').select('*').eq('model_number', item.model_number).eq('country', country));
+        if (item.asin) filters.push(supabase.from('po_orders').select('*').eq('asin', item.asin).in('status', ['pending', 'placed']).eq('country', country));
+        if (item.sku_code) filters.push(supabase.from('po_orders').select('*').eq('sku_code', item.sku_code).in('status', ['pending', 'placed']).eq('country', country));
+        if (item.model_number) filters.push(supabase.from('po_orders').select('*').eq('model_number', item.model_number).in('status', ['pending', 'placed']).eq('country', country));
         
-        if (filters.length === 0) {
-          setLoadingPOs(false);
-          return;
+        if (filters.length > 0) {
+          const results = await Promise.all(filters.map(f => f));
+          const combinedData = results.flatMap(r => r.data || []);
+          allPOs = Array.from(new Map(combinedData.map(po => [po.id, po])).values());
         }
-
-        const results = await Promise.all(filters.map(f => f));
-        const combinedData = results.flatMap(r => r.data || []);
-        const uniquePos = Array.from(new Map(combinedData.map(po => [po.id, po])).values());
-        setAvailablePOs(uniquePos.sort((a, b) => (a.priority || 999) - (b.priority || 999)));
-        setLoadingPOs(false);
-        return;
       }
 
-      const { data, error } = await query.eq('country', country);
-      if (error) throw error;
-      
-      const sortedPOs = (data || []).sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      // Filter out fully printed POs
+      const pendingPOs = allPOs.filter(po => po.quantity - (po.printed_quantity || 0) > 0);
+      const sortedPOs = pendingPOs.sort((a, b) => (a.priority || 999) - (b.priority || 999));
       setAvailablePOs(sortedPOs);
 
       const totalPending = sortedPOs.reduce((sum, po) => {
-        const pending = po.quantity - (po.printed_quantity || 0);
-        return sum + pending;
+        return sum + (po.quantity - (po.printed_quantity || 0));
       }, 0);
-      setMaxQuantity(totalPending);
+
+      // For inventory items with no pending POs, allow unlimited receiving
+      if (isInventoryItem && totalPending === 0) {
+        setMaxQuantity(999);
+      } else if (totalPending > 0) {
+        setMaxQuantity(totalPending);
+      } else {
+        // No POs at all — allow receiving (e.g. new item)
+        setMaxQuantity(999);
+      }
     } catch (error) {
       console.error('Error loading POs:', error);
+      setMaxQuantity(999); // Don't block on error
       toast({
         title: "Error loading PO details",
         description: "Failed to fetch purchase orders.",
@@ -299,13 +310,31 @@ export function QuantityConfirmDialog({
             </div>
           )}
 
+          {!loadingPOs && item.type === 'inventory' && availablePOs.length === 0 && (
+            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-700">
+                  Receiving to Inventory — no pending POs
+                </span>
+              </div>
+            </div>
+          )}
+
           {!loadingPOs && availablePOs.length > 0 && (
             <div className="space-y-3">
-              <div className="p-3 bg-primary/5 rounded-xl border border-primary/20">
+              <div className={cn(
+                "p-3 rounded-xl border",
+                item.type === 'inventory'
+                  ? "bg-amber-500/10 border-amber-500/20"
+                  : "bg-primary/5 border-primary/20"
+              )}>
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">
-                    Found in {availablePOs.length} PO{availablePOs.length !== 1 ? 's' : ''}
+                    {item.type === 'inventory'
+                      ? `Also found in ${availablePOs.length} pending PO${availablePOs.length !== 1 ? 's' : ''}`
+                      : `Found in ${availablePOs.length} PO${availablePOs.length !== 1 ? 's' : ''}`}
                   </span>
                 </div>
               </div>
