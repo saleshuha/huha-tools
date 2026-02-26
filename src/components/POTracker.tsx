@@ -26,6 +26,8 @@ import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { POReportsSection } from '@/components/po/POReportsSection';
 import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { POMetricsCard } from '@/components/po/POMetricsCard';
+import { CompactStatBar } from '@/components/ui/compact-stat-bar';
+import { ToolbarBar, ToolbarSpacer } from '@/components/ui/toolbar-bar';
 import { POAnalyticsDashboard } from '@/components/po/analytics/POAnalyticsDashboard';
 import { GeneratePurchaseLinkDialog } from '@/components/po/GeneratePurchaseLinkDialog';
 import { PurchaseLinkManagement } from '@/components/po/PurchaseLinkManagement';
@@ -3603,35 +3605,20 @@ export const POTracker = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {/* PHASE 6: Enhanced responsive grid layout */}
-        <div className="grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2 p-4 border border-border/20 rounded-xl bg-muted/5 backdrop-blur-sm">
-            {/* 1. Total PO Numbers */}
-            <POMetricsCard title="Total POs" icon={FileText} value={comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length} subValue={`${comprehensiveMetrics?.total_line_items || poOrders.length} items`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Unique PO numbers and total line items" />
-
-            {/* 2. Total Items & Units */}
-            <POMetricsCard title="Total Items" icon={Package} value={comprehensiveMetrics?.total_line_items || poOrders.length} subValue={`${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-primary/5" borderColorClass="border-l-primary" textColorClass="text-primary" tooltipText="Total line items and their total units" />
-
-            {/* 3. Items In Stock */}
-            <POMetricsCard title="Items In Stock" icon={TrendingUp} value={calculatedMetrics.inStock.count} subValue={`${calculatedMetrics.inStock.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.inStock.count, poOrders.length)} onClick={() => handleMetricClick('in-stock')} onExport={() => handleExportMetric('in-stock')} isExporting={exportingMetric === 'in-stock'} isActive={selectedMetricFilter === 'in-stock'} colorClass="from-green-500/5" borderColorClass="border-l-green-500" textColorClass="text-green-600" tooltipText="Items with inventory stock available" />
-
-            {/* 4. Matched with Source */}
-            <POMetricsCard title="Matched (Source)" icon={CheckCircle} value={calculatedMetrics.matched.count} subValue={`${calculatedMetrics.matched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.matched.count, poOrders.length)} onClick={() => handleMetricClick('matched')} onExport={() => handleExportMetric('matched')} isExporting={exportingMetric === 'matched'} isActive={selectedMetricFilter === 'matched'} colorClass="from-purple-500/5" borderColorClass="border-l-purple-500" textColorClass="text-purple-600" tooltipText="Items matched with Source supplier" />
-
-            {/* 5. Placed Orders */}
-            <POMetricsCard title="Placed to Source" icon={Truck} value={calculatedMetrics.placed.count} subValue={`${calculatedMetrics.placed.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.placed.count, poOrders.length)} onClick={() => handleMetricClick('placed')} onExport={() => handleExportMetric('placed')} isExporting={exportingMetric === 'placed'} isActive={selectedMetricFilter === 'placed'} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Orders placed or received from source" />
-
-            {/* 6. Pending Orders */}
-            <POMetricsCard title="Pending to Source" icon={Clock} value={calculatedMetrics.pending.count} subValue={`${calculatedMetrics.pending.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.pending.count, poOrders.length)} onClick={() => handleMetricClick('pending')} onExport={() => handleExportMetric('pending')} isExporting={exportingMetric === 'pending'} isActive={selectedMetricFilter === 'pending'} colorClass="from-orange-500/5" borderColorClass="border-l-orange-500" textColorClass="text-orange-600" tooltipText="Pending orders to source (matched but not placed)" />
-
-            {/* 7. Total Printed Items & Units (NEW) */}
-            <POMetricsCard title="Total Printed" icon={Printer} value={calculatedMetrics.printed.totalPrinted} subValue={`${calculatedMetrics.printed.totalPrintedQty} units printed`} percentage={calculateMetricPercentage(calculatedMetrics.printed.totalPrinted, poOrders.length)} isLoading={isLoadingComprehensiveMetrics} colorClass="from-purple-500/5" borderColorClass="border-l-purple-500" textColorClass="text-purple-600" tooltipText="Items that have been printed (fully or partially)" />
-
-            {/* 8. Print Progress Rate (NEW) */}
-            <POMetricsCard title="Print Progress" icon={TrendingUp} value={`${calculatedMetrics.printed.printCompletionRate.toFixed(1)}%`} subValue={`${calculatedMetrics.printed.totalPrintedQty} / ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)} units`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-indigo-500/5" borderColorClass="border-l-indigo-500" textColorClass="text-indigo-600" tooltipText="Overall printing completion rate" />
-
-            {/* 9. Sunsky Matched (NEW) */}
-            <POMetricsCard title="Sunsky Matched" icon={Package} value={calculatedMetrics.source.sunskyMatched.count} subValue={`${calculatedMetrics.source.sunskyMatched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.source.sunskyMatched.count, poOrders.length)} isLoading={isLoadingComprehensiveMetrics} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Items matched with Sunsky supplier" />
-        </div>
+          {/* Compact Stat Bar */}
+          <CompactStatBar
+            items={[
+              { icon: FileText, label: 'POs', value: comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length },
+              { icon: Package, label: 'Items', value: comprehensiveMetrics?.total_line_items || poOrders.length, highlight: true },
+              { icon: TrendingUp, label: 'In Stock', value: calculatedMetrics.inStock.count, onClick: () => handleMetricClick('in-stock'), isActive: selectedMetricFilter === 'in-stock' },
+              { icon: CheckCircle, label: 'Matched', value: calculatedMetrics.matched.count, onClick: () => handleMetricClick('matched'), isActive: selectedMetricFilter === 'matched' },
+              { icon: Truck, label: 'Placed', value: calculatedMetrics.placed.count, onClick: () => handleMetricClick('placed'), isActive: selectedMetricFilter === 'placed' },
+              { icon: Clock, label: 'Pending', value: calculatedMetrics.pending.count, onClick: () => handleMetricClick('pending'), isActive: selectedMetricFilter === 'pending' },
+              { icon: Printer, label: 'Printed', value: calculatedMetrics.printed.totalPrinted },
+              { icon: TrendingUp, label: 'Print %', value: `${calculatedMetrics.printed.printCompletionRate.toFixed(1)}%` },
+              { icon: Package, label: 'Sunsky', value: calculatedMetrics.source.sunskyMatched.count },
+            ]}
+          />
 
           {/* PHASE 4: Export All Metrics Button */}
           
@@ -3647,75 +3634,58 @@ export const POTracker = () => {
               </Button>
             </div>}
 
-          <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
-            <CardHeader className="pb-4 border-b border-border/10">
-              <CardTitle className="flex items-center gap-2 text-lg font-medium">
-                <Package className="h-5 w-5" />
-                Purchase Orders Summary
-                {isLoadingMetrics && <Loader2 className="h-4 w-4 animate-spin" />}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Full-width search bar */}
-                <div className="w-full relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
-                  <Input type="text" placeholder="Search PO number, ASIN, model, serial number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 h-11 border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl shadow-sm transition-all duration-200 placeholder:text-muted-foreground/60" />
-                  {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
-                  {!isSearching && filteredOrders.length > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground z-10">
-                      {filteredOrders.length} results
-                    </span>}
-                </div>
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <ToolbarBar>
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                <Input type="text" placeholder="Search PO number, ASIN, model, serial number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 pr-10 h-8 text-sm rounded-lg" />
+                {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
+                {!isSearching && filteredOrders.length > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground z-10">
+                    {filteredOrders.length}
+                  </span>}
+              </div>
                 
-                {/* Action buttons row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={async () => {
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={async () => {
                     try {
                       console.log('🔄 Refresh button clicked - loading ALL POs');
-                      await fetchPOOrders(true); // Force load ALL orders
+                      await fetchPOOrders(true);
                       refetchComprehensiveMetrics();
                       refetchMetrics();
-                      toast({
-                        title: "Success",
-                        description: "All PO data reloaded successfully"
-                      });
+                      toast({ title: "Success", description: "All PO data reloaded successfully" });
                     } catch (error) {
                       console.error('Error refreshing PO data:', error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to refresh PO data",
-                        variant: "destructive"
-                      });
+                      toast({ title: "Error", description: "Failed to refresh PO data", variant: "destructive" });
                     }
-                  }} disabled={isLoading} title="Reload ALL PO orders from database" className="border border-primary/30 text-primary hover:bg-primary/10 hover:shadow-sm rounded-lg transition-all duration-200">
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          Reload All
+                  }} disabled={isLoading} title="Reload ALL PO orders from database" className="h-8 text-xs gap-1.5 rounded-lg">
+                      {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Reload
                         </>}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={exportPOData} className="border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 hover:shadow-sm rounded-lg transition-all duration-200" title="Export filtered PO orders to CSV">
-                      <Download className="h-4 w-4 mr-1" />
-                      Export CSV
+                    <Button variant="outline" size="sm" onClick={exportPOData} className="h-8 text-xs gap-1.5 rounded-lg" title="Export filtered PO orders to CSV">
+                      <Download className="h-3.5 w-3.5" />
+                      Export
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteDialog(true)} className="border border-destructive/30 hover:shadow-sm rounded-lg transition-all duration-200">
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Bulk Delete POs
+                    <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteDialog(true)} className="h-8 text-xs gap-1.5 rounded-lg">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Bulk Delete
                     </Button>
                   </div>
+                  <ToolbarSpacer />
                   <div className="flex items-center gap-2">
-                    
-                    <div className="flex items-center bg-muted/30 backdrop-blur-sm rounded-lg p-1 gap-0.5">
-                      <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grouped')} className="h-8 rounded-md px-4 transition-all duration-200">
+                    <div className="flex items-center bg-muted/30 rounded-lg p-0.5 gap-0.5">
+                      <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grouped')} className="h-7 rounded-md px-3 text-xs">
                         Grouped
                       </Button>
-                      <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="h-8 rounded-md px-4 transition-all duration-200">
+                      <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="h-7 rounded-md px-3 text-xs">
                         Line Items
                       </Button>
                     </div>
                     <Select value={statusFilter} onValueChange={value => setStatusFilter(value as POOrder['status'] | 'all')}>
-                      <SelectTrigger className="w-[180px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200">
-                        <SelectValue placeholder="Filter by status" />
+                      <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg">
+                        <SelectValue placeholder="Status" />
                       </SelectTrigger>
                        <SelectContent className="bg-popover border-border shadow-medium z-50">
                          <SelectItem value="all">All Statuses</SelectItem>
@@ -3727,8 +3697,8 @@ export const POTracker = () => {
                        </SelectContent>
                     </Select>
                     <Select value={shipToFilter} onValueChange={value => setShipToFilter(value)}>
-                      <SelectTrigger className="w-[180px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200">
-                        <SelectValue placeholder="Filter by location" />
+                      <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg">
+                        <SelectValue placeholder="Location" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Locations</SelectItem>
@@ -3738,7 +3708,7 @@ export const POTracker = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+            </ToolbarBar>
 
                 {/* Filter Status Indicators */}
                 <div className="flex items-center justify-between p-4 bg-muted/20 backdrop-blur-sm rounded-xl border border-border/20 shadow-sm">
@@ -4217,8 +4187,6 @@ export const POTracker = () => {
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="upload" className="space-y-6">
