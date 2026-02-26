@@ -2126,9 +2126,15 @@ export const POTracker = () => {
           const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
           const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
           const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
-          if (aSN < bSN) return sortDirection === 'asc' ? -1 : 1;
-          if (aSN > bSN) return sortDirection === 'asc' ? 1 : -1;
-          return 0;
+          const aHas = aSN.length > 0;
+          const bHas = bSN.length > 0;
+          // Push blanks to bottom always
+          if (aHas && !bHas) return -1;
+          if (!aHas && bHas) return 1;
+          if (!aHas && !bHas) return 0;
+          // Both have S/N — sort by value respecting direction
+          const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
+          return sortDirection === 'asc' ? cmp : -cmp;
         }
         if (sortField === 'combined_title') {
           aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
@@ -6376,6 +6382,15 @@ export const POTracker = () => {
                             const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
                             const aSN = aMatch?.serialNumbers?.[0] || aMatch?.serialNumber || aMatch?.inventoryItem?.serial_number || '';
                             const bSN = bMatch?.serialNumbers?.[0] || bMatch?.serialNumber || bMatch?.inventoryItem?.serial_number || '';
+                            const aHas = aSN.length > 0;
+                            const bHas = bSN.length > 0;
+                            // Push blanks to bottom always
+                            if (aHas && !bHas) return -1;
+                            if (!aHas && bHas) return 1;
+                            if (!aHas && !bHas) {
+                              const stableMap = stableLabelsOrderRef.current;
+                              return (stableMap.get(a.id) ?? Infinity) - (stableMap.get(b.id) ?? Infinity);
+                            }
                             const cmp = aSN.localeCompare(bSN, undefined, { numeric: true, sensitivity: 'base' });
                             const result = sortDirection === 'asc' ? cmp : -cmp;
                             if (result !== 0) return result;
