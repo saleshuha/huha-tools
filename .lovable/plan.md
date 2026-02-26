@@ -1,47 +1,105 @@
 
+### Objective
+Fix the Labels tab Stock column so both sort controls work reliably:
+1) S/N sort (asc/desc)  
+2) In-stock Qty sort (asc/desc)  
+and improve the header UI so the Qty sort control is always visible.
 
-## Plan: Fix Dual-Sort Functionality and Improve UI for Stock Column
+### What I found in the codebase
+- The Stock header buttons are wired to `handleSort('serial_number_qty')` and `handleSort('instock_qty')` in `src/components/POTracker.tsx` (around lines 6006–6032).
+- The table currently shown on `/po-tracker?tab=labels` (print step) is **not** sorted by the earlier global `filteredAndSortedOrders` block.
+- Instead, Labels print-step rows are sorted in a **separate local sorter** at `ordersToDisplay.sort(...)` (around lines 6360+).
+- That local sorter does **not** implement special cases for:
+  - `'instock_qty'`
+  - `'serial_number_qty'`
+- Because of that, those fields fall through to `a[sortField] / b[sortField]`, which are undefined for these synthetic sort keys, so row order does not actually change.
+- Additional UI issue: Stock header column width is tight (`min-w-[160px]` with `table-fixed` layout), so the segmented controls can be clipped, which explains “Qty sorting is not showing”.
 
-### Root Cause
+### Root cause
+Two separate issues:
+1) **Logic mismatch**: Labels table sorting path is missing handlers for the two synthetic stock sort fields.  
+2) **Header layout constraint**: Stock header width/layout can hide or clip the Qty segment in some viewport/table width combinations.
 
-The `handleSort` function (line 475) has a type signature that only accepts `keyof POOrder | 'combined_title'`. The buttons pass `'serial_number_qty'` and `'instock_qty'` using `as any`, which works at runtime for setting state but creates a type mismatch that can cause subtle issues with the equality check `sortField === field` when TypeScript narrows types during compilation. Additionally, the Qty sort button's visual feedback may not render because the active state comparison gets optimized away.
+---
 
-### Changes
+### Implementation plan
 
-**1. Fix `handleSort` type signature** (line 475)
+#### 1) Unify sort field typing to avoid drift
+In `POTracker.tsx`, define and reuse one `SortField` type:
+- `keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'`
 
-Update the function signature to explicitly include all sort field types:
+Apply it to:
+- `sortField` state type
+- `handleSort` parameter type
+- any local sorter branches that switch on sort keys
 
-```typescript
-const handleSort = (field: keyof POOrder | 'combined_title' | 'instock_qty' | 'serial_number_qty') => {
-```
+This removes fragile `as any` patterns and keeps all sort paths consistent.
 
-This matches the `sortField` state type at line 134 and removes the need for `as any` casts.
+#### 2) Add shared stock sort value helper(s)
+Create helper(s) in `POTracker.tsx` used by both sorting blocks:
+- `getInStockQtyForSort(order)`  
+  - Uses existing `findInventoryMatch(...)`
+  - Returns numeric qty aligned with what Stock cell represents (0 when not in-stock/closed cases as needed)
+- `getSerialForSort(order)`  
+  - Handles both match shapes:
+    - ASIN path: `serialNumbers[]`
+    - SKU path: `serialNumber` / `inventoryItem.serial_number`
+  - Produces a deterministic comparable string (normalized, case-insensitive, numeric-aware compare support)
 
-**2. Remove `as any` casts from sort buttons** (lines 6008, 6021)
+This prevents divergence between “global” and “labels” sort behavior.
 
-Change the button onClick handlers to pass the sort field directly without `as any`:
-- `handleSort('serial_number_qty' as any)` becomes `handleSort('serial_number_qty')`
-- `handleSort('instock_qty' as any)` becomes `handleSort('instock_qty')`
+#### 3) Fix Labels print-step sorter (critical fix)
+In the `ordersToDisplay.sort(...)` block (lines ~6360+), add explicit branches:
+- `sortField === 'instock_qty'` → compare `getInStockQtyForSort(a/b)`
+- `sortField === 'serial_number_qty'` → compare `getSerialForSort(a/b)` with `localeCompare(..., { numeric: true, sensitivity: 'base' })`
 
-**3. Improve the dual-sort button UI** (lines 6006-6032)
+Keep existing direction toggle behavior (`asc`/`desc`) and stable tie-breaker logic.
 
-Replace the current cramped inline buttons with a cleaner segmented control:
-- Slightly larger touch targets: `px-2.5 py-1.5` instead of `px-2 py-1`
-- Text size bumped from `text-[10px]` to `text-xs`
-- Clearer active state: `bg-primary/20 text-primary ring-1 ring-primary/30` for the active sort button
-- Rounded ends on the segmented group: `rounded-l-md` and `rounded-r-md`
-- Proper `cursor-pointer` on each button
+#### 4) Keep global sorter aligned
+In the earlier sorter (`filteredAndSortedOrders`, lines ~2108+), switch serial/qty comparisons to the same helper(s) so both tabs behave consistently and future regressions are less likely.
 
-### Files Modified
+#### 5) Improve Stock header UI so Qty is always visible
+Update Stock header structure/classes (same file):
+- Increase column sizing from `min-w-[160px]` to a stable width such as `w-[220px] min-w-[220px]`.
+- Use a non-clipping layout:
+  - label section + segmented control with `shrink-0`
+  - ensure both segments render at all times
+- Keep active-state visuals but tighten spacing for reliability.
+- Add clearer disabled UX when `originalOrderPreserved` is true (e.g., disabled styling/tooltip text indicating to use “Enable Sorting”).
 
-1. `src/components/POTracker.tsx` -- 3 edits:
-   - Line 475: Widen `handleSort` type signature
-   - Lines 6006-6032: Improve button UI and remove `as any` casts
+#### 6) Regression check for original-order mode
+Ensure existing “preserve order while printing” behavior remains intact:
+- When preserved mode is ON, sort controls should be visibly disabled and explain why.
+- When user enables sorting, both S/N and Qty work immediately.
 
-### What Stays the Same
+---
 
-- All sorting logic in the `filteredAndSortedOrders` useMemo (lines 2116-2131) is correct and unchanged
-- State type at line 134 already includes both fields
-- No functional changes to any other sort behavior
+### Files to modify
+- `src/components/POTracker.tsx`
+  - sort field typing consolidation
+  - shared stock sort helper(s)
+  - labels sort block fixes
+  - global sort alignment
+  - stock header width/layout update
 
+---
+
+### Validation checklist (end-to-end)
+1) Go to `/po-tracker?tab=labels`, enter print-step table.
+2) Click **S/N**:
+   - row order changes
+   - icon state toggles asc/desc on repeat click
+3) Click **Qty**:
+   - row order changes by in-stock quantity
+   - icon state toggles asc/desc on repeat click
+4) Confirm **Qty segment is visible** at common desktop widths (including ~1336px).
+5) Test both consolidated modes (merged/detailed) if available.
+6) Verify no regressions for other sort columns (SKU, PO Qty, Scanned Barcode).
+7) Verify preserved-order mode still prevents reordering until explicitly enabled.
+
+---
+
+### Technical details
+- The key bug is not in the button handler; it is in the Labels-specific sort pipeline (`ordersToDisplay.sort`) that ignored synthetic fields.
+- `findInventoryMatch` returns different shapes depending on ASIN/SKU matches; serial sorting must read both `serialNumbers[]` and `serialNumber`.
+- With `table-fixed`, `min-w` alone is not always enough for complex header controls; explicit width + `shrink-0` segmented group is the reliable fix.
