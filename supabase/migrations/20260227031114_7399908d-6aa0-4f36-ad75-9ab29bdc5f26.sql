@@ -1,0 +1,1 @@
+UPDATE asin_inventory SET is_active = true WHERE id = '738896fd-df79-462b-b0b4-2878aa34f650'
