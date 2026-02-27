@@ -446,22 +446,25 @@ serve(async (req) => {
           }
         }
 
-        // Add remaining quantity to inventory (only if NOT a PO item)
-        if (remainingQuantity > 0 && allocations.length === 0) {
-          console.log('[SR v3.1] Adding to inventory (non-PO item):', {
+        // ✅ ALWAYS update inventory with the FULL received quantity
+        // PO allocation is for label tracking — inventory must always reflect physical stock
+        console.log('[SR v3.1] Updating inventory stock:', {
+          asin: item.asin,
+          sku: item.sku_code,
+          quantity: item.quantity,
+          allocatedToPOs: allocations.length,
+          reason: 'Inventory always updated regardless of PO allocation'
+        });
+        
+        try {
+          await updateInventoryStock(supabase, item, item.quantity, user.id);
+          totalAddedToInventory += item.quantity;
+        } catch (invError) {
+          console.error('[SR v3.1] ❌ Inventory update failed (non-fatal):', {
             asin: item.asin,
-            sku: item.sku_code,
-            quantity: remainingQuantity
+            error: invError.message
           });
-          await updateInventoryStock(supabase, item, remainingQuantity, user.id);
-          totalAddedToInventory += remainingQuantity;
-        } else if (remainingQuantity > 0 && allocations.length > 0) {
-          console.log('[SR v3.1] ⚠️ Skipping inventory add for PO item with remaining quantity:', {
-            asin: item.asin,
-            sku: item.sku_code,
-            remainingQty: remainingQuantity,
-            reason: 'This is a PO item - remaining quantity indicates partial allocation'
-          });
+          // Don't throw — PO marking was already done, just log the failure
         }
 
         // Record receiving event with proper error handling
@@ -475,7 +478,7 @@ serve(async (req) => {
             title: item.title,
             quantity_received: item.quantity,
             quantity_allocated_to_pos: item.quantity - remainingQuantity,
-            quantity_added_to_inventory: remainingQuantity,
+            quantity_added_to_inventory: item.quantity,
             matched_pos: allocations.map(a => ({
               po_number: a.po.po_number,
               quantity: a.quantity,
