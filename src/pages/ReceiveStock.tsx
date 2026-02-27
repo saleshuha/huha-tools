@@ -336,6 +336,7 @@ export default function ReceiveStock() {
         description: 'Click the Refresh button to load available printers',
         duration: 5000
       });
+      isSubmittingRef.current = false;
       return;
     }
     const item = {

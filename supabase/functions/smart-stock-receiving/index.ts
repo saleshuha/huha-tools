@@ -850,6 +850,7 @@ async function updateInventoryStock(
     .eq('country', item.country)
     // ✅ REMOVED status filter - allow receiving for items in ANY status (sold, in-stock, ordered, no-stock)
     .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'}`)
+    .or('is_active.is.null,is_active.eq.true')
     .order('updated_at', { ascending: false })
     .limit(1)
     .single();
@@ -879,6 +880,7 @@ async function updateInventoryStock(
     .update({ 
       quantity: newQuantity,
       status: 'in-stock',
+      is_active: true,
       last_restock_date: new Date().toISOString()
     })
     .eq('id', inventoryItem.id);
