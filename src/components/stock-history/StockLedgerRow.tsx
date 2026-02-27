@@ -7,7 +7,7 @@ import { StockChange } from './StockHistoryChangeCard';
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   po_order: { label: 'PO', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  manual: { label: 'B2B', className: 'bg-muted text-muted-foreground' },
+  manual: { label: 'Restock', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   stock_receiving: { label: 'Received', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   sale: { label: 'Sale', className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
   restock: { label: 'Restock', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
