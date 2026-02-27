@@ -910,6 +910,7 @@ async function updateInventoryStock(
     serial_number: item.serial_number || null,
     change_amount: quantityToAdd,
     change_reason: 'stock_receiving',
+    reference_type: 'stock_receiving',
     previous_quantity: inventoryItem.quantity,
     new_quantity: newQuantity,
     notes: 'Stock received via receiving session',

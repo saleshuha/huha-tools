@@ -6,14 +6,15 @@ import { cn } from '@/lib/utils';
 import { StockChange } from './StockHistoryChangeCard';
 
 const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  po_order: { label: 'PO', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  manual: { label: 'Restock', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  po_order: { label: 'PO Fulfill', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  manual: { label: 'B2B', className: 'bg-muted text-muted-foreground' },
   stock_receiving: { label: 'Received', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   sale: { label: 'Sale', className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
   restock: { label: 'Restock', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   return: { label: 'Return', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
   damage: { label: 'Damage', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   adjustment: { label: 'Adjust', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  fulfillment: { label: 'Fulfilled', className: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
 };
 
 interface StockLedgerRowProps {
