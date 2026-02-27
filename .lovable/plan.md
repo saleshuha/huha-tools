@@ -1,46 +1,29 @@
 
 
-## Root Cause Analysis
+## Issues Found in Today's Changes
 
-I investigated the database and edge function logs. Here's what's happening with ASIN B0DYG62XJJ:
+### Issue 1: `isSubmittingRef` never reset on early return (Critical - blocks all future submissions)
 
-### Problem 1: History showing 2 items
+In `ReceiveStock.tsx` line 329, `isSubmittingRef.current = true` is set, and then the dialog is closed on line 332. But on line 334-339, there's an early `return` if no printer is selected — **without resetting `isSubmittingRef.current = false`**. After this happens once, the user can never submit again until they refresh the page.
 
-The receiving function was triggered **twice**, 27 seconds apart (02:54:29 and 02:54:56). This happens because:
-- The edge function returns an **optimistic response** almost instantly (via `EdgeRuntime.waitUntil`)
-- `isProcessing` flips back to `false` immediately, re-enabling the confirm button
-- The dialog does **not close** after submission, allowing the user to click again
-- Result: Two `receiving_history` records and the inventory quantity incremented twice (from 3→4→5 instead of 3→4)
+**Fix**: Reset `isSubmittingRef.current = false` before the early return on line 339.
 
-### Problem 2: Inventory not showing today's update
+### Issue 2: Edge function can update inactive inventory records (Data integrity)
 
-There are **two duplicate `asin_inventory` records** for B0DYG62XJJ:
+In `updateInventoryStock` (edge function line 846-855), the query finds inventory items without filtering `is_active`. If there are multiple records for the same ASIN (one active, one inactive), the `order('updated_at', { ascending: false })` picks whichever was updated most recently — which could be the inactive one. Stock gets added to an invisible record.
 
-| Record | Quantity | Last Updated |
-|--------|----------|-------------|
-| `0db23545` | 1 | 2025-12-30 (stale) |
-| `738896fd` | 5 | 2026-02-27 (today) |
+**Fix**: Add `.or('is_active.is.null,is_active.eq.true')` to the inventory query in the edge function, so it only updates active records.
 
-The `updateInventoryStock` function uses `.limit(1).single()` — it picks one record non-deterministically. All stock receiving updates landed on `738896fd`, while the inventory page may display `0db23545` (showing qty 1, no recent update).
+### Issue 3: Edge function doesn't restore `is_active` on stock update
+
+When the edge function updates inventory (line 877-884), it sets `quantity` and `status: 'in-stock'` but never sets `is_active: true`. If an item was previously disabled, receiving stock won't make it visible again.
+
+**Fix**: Add `is_active: true` to the update payload at line 880.
 
 ---
 
-## Fix Plan
+### Files to Modify
 
-### Fix 1: Prevent double-submission (ReceiveStock.tsx)
-- Add a local `isSubmitting` ref/state guard at the top of `handleConfirm`
-- Set it `true` immediately on entry, preventing re-entry
-- Close the dialog (`setShowDialog(false)`) right after calling `processSingleItem`, not after awaiting results
-
-### Fix 2: Fix inventory record selection (Edge Function)
-- In `updateInventoryStock`, add `.order('updated_at', { ascending: false })` before `.limit(1).single()` so it always picks the most recently active record
-- This ensures stock updates consistently hit the correct record when duplicates exist
-
-### Fix 3: Consolidate duplicate inventory records (Data fix)
-- Merge the two records: add the stale record's quantity (1) to the active record, then delete the stale one
-- This is a one-time data cleanup via SQL
-
-### Files Modified
-- `src/pages/ReceiveStock.tsx` — double-submit guard + immediate dialog close
-- `supabase/functions/smart-stock-receiving/index.ts` — order inventory query by `updated_at DESC`
+1. **`src/pages/ReceiveStock.tsx`** — Add `isSubmittingRef.current = false` before the early return at line 339
+2. **`supabase/functions/smart-stock-receiving/index.ts`** — Add `is_active` filter to inventory query + set `is_active: true` in the update payload
 
