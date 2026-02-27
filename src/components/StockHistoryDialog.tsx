@@ -2,14 +2,17 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from './ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { History, Package, AlertCircle, RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { History, Package, AlertCircle, RefreshCw, TrendingUp, TrendingDown, Minus, BarChart3, Hash, Layers } from 'lucide-react';
 import { StockHistoryFilters, StockHistoryFilterState } from './stock-history/StockHistoryFilters';
 import { StockChange } from './stock-history/StockHistoryChangeCard';
 import { StockHistoryExport } from './stock-history/StockHistoryExport';
+import { StockHistoryChart } from './stock-history/StockHistoryChart';
 import { StockLedgerRow } from './stock-history/StockLedgerRow';
 import { isWithinInterval } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface StockHistoryDialogProps {
   inventoryId: string;
@@ -107,10 +110,8 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
     return { currentStock, totalIncrease, totalDecrease, netChange, totalChanges: stockChanges.length };
   }, [stockChanges]);
 
-  // Compute running balances (changes are sorted newest-first, so we compute bottom-up)
   const runningBalances = useMemo(() => {
     const balances = new Map<string, number>();
-    // Walk from oldest to newest to build running balance
     const sorted = [...filteredChanges].reverse();
     sorted.forEach(change => {
       balances.set(change.id, change.new_quantity);
@@ -139,9 +140,9 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
           <History className="w-3.5 h-3.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[85vh] w-[95vw] flex flex-col p-0">
+      <DialogContent className="max-w-5xl max-h-[85vh] w-[95vw] flex flex-col p-0 gap-0">
         {/* Header */}
-        <DialogHeader className="px-5 pt-5 pb-3 border-b space-y-0">
+        <DialogHeader className="px-5 pt-5 pb-0 space-y-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -159,39 +160,28 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               </Button>
             </div>
           </div>
-
-          {/* Summary bar */}
-          {summary && (
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Current:</span>
-                <span className="font-bold text-lg leading-none">{summary.currentStock}</span>
-                <span className="text-muted-foreground">units</span>
-              </div>
-              <div className="w-px h-5 bg-border" />
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{summary.totalIncrease}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
-                <span className="font-semibold text-rose-600 dark:text-rose-400">-{summary.totalDecrease}</span>
-              </div>
-              <div className="w-px h-5 bg-border" />
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Net:</span>
-                <span className={`font-bold ${summary.netChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                  {summary.netChange >= 0 ? '+' : ''}{summary.netChange}
-                </span>
-              </div>
-              <div className="w-px h-5 bg-border" />
-              <span className="text-muted-foreground">{summary.totalChanges} entries</span>
-            </div>
-          )}
         </DialogHeader>
 
+        {/* Stat Bar */}
+        {summary && (
+          <div className="px-5 pt-3 pb-0">
+            <div className="flex items-stretch gap-2 flex-wrap">
+              <StatPill icon={<Layers className="w-3.5 h-3.5" />} label="Current" value={String(summary.currentStock)} accent="primary" />
+              <StatPill icon={<TrendingUp className="w-3.5 h-3.5" />} label="In" value={`+${summary.totalIncrease}`} accent="emerald" />
+              <StatPill icon={<TrendingDown className="w-3.5 h-3.5" />} label="Out" value={`-${summary.totalDecrease}`} accent="rose" />
+              <StatPill
+                icon={summary.netChange >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                label="Net"
+                value={`${summary.netChange >= 0 ? '+' : ''}${summary.netChange}`}
+                accent={summary.netChange >= 0 ? 'emerald' : 'rose'}
+              />
+              <StatPill icon={<Hash className="w-3.5 h-3.5" />} label="Entries" value={String(summary.totalChanges)} accent="muted" />
+            </div>
+          </div>
+        )}
+
         {/* Content */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 mt-3">
           {loading ? (
             <div className="flex items-center justify-center py-16 space-x-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -212,55 +202,118 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               </p>
             </div>
           ) : (
-            <>
-              {/* Compact filters */}
-              <div className="px-5 py-2.5 border-b bg-muted/20">
-                <StockHistoryFilters
-                  filters={filters}
-                  onFilterChange={setFilters}
-                  referenceTypes={referenceTypes}
-                  users={uniqueUsers}
-                  totalCount={stockChanges.length}
-                  filteredCount={filteredChanges.length}
-                />
+            <Tabs defaultValue="ledger" className="flex flex-col flex-1 min-h-0">
+              <div className="px-5 border-b">
+                <TabsList className="h-9 bg-transparent p-0 gap-4">
+                  <TabsTrigger
+                    value="ledger"
+                    className="h-9 px-0 pb-2 pt-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs font-semibold uppercase tracking-wider"
+                  >
+                    <History className="w-3.5 h-3.5 mr-1.5" />
+                    Ledger
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="analytics"
+                    className="h-9 px-0 pb-2 pt-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs font-semibold uppercase tracking-wider"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
+                    Analytics
+                  </TabsTrigger>
+                </TabsList>
               </div>
 
-              {/* Ledger table */}
-              <div className="flex-1 overflow-y-auto px-1">
-                {filteredChanges.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Minus className="h-8 w-8 text-muted-foreground mx-auto opacity-40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No entries match filters</p>
+              {/* Ledger Tab */}
+              <TabsContent value="ledger" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+                {/* Compact filters */}
+                <div className="px-5 py-2.5 border-b bg-muted/20">
+                  <StockHistoryFilters
+                    filters={filters}
+                    onFilterChange={setFilters}
+                    referenceTypes={referenceTypes}
+                    users={uniqueUsers}
+                    totalCount={stockChanges.length}
+                    filteredCount={filteredChanges.length}
+                  />
+                </div>
+
+                {/* Ledger table */}
+                <div className="flex-1 overflow-y-auto">
+                  {filteredChanges.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Minus className="h-8 w-8 text-muted-foreground mx-auto opacity-40 mb-2" />
+                      <p className="text-sm text-muted-foreground">No entries match filters</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                        <TableRow className="hover:bg-transparent border-b-2 border-border">
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold w-[90px]">Date</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold w-[100px]">User</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold w-[90px]">Type</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold text-center w-[120px]">Prev → New</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold text-right w-[70px]">Change</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold text-right w-[70px]">Balance</TableHead>
+                          <TableHead className="py-2.5 px-3 text-[10px] uppercase tracking-wider font-bold">Reason</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredChanges.map((change, index) => (
+                          <StockLedgerRow
+                            key={change.id}
+                            change={change}
+                            runningBalance={runningBalances.get(change.id) ?? change.new_quantity}
+                            isEven={index % 2 === 0}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+
+                {/* Footer */}
+                {filteredChanges.length > 0 && (
+                  <div className="px-5 py-2 border-t bg-muted/30 text-[11px] text-muted-foreground flex items-center justify-between">
+                    <span>
+                      Showing <span className="font-semibold text-foreground">{filteredChanges.length}</span> of{' '}
+                      <span className="font-semibold text-foreground">{stockChanges.length}</span> entries
+                    </span>
+                    <span className="font-mono">
+                      Latest: {filteredChanges[0] && new Date(filteredChanges[0].created_at).toLocaleDateString()}
+                    </span>
                   </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold w-[80px]">Date</TableHead>
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold w-[100px]">User</TableHead>
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold w-[90px]">Type</TableHead>
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-right w-[70px]">Change</TableHead>
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold text-right w-[70px]">Balance</TableHead>
-                        <TableHead className="py-2 px-3 text-[10px] uppercase tracking-wider font-semibold">Reason</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredChanges.map(change => (
-                        <StockLedgerRow
-                          key={change.id}
-                          change={change}
-                          runningBalance={runningBalances.get(change.id) ?? change.new_quantity}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
                 )}
-              </div>
-            </>
+              </TabsContent>
+
+              {/* Analytics Tab */}
+              <TabsContent value="analytics" className="flex-1 overflow-y-auto mt-0 p-5">
+                <StockHistoryChart changes={stockChanges} />
+              </TabsContent>
+            </Tabs>
           )}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* Compact stat pill component */
+function StatPill({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
+  const colorMap: Record<string, string> = {
+    primary: 'bg-primary/10 text-primary',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    muted: 'bg-muted text-muted-foreground',
+  };
+  
+  return (
+    <div className={cn(
+      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs",
+      colorMap[accent] || colorMap.muted
+    )}>
+      {icon}
+      <span className="text-[10px] uppercase tracking-wider opacity-70">{label}</span>
+      <span className="font-bold text-sm">{value}</span>
+    </div>
   );
 }
 
