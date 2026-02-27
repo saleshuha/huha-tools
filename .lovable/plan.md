@@ -1,29 +1,29 @@
 
 
-## Issues Found in Today's Changes
+## Plan: Advanced Stock Ledger UI Overhaul
 
-### Issue 1: `isSubmittingRef` never reset on early return (Critical - blocks all future submissions)
+### Changes
 
-In `ReceiveStock.tsx` line 329, `isSubmittingRef.current = true` is set, and then the dialog is closed on line 332. But on line 334-339, there's an early `return` if no printer is selected — **without resetting `isSubmittingRef.current = false`**. After this happens once, the user can never submit again until they refresh the page.
+#### 1. Redesign `StockHistoryDialog.tsx` — Enhanced layout with tabs and chart
+- Add a **Tabs** component with two views: "Ledger" (table) and "Analytics" (charts from existing `StockHistoryChart`)
+- Redesign summary bar into a **CompactStatBar**-style horizontal pill row with 5 metrics: Current Stock, Total In, Total Out, Net Change, Entry Count — each with colored icons
+- Add a **Previous Qty → New Qty** column to the table header
+- Add sticky table header with `DataTableWrapper` conventions (uppercase, tracking-wider)
+- Show row count footer with "Showing X of Y entries"
 
-**Fix**: Reset `isSubmittingRef.current = false` before the early return on line 339.
+#### 2. Redesign `StockLedgerRow.tsx` — Richer table rows
+- Add **Prev → New** column showing `previous_quantity → new_quantity` with percentage change badge
+- Add colored left-border indicator on each row (green for increase, red for decrease, gray for zero)
+- Improve expanded details panel: use a card-style layout with dividers instead of plain grid
+- Add relative time ("2h ago") next to the absolute date
+- Show user avatar placeholder (initials circle) instead of plain text
+- Zebra-stripe rows using `dataTableRowClass`
 
-### Issue 2: Edge function can update inactive inventory records (Data integrity)
+#### 3. Minor polish across components
+- `StockHistoryFilters.tsx`: No changes needed (already recently redesigned)
+- `StockHistoryExport.tsx`: No changes needed
 
-In `updateInventoryStock` (edge function line 846-855), the query finds inventory items without filtering `is_active`. If there are multiple records for the same ASIN (one active, one inactive), the `order('updated_at', { ascending: false })` picks whichever was updated most recently — which could be the inactive one. Stock gets added to an invisible record.
-
-**Fix**: Add `.or('is_active.is.null,is_active.eq.true')` to the inventory query in the edge function, so it only updates active records.
-
-### Issue 3: Edge function doesn't restore `is_active` on stock update
-
-When the edge function updates inventory (line 877-884), it sets `quantity` and `status: 'in-stock'` but never sets `is_active: true`. If an item was previously disabled, receiving stock won't make it visible again.
-
-**Fix**: Add `is_active: true` to the update payload at line 880.
-
----
-
-### Files to Modify
-
-1. **`src/pages/ReceiveStock.tsx`** — Add `isSubmittingRef.current = false` before the early return at line 339
-2. **`supabase/functions/smart-stock-receiving/index.ts`** — Add `is_active` filter to inventory query + set `is_active: true` in the update payload
+### Files Modified
+1. `src/components/StockHistoryDialog.tsx` — Tabs, stat bar, chart integration, footer
+2. `src/components/stock-history/StockLedgerRow.tsx` — Enhanced row with prev→new, avatars, borders, zebra stripes
 
