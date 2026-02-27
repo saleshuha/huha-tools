@@ -314,6 +314,8 @@ export default function ReceiveStock() {
     setShowDialog(true);
   };
 
+  const isSubmittingRef = useRef(false);
+
   const handleConfirm = async (data: {
     quantity: number;
     serial_number?: string;
@@ -323,6 +325,11 @@ export default function ReceiveStock() {
     manualPOAllocations?: Array<{ po_id: string; po_number: string; quantity: number; priority?: number }>;
   }) => {
     if (!selectedItem) return;
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
+    // Close dialog immediately to prevent double-submission
+    setShowDialog(false);
 
     if (data.autoPrint && directPrintEnabled && !selectedPrinter) {
       toast.error('Please select a printer first', {
@@ -506,8 +513,8 @@ export default function ReceiveStock() {
     if (!results || results.length === 0 || !results[0].success) {
       console.error('[Receive] Failed to process item:', results);
       toast.error('Failed to receive item. Please check logs.');
-      setShowDialog(false);
       setSelectedItem(null);
+      isSubmittingRef.current = false;
       return;
     }
     
@@ -552,8 +559,8 @@ export default function ReceiveStock() {
         searchBarRef.current?.focusAndSelect();
       }, 100);
     }
-    setShowDialog(false);
     setSelectedItem(null);
+    isSubmittingRef.current = false;
   };
 
   const handleClearActivities = () => {
