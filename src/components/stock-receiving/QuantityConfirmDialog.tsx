@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Package, Printer, Hash, Plus } from 'lucide-react';
+import { Loader2, AlertCircle, Package, Printer, Hash, Plus, Zap } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -77,6 +77,28 @@ export function QuantityConfirmDialog({
   const [loadingPOs, setLoadingPOs] = useState(false);
   const [maxQuantity, setMaxQuantity] = useState<number>(999);
   const [productImage, setProductImage] = useState<string | null>(null);
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
+
+  const handleAutoAssignSerial = async () => {
+    setIsAutoAssigning(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      const { data, error } = await supabase.rpc('get_next_serial_number', { p_user_id: user.id });
+      if (error) throw error;
+      
+      if (data) {
+        setSerialNumber(data);
+        toast({ title: 'Serial Assigned', description: `Auto-assigned: ${data}` });
+      }
+    } catch (err: any) {
+      console.error('Auto-assign serial error:', err);
+      toast({ title: 'Error', description: 'Failed to get next serial number', variant: 'destructive' });
+    } finally {
+      setIsAutoAssigning(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -481,7 +503,24 @@ export function QuantityConfirmDialog({
                 <Hash className="w-4 h-4 text-primary" />
                 <Label htmlFor="serial" className="font-semibold">Serial Number (Optional)</Label>
               </div>
-              <Input id="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Enter serial number" className="font-mono rounded-lg" />
+              <div className="flex gap-2">
+                <Input id="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Enter serial number" className="font-mono rounded-lg flex-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoAssignSerial}
+                  disabled={isAutoAssigning}
+                  className="h-10 px-3 rounded-lg gap-1.5 shrink-0"
+                  title="Auto-assign next available serial number"
+                >
+                  {isAutoAssigning ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  Auto
+                </Button>
+              </div>
             </div>
           )}
 
