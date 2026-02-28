@@ -34,6 +34,7 @@ import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
 import { FetchTitlesPreviewDialog } from './FetchTitlesPreviewDialog';
+import { BulkSerialCleanup } from './BulkSerialCleanup';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { DisableItemsDialog } from './DisableItemsDialog';
 import { EnableItemDialog } from './EnableItemDialog';
@@ -1520,6 +1521,12 @@ export function AsinInventory() {
                     inventory={fullInventory}
                     onFetchTitles={runTitleFetch}
                     onTitleUpdate={bulkUpdateTitles}
+                  />
+
+                  {/* Bulk Serial Number Cleanup */}
+                  <BulkSerialCleanup 
+                    inventory={fullInventory}
+                    onComplete={() => { refetch(); retryFullInventory(); }}
                   />
                 </div>
               </ActionSection>
