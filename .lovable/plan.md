@@ -1,29 +1,54 @@
 
 
-## Plan: Advanced Stock Ledger UI Overhaul
+## Plan: Fix Sunsky Cost Scan — Reliability, Caching, Pause/Resume
 
-### Changes
+### Issues Identified
 
-#### 1. Redesign `StockHistoryDialog.tsx` — Enhanced layout with tabs and chart
-- Add a **Tabs** component with two views: "Ledger" (table) and "Analytics" (charts from existing `StockHistoryChart`)
-- Redesign summary bar into a **CompactStatBar**-style horizontal pill row with 5 metrics: Current Stock, Total In, Total Out, Net Change, Entry Count — each with colored icons
-- Add a **Previous Qty → New Qty** column to the table header
-- Add sticky table header with `DataTableWrapper` conventions (uppercase, tracking-wider)
-- Show row count footer with "Showing X of Y entries"
+1. **False "Not Found" results**: The code checks `result?.result === 'success' && result?.data?.product` but the edge function returns `{ result: 'success', data: result.data || result }` — the product data structure may not have a `product` key. The actual Sunsky API response nests data differently, so the price extraction path (`product.price || product.originalPrice`) may be wrong.
 
-#### 2. Redesign `StockLedgerRow.tsx` — Richer table rows
-- Add **Prev → New** column showing `previous_quantity → new_quantity` with percentage change badge
-- Add colored left-border indicator on each row (green for increase, red for decrease, gray for zero)
-- Improve expanded details panel: use a card-style layout with dividers instead of plain grid
-- Add relative time ("2h ago") next to the absolute date
-- Show user avatar placeholder (initials circle) instead of plain text
-- Zebra-stripe rows using `dataTableRowClass`
+2. **No caching**: Every scan re-fetches all items from the API even if costs were already fetched previously.
 
-#### 3. Minor polish across components
-- `StockHistoryFilters.tsx`: No changes needed (already recently redesigned)
-- `StockHistoryExport.tsx`: No changes needed
+3. **No pause/resume**: Only stop exists, no way to pause and continue.
 
-### Files Modified
-1. `src/components/StockHistoryDialog.tsx` — Tabs, stat bar, chart integration, footer
-2. `src/components/stock-history/StockLedgerRow.tsx` — Enhanced row with prev→new, avatars, borders, zebra stripes
+4. **Scans all inventory regardless of stock**: Should scan ALL items with SKUs (not just in-stock), then calculate cost only for in-stock units.
+
+---
+
+### Implementation Steps
+
+#### 1. Add `sunsky_product_costs` cache table (DB migration)
+- Columns: `id`, `user_id`, `sku_code` (unique per user), `cost`, `title`, `currency`, `fetched_at`, `created_at`, `updated_at`
+- RLS policies for user isolation
+- This separates cached API costs from the manually-managed `sunsky_skus` table
+
+#### 2. Fix API response parsing in `SunskyCostAnalyzer.tsx`
+- Log and handle the actual response structure from `handleGetProductDetails`
+- The edge function returns `{ result: 'success', data: ... }` where `data` is the raw Sunsky response (not wrapped in `.product`)
+- Fix price extraction to check multiple paths: `data.price`, `data.originalPrice`, `data.priceUs`, etc.
+- Handle the `result: 'error'` case properly (currently the code checks `result?.result === 'success'` but the edge function may return errors differently via `response.error`)
+
+#### 3. Save fetched costs to database
+- After successfully fetching a cost from the API, upsert into `sunsky_product_costs` table
+- On scan start, first check `sunsky_product_costs` (and `sunsky_skus`) for cached costs before hitting the API
+- Three-tier lookup: `sunsky_product_costs` cache → `sunsky_skus` local table → live API
+
+#### 4. Scan all SKU items, calculate cost for in-stock only
+- Fetch costs for all items with valid SKUs (regardless of stock level)
+- Display in-stock quantity and calculate total cost based on current in-stock units only
+- Show items with 0 stock as "costed but no stock"
+
+#### 5. Add Pause/Resume functionality
+- Replace the simple `cancelRef` boolean with a state machine: `idle` | `scanning` | `paused` | `complete`
+- Add a "Pause" button that sets state to `paused` — the scan loop awaits until resumed
+- Add "Resume" button to continue from where it left off
+- Keep "Stop" button to fully cancel
+
+#### 6. Update the UI
+- Add pause/resume buttons in the footer
+- Show scan state (Scanning / Paused / Complete)
+- Update summary cards to distinguish "costed items" vs "in-stock costed items"
+
+### Files to Create/Modify
+- **New migration**: Create `sunsky_product_costs` table
+- **Edit**: `src/components/SunskyCostAnalyzer.tsx` — fix parsing, add caching, add pause/resume, scan all items
 
