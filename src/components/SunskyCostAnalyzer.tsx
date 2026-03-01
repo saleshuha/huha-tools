@@ -408,7 +408,7 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
 
         {/* Results Table */}
         {analyzedItems.length > 0 && (
-          <ScrollArea className="flex-1 min-h-0 border rounded-lg">
+          <ScrollArea className="h-[50vh] w-full border rounded-lg">
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
