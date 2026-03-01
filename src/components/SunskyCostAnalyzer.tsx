@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Progress } from './ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { DollarSign, Loader2, Download, Search, StopCircle, CheckCircle, XCircle, Package } from 'lucide-react';
+import { DollarSign, Loader2, Download, Search, StopCircle, CheckCircle, XCircle, Package, Pause, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,9 +19,12 @@ interface AnalyzedItem {
   sunskyCost: number | null;
   sunskyTitle: string | null;
   totalCost: number | null;
-  status: 'pending' | 'found' | 'not_found' | 'error';
+  status: 'pending' | 'found' | 'not_found' | 'error' | 'cached';
+  source?: 'cache' | 'local' | 'api';
   errorMessage?: string;
 }
+
+type ScanState = 'idle' | 'scanning' | 'paused' | 'complete';
 
 interface SunskyCostAnalyzerProps {
   inventory: AsinInventoryItem[];
@@ -30,19 +33,23 @@ interface SunskyCostAnalyzerProps {
 
 export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [scanState, setScanState] = useState<ScanState>('idle');
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
-  const [progress, setProgress] = useState({ current: 0, total: 0, found: 0, notFound: 0 });
-  const [scanComplete, setScanComplete] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, found: 0, notFound: 0, cached: 0 });
   const cancelRef = useRef(false);
+  const pauseRef = useRef(false);
+  const resumeResolverRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
 
-  // Filter in-stock items with SKUs
-  const instockItems = useMemo(() => {
-    return inventory.filter(item => item.quantity > 0 && item.sku && item.sku.trim() !== '');
+  // All items with SKUs (regardless of stock)
+  const skuItems = useMemo(() => {
+    return inventory.filter(item => item.sku && item.sku.trim() !== '');
   }, [inventory]);
 
-  const instockCount = instockItems.length;
+  // In-stock items with SKUs
+  const instockSkuItems = useMemo(() => {
+    return skuItems.filter(item => item.quantity > 0);
+  }, [skuItems]);
 
   const callSunskyAPI = useCallback(async (action: string, data: any): Promise<any> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -56,17 +63,74 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
     return response.data;
   }, []);
 
+  // Extract price from Sunsky API response data (handles multiple structures)
+  const extractPrice = (data: any): number | null => {
+    if (!data) return null;
+    
+    // Try multiple price paths
+    const candidates = [
+      data.price,
+      data.originalPrice,
+      data.priceUs,
+      data.salePrice,
+      data.wholeSalePrice,
+      data.wholesalePrice,
+      data.unitPrice,
+    ];
+
+    for (const val of candidates) {
+      if (val !== undefined && val !== null && val !== '') {
+        const parsed = typeof val === 'number' ? val : parseFloat(String(val));
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    return null;
+  };
+
+  const extractTitle = (data: any): string | null => {
+    if (!data) return null;
+    return data.title || data.productTitle || data.name || data.itemName || null;
+  };
+
+  // Wait while paused
+  const waitWhilePaused = (): Promise<void> => {
+    if (!pauseRef.current) return Promise.resolve();
+    return new Promise(resolve => {
+      resumeResolverRef.current = resolve;
+    });
+  };
+
+  // Cache cost to DB
+  const cacheCost = async (userId: string, skuCode: string, cost: number | null, title: string | null) => {
+    if (cost === null) return;
+    try {
+      await supabase
+        .from('sunsky_product_costs' as any)
+        .upsert({
+          user_id: userId,
+          sku_code: skuCode,
+          cost,
+          title,
+          currency: 'USD',
+          fetched_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any, { onConflict: 'user_id,sku_code' });
+    } catch (e) {
+      console.warn('Cache upsert failed:', e);
+    }
+  };
+
   const startScan = async () => {
-    if (instockItems.length === 0) {
-      toast({ title: 'No Items', description: 'No in-stock items with SKUs found.', variant: 'destructive' });
+    if (skuItems.length === 0) {
+      toast({ title: 'No Items', description: 'No items with SKUs found.', variant: 'destructive' });
       return;
     }
 
     cancelRef.current = false;
-    setIsScanning(true);
-    setScanComplete(false);
+    pauseRef.current = false;
+    setScanState('scanning');
 
-    const items: AnalyzedItem[] = instockItems.map(item => ({
+    const items: AnalyzedItem[] = skuItems.map(item => ({
       id: item.id,
       asin: item.asin,
       sku: item.sku || '',
@@ -79,15 +143,28 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
     }));
 
     setAnalyzedItems(items);
-    setProgress({ current: 0, total: items.length, found: 0, notFound: 0 });
+    setProgress({ current: 0, total: items.length, found: 0, notFound: 0, cached: 0 });
 
-    // First try to match from local sunsky_skus table
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const skuCodes = items.map(i => i.sku);
-    
-    // Fetch local sunsky_skus in batches
+
+    // Tier 1: Load from sunsky_product_costs cache
+    const cachedCosts = new Map<string, { cost: number | null; title: string | null }>();
+    for (let i = 0; i < skuCodes.length; i += 200) {
+      const batch = skuCodes.slice(i, i + 200);
+      const { data: cached } = await supabase
+        .from('sunsky_product_costs' as any)
+        .select('sku_code, cost, title')
+        .eq('user_id', user.id)
+        .in('sku_code', batch);
+      if (cached) {
+        (cached as any[]).forEach((s: any) => cachedCosts.set(s.sku_code, { cost: s.cost, title: s.title }));
+      }
+    }
+
+    // Tier 2: Load from sunsky_skus local table
     const localMatches = new Map<string, { cost: number | null; title: string | null }>();
     for (let i = 0; i < skuCodes.length; i += 200) {
       const batch = skuCodes.slice(i, i + 200);
@@ -96,7 +173,6 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
         .select('sku_code, cost, title')
         .eq('user_id', user.id)
         .in('sku_code', batch);
-
       if (localSkus) {
         localSkus.forEach(s => localMatches.set(s.sku_code, { cost: s.cost, title: s.title }));
       }
@@ -104,74 +180,130 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
 
     let found = 0;
     let notFound = 0;
+    let cached = 0;
 
-    // Process items - use local data first, then API for remaining
     for (let i = 0; i < items.length; i++) {
       if (cancelRef.current) break;
 
-      const item = items[i];
-      const localMatch = localMatches.get(item.sku);
+      // Wait if paused
+      if (pauseRef.current) {
+        await waitWhilePaused();
+      }
+      if (cancelRef.current) break;
 
-      if (localMatch && localMatch.cost !== null) {
-        item.sunskyCost = localMatch.cost;
-        item.sunskyTitle = localMatch.title;
-        item.totalCost = localMatch.cost * item.quantity;
-        item.status = 'found';
+      const item = items[i];
+
+      // Tier 1: Cache lookup
+      const cachedMatch = cachedCosts.get(item.sku);
+      if (cachedMatch && cachedMatch.cost !== null) {
+        item.sunskyCost = Number(cachedMatch.cost);
+        item.sunskyTitle = cachedMatch.title;
+        item.totalCost = item.quantity > 0 ? item.sunskyCost * item.quantity : 0;
+        item.status = 'cached';
+        item.source = 'cache';
         found++;
-      } else {
-        // Try live API lookup
+        cached++;
+      }
+      // Tier 2: Local sunsky_skus
+      else if (localMatches.has(item.sku) && localMatches.get(item.sku)!.cost !== null) {
+        const local = localMatches.get(item.sku)!;
+        item.sunskyCost = Number(local.cost);
+        item.sunskyTitle = local.title;
+        item.totalCost = item.quantity > 0 ? item.sunskyCost * item.quantity : 0;
+        item.status = 'found';
+        item.source = 'local';
+        found++;
+        // Also cache for future
+        await cacheCost(user.id, item.sku, item.sunskyCost, item.sunskyTitle);
+      }
+      // Tier 3: Live API
+      else {
         try {
           const result = await callSunskyAPI('getProductDetails', { itemNo: item.sku });
-          if (result?.result === 'success' && result?.data?.product) {
-            const product = result.data.product;
-            const price = parseFloat(product.price || product.originalPrice || '0');
-            item.sunskyCost = price;
-            item.sunskyTitle = product.title || product.productTitle || null;
-            item.totalCost = price * item.quantity;
-            item.status = 'found';
-            found++;
+          
+          console.log(`[CostScan] SKU=${item.sku} API response:`, JSON.stringify(result).substring(0, 300));
+
+          // The edge function returns { result: 'success', data: <raw product data> }
+          // or { result: 'error', message: '...', data: null }
+          if (result?.result === 'success' && result?.data) {
+            const price = extractPrice(result.data);
+            const title = extractTitle(result.data);
+
+            if (price !== null) {
+              item.sunskyCost = price;
+              item.sunskyTitle = title;
+              item.totalCost = item.quantity > 0 ? price * item.quantity : 0;
+              item.status = 'found';
+              item.source = 'api';
+              found++;
+              // Cache for future
+              await cacheCost(user.id, item.sku, price, title);
+            } else {
+              item.status = 'not_found';
+              item.errorMessage = 'No price in response';
+              notFound++;
+            }
           } else {
             item.status = 'not_found';
+            item.errorMessage = result?.message || 'Product not found';
             notFound++;
           }
         } catch (err: any) {
-          item.status = 'not_found';
+          item.status = 'error';
           item.errorMessage = err.message;
           notFound++;
         }
 
-        // Small delay between API calls
+        // Delay between API calls
         if (i < items.length - 1 && !cancelRef.current) {
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 400));
         }
       }
 
-      // Update state in real-time
       setAnalyzedItems([...items]);
-      setProgress({ current: i + 1, total: items.length, found, notFound });
+      setProgress({ current: i + 1, total: items.length, found, notFound, cached });
     }
 
-    setIsScanning(false);
-    setScanComplete(true);
+    setScanState('complete');
     toast({
-      title: cancelRef.current ? 'Scan Cancelled' : 'Scan Complete',
-      description: `Found pricing for ${found} of ${items.length} items.`
+      title: cancelRef.current ? 'Scan Stopped' : 'Scan Complete',
+      description: `Found pricing for ${found} of ${items.length} items (${cached} from cache).`
     });
+    onComplete?.();
   };
 
-  const handleCancel = () => {
+  const handlePause = () => {
+    pauseRef.current = true;
+    setScanState('paused');
+  };
+
+  const handleResume = () => {
+    pauseRef.current = false;
+    setScanState('scanning');
+    if (resumeResolverRef.current) {
+      resumeResolverRef.current();
+      resumeResolverRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
     cancelRef.current = true;
+    pauseRef.current = false;
+    // If paused, resolve to let the loop exit
+    if (resumeResolverRef.current) {
+      resumeResolverRef.current();
+      resumeResolverRef.current = null;
+    }
   };
 
   const exportToCSV = () => {
-    const foundItems = analyzedItems.filter(i => i.status === 'found' || i.status === 'not_found');
-    if (foundItems.length === 0) return;
+    if (analyzedItems.length === 0) return;
 
-    const totalInventoryCost = analyzedItems
-      .filter(i => i.status === 'found')
-      .reduce((sum, i) => sum + (i.totalCost || 0), 0);
+    const instockCosted = analyzedItems.filter(i => (i.status === 'found' || i.status === 'cached') && i.quantity > 0);
+    const totalInStockCost = instockCosted.reduce((sum, i) => sum + (i.totalCost || 0), 0);
+    const totalInStockUnits = instockCosted.reduce((sum, i) => sum + i.quantity, 0);
 
-    const headers = ['SKU', 'ASIN', 'Title', 'Sunsky Title', 'In-Stock Qty', 'Sunsky Unit Cost ($)', 'Total Cost ($)', 'Status'];
+    const headers = ['SKU', 'ASIN', 'Title', 'Sunsky Title', 'In-Stock Qty', 'Sunsky Unit Cost ($)', 'Total Cost ($)', 'Status', 'Source'];
     const rows = analyzedItems.map(i => [
       i.sku,
       i.asin,
@@ -179,16 +311,16 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
       `"${(i.sunskyTitle || '-').replace(/"/g, '""')}"`,
       i.quantity,
       i.sunskyCost !== null ? i.sunskyCost.toFixed(2) : '-',
-      i.totalCost !== null ? i.totalCost.toFixed(2) : '-',
-      i.status === 'found' ? 'Found' : 'Not Found'
+      i.totalCost !== null && i.totalCost > 0 ? i.totalCost.toFixed(2) : '-',
+      i.status === 'found' || i.status === 'cached' ? 'Found' : 'Not Found',
+      i.source || '-'
     ]);
 
-    // Add summary row
     rows.push([]);
-    rows.push(['', '', '', 'TOTAL INVENTORY COST', '', '', totalInventoryCost.toFixed(2), '']);
+    rows.push(['', '', '', 'IN-STOCK COSTED ITEMS', totalInStockUnits, '', totalInStockCost.toFixed(2), '', ''] as any);
 
     const csv = [headers.join(','), ...rows.map(r => Array.isArray(r) && r.length === 0 ? '' : (r as any[]).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -199,25 +331,24 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
     toast({ title: 'Exported', description: 'Cost analysis CSV downloaded.' });
   };
 
-  const totalCostSum = analyzedItems
-    .filter(i => i.status === 'found')
-    .reduce((sum, i) => sum + (i.totalCost || 0), 0);
-
-  const totalUnits = analyzedItems
-    .filter(i => i.status === 'found')
-    .reduce((sum, i) => sum + i.quantity, 0);
-
+  // Summary calculations - only in-stock items
+  const instockCosted = analyzedItems.filter(i => (i.status === 'found' || i.status === 'cached') && i.quantity > 0);
+  const totalCostSum = instockCosted.reduce((sum, i) => sum + (i.totalCost || 0), 0);
+  const totalUnits = instockCosted.reduce((sum, i) => sum + i.quantity, 0);
+  const totalCosted = analyzedItems.filter(i => i.status === 'found' || i.status === 'cached').length;
   const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
+  const isRunning = scanState === 'scanning' || scanState === 'paused';
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!isScanning) setIsOpen(open); }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isRunning) setIsOpen(open); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-lg border-dashed">
           <DollarSign className="w-3.5 h-3.5" />
           Sunsky Cost Scan
-          {instockCount > 0 && (
+          {skuItems.length > 0 && (
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
-              {instockCount}
+              {skuItems.length}
             </Badge>
           )}
         </Button>
@@ -226,39 +357,48 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-primary" />
-            Sunsky In-Stock Cost Analyzer
+            Sunsky Inventory Cost Analyzer
           </DialogTitle>
           <DialogDescription>
-            Scan your in-stock inventory against the Sunsky catalog to calculate total inventory cost.
+            Scans all SKU items against Sunsky catalog. Costs are cached for future scans. Total cost calculated for in-stock units only.
           </DialogDescription>
         </DialogHeader>
 
         {/* Summary Cards */}
-        {(isScanning || scanComplete) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(isRunning || scanState === 'complete') && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="bg-primary/10 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{progress.found}</div>
-              <div className="text-xs text-muted-foreground">Found</div>
+              <div className="text-2xl font-bold text-primary">{totalCosted}</div>
+              <div className="text-xs text-muted-foreground">Costed</div>
             </div>
             <div className="bg-orange-500/10 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-orange-600">{progress.notFound}</div>
               <div className="text-xs text-muted-foreground">Not Found</div>
             </div>
+            <div className="bg-violet-500/10 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-violet-600">{progress.cached}</div>
+              <div className="text-xs text-muted-foreground">From Cache</div>
+            </div>
             <div className="bg-green-500/10 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-green-600">{totalUnits}</div>
-              <div className="text-xs text-muted-foreground">Units Costed</div>
+              <div className="text-xs text-muted-foreground">In-Stock Units</div>
             </div>
             <div className="bg-blue-500/10 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">${totalCostSum.toFixed(2)}</div>
-              <div className="text-xs text-muted-foreground">Total Cost</div>
+              <div className="text-xs text-muted-foreground">In-Stock Cost</div>
             </div>
           </div>
         )}
 
         {/* Progress Bar */}
-        {isScanning && (
+        {isRunning && (
           <div className="space-y-2">
-            <Progress value={percentage} className="h-2" />
+            <div className="flex items-center gap-2">
+              <Progress value={percentage} className="h-2 flex-1" />
+              {scanState === 'paused' && (
+                <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Paused</Badge>
+              )}
+            </div>
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>{progress.current} of {progress.total}</span>
               <span>{percentage.toFixed(0)}%</span>
@@ -283,22 +423,25 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
               </TableHeader>
               <TableBody>
                 {analyzedItems.map((item) => (
-                  <TableRow key={item.id} className={item.status === 'not_found' ? 'opacity-60' : ''}>
+                  <TableRow key={item.id} className={item.status === 'not_found' || item.status === 'error' ? 'opacity-60' : item.quantity === 0 ? 'opacity-40' : ''}>
                     <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                     <TableCell className="font-mono text-xs">{item.asin}</TableCell>
                     <TableCell className="text-xs truncate max-w-[200px]" title={item.sunskyTitle || item.title}>
                       {item.sunskyTitle || item.title}
                     </TableCell>
-                    <TableCell className="text-right font-semibold">{item.quantity}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {item.quantity > 0 ? item.quantity : <span className="text-muted-foreground">0</span>}
+                    </TableCell>
                     <TableCell className="text-right">
                       {item.sunskyCost !== null ? `$${item.sunskyCost.toFixed(2)}` : '-'}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {item.totalCost !== null ? `$${item.totalCost.toFixed(2)}` : '-'}
+                      {item.totalCost !== null && item.totalCost > 0 ? `$${item.totalCost.toFixed(2)}` : '-'}
                     </TableCell>
                     <TableCell className="text-center">
                       {item.status === 'pending' && <Loader2 className="w-4 h-4 animate-spin mx-auto text-muted-foreground" />}
                       {item.status === 'found' && <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />}
+                      {item.status === 'cached' && <CheckCircle className="w-4 h-4 text-violet-500 mx-auto" />}
                       {item.status === 'not_found' && <XCircle className="w-4 h-4 text-orange-500 mx-auto" />}
                       {item.status === 'error' && <XCircle className="w-4 h-4 text-destructive mx-auto" />}
                     </TableCell>
@@ -310,13 +453,13 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
         )}
 
         {/* Empty state */}
-        {!isScanning && !scanComplete && (
+        {scanState === 'idle' && (
           <div className="text-center py-8 space-y-3">
             <Package className="w-12 h-12 mx-auto text-muted-foreground/50" />
             <div>
-              <p className="font-medium">{instockCount} in-stock items with SKUs</p>
+              <p className="font-medium">{skuItems.length} items with SKUs ({instockSkuItems.length} in-stock)</p>
               <p className="text-sm text-muted-foreground">
-                This will check each SKU against local Sunsky data and the live API to fetch unit costs.
+                Fetches costs for all SKU items, caches results, and calculates total cost for in-stock units.
               </p>
             </div>
           </div>
@@ -324,21 +467,39 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
 
         <DialogFooter className="flex gap-2 sm:justify-between">
           <div className="flex gap-2">
-            {!isScanning && !scanComplete && (
-              <Button onClick={startScan} disabled={instockCount === 0} className="gap-2">
+            {scanState === 'idle' && (
+              <Button onClick={startScan} disabled={skuItems.length === 0} className="gap-2">
                 <Search className="w-4 h-4" />
                 Start Cost Scan
               </Button>
             )}
-            {isScanning && (
-              <Button variant="outline" onClick={handleCancel} className="gap-2">
-                <StopCircle className="w-4 h-4" />
-                Stop Scan
-              </Button>
-            )}
-            {scanComplete && (
+            {scanState === 'scanning' && (
               <>
-                <Button onClick={startScan} variant="outline" className="gap-2">
+                <Button variant="outline" onClick={handlePause} className="gap-2">
+                  <Pause className="w-4 h-4" />
+                  Pause
+                </Button>
+                <Button variant="destructive" onClick={handleStop} className="gap-2">
+                  <StopCircle className="w-4 h-4" />
+                  Stop
+                </Button>
+              </>
+            )}
+            {scanState === 'paused' && (
+              <>
+                <Button onClick={handleResume} className="gap-2">
+                  <Play className="w-4 h-4" />
+                  Resume
+                </Button>
+                <Button variant="destructive" onClick={handleStop} className="gap-2">
+                  <StopCircle className="w-4 h-4" />
+                  Stop
+                </Button>
+              </>
+            )}
+            {scanState === 'complete' && (
+              <>
+                <Button onClick={() => { setScanState('idle'); setAnalyzedItems([]); }} variant="outline" className="gap-2">
                   <Search className="w-4 h-4" />
                   Re-Scan
                 </Button>

@@ -4940,6 +4940,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sunsky_product_costs: {
+        Row: {
+          cost: number | null
+          created_at: string
+          currency: string | null
+          fetched_at: string
+          id: string
+          sku_code: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          fetched_at?: string
+          id?: string
+          sku_code: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          currency?: string | null
+          fetched_at?: string
+          id?: string
+          sku_code?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sunsky_product_images: {
         Row: {
           created_at: string
