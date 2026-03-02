@@ -1,0 +1,674 @@
+import { useState, useMemo, useCallback } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Progress } from './ui/progress';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { ScrollArea } from './ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Checkbox } from './ui/checkbox';
+import { Separator } from './ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { AsinInventoryItem } from '@/hooks/useAsinInventory';
+import { 
+  Layers, ArrowRight, CheckCircle, Loader2, AlertTriangle, 
+  Package, Search, Lock, Unlock, ChevronDown, ChevronUp,
+  BarChart3, Shuffle, Eye, Zap
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { EnhancedActionButton } from './inventory/EnhancedActionButton';
+
+// ─── Category Detection Engine ───────────────────────────────────────────────
+
+interface CategoryRule {
+  category: string;
+  keywords: string[];
+  priority: number;
+  color: string;
+}
+
+const CATEGORY_RULES: CategoryRule[] = [
+  { category: 'Screen Protector', keywords: ['tempered glass', 'screen protector', 'glass protector', 'privacy glass', 'matte glass', 'ceramic glass'], priority: 1, color: 'bg-blue-500/15 text-blue-700 dark:text-blue-300' },
+  { category: 'TPU / Carbon Fiber Case', keywords: ['tpu', 'carbon fiber', 'carbon fibre', 'brushed case', 'rugged armor'], priority: 2, color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  { category: 'Silicone Case', keywords: ['silicone case', 'silicone phone', 'soft case', 'jelly case', 'gel case'], priority: 3, color: 'bg-pink-500/15 text-pink-700 dark:text-pink-300' },
+  { category: 'Leather / Flip Case', keywords: ['leather case', 'flip case', 'flip cover', 'wallet case', 'book case', 'folio'], priority: 4, color: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  { category: 'Shockproof / Rugged Case', keywords: ['shockproof', 'rugged', 'armor case', 'heavy duty', 'military', 'kickstand case', 'ring holder case'], priority: 5, color: 'bg-red-500/15 text-red-700 dark:text-red-300' },
+  { category: 'Clear / Transparent Case', keywords: ['clear case', 'transparent case', 'crystal case', 'see through'], priority: 6, color: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
+  { category: 'Remote Control', keywords: ['remote', 'ir remote', 'tv remote', 'ac remote', 'air conditioner remote', 'air condition'], priority: 7, color: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' },
+  { category: 'Watch Band / Strap', keywords: ['watch band', 'watch strap', 'smartwatch band', 'wrist band', 'wristband'], priority: 8, color: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300' },
+  { category: 'Cable & Charger', keywords: ['cable', 'charger', 'adapter', 'charging', 'usb', 'type-c', 'type c', 'lightning cable', 'power bank', 'wireless charger'], priority: 9, color: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+  { category: 'Audio Accessory', keywords: ['earphone', 'headphone', 'earbuds', 'headset', 'speaker', 'airpods', 'buds case'], priority: 10, color: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300' },
+  { category: 'Tablet Case / Cover', keywords: ['tablet case', 'ipad case', 'tab case', 'tablet cover', 'ipad cover', 'smart cover'], priority: 11, color: 'bg-teal-500/15 text-teal-700 dark:text-teal-300' },
+  { category: 'Electronics Accessory', keywords: ['hdmi', 'converter', 'hub', 'splitter', 'switch', 'extender', 'dongle', 'otg'], priority: 12, color: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300' },
+  { category: 'Camera / Lens', keywords: ['camera', 'lens', 'tripod', 'selfie', 'ring light', 'gimbal'], priority: 13, color: 'bg-lime-500/15 text-lime-700 dark:text-lime-300' },
+  { category: 'Car Accessory', keywords: ['car mount', 'car holder', 'car charger', 'phone holder car', 'dashboard'], priority: 14, color: 'bg-stone-500/15 text-stone-700 dark:text-stone-300' },
+];
+
+const BRAND_PATTERNS: { brand: string; keywords: string[] }[] = [
+  { brand: 'Samsung', keywords: ['samsung', 'galaxy'] },
+  { brand: 'iPhone / Apple', keywords: ['iphone', 'apple', 'ipad', 'airpods', 'macbook'] },
+  { brand: 'Xiaomi', keywords: ['xiaomi', 'redmi', 'poco', 'mi '] },
+  { brand: 'OPPO', keywords: ['oppo', 'realme'] },
+  { brand: 'Huawei', keywords: ['huawei', 'honor'] },
+  { brand: 'OnePlus', keywords: ['oneplus', 'one plus'] },
+  { brand: 'Vivo', keywords: ['vivo'] },
+  { brand: 'Nokia', keywords: ['nokia'] },
+  { brand: 'Motorola', keywords: ['motorola', 'moto '] },
+  { brand: 'Google', keywords: ['google', 'pixel'] },
+  { brand: 'Sony', keywords: ['sony', 'xperia'] },
+  { brand: 'LG', keywords: ['lg '] },
+  { brand: 'Tecno', keywords: ['tecno'] },
+  { brand: 'Infinix', keywords: ['infinix'] },
+  { brand: 'TCL', keywords: ['tcl'] },
+  { brand: 'Nothing', keywords: ['nothing phone'] },
+];
+
+function detectCategory(title: string): { category: string; color: string } {
+  const lower = (title || '').toLowerCase();
+  for (const rule of CATEGORY_RULES) {
+    if (rule.keywords.some(kw => lower.includes(kw))) {
+      return { category: rule.category, color: rule.color };
+    }
+  }
+  return { category: 'Miscellaneous', color: 'bg-muted text-muted-foreground' };
+}
+
+function detectBrand(title: string): string {
+  const lower = (title || '').toLowerCase();
+  for (const bp of BRAND_PATTERNS) {
+    if (bp.keywords.some(kw => lower.includes(kw))) {
+      return bp.brand;
+    }
+  }
+  return 'Other';
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface SequencedItem {
+  id: string;
+  asin: string;
+  title: string;
+  currentSerial: string;
+  suggestedSerial: string;
+  category: string;
+  categoryColor: string;
+  brand: string;
+  bucket: number;
+  isLocked: boolean;
+  changed: boolean;
+}
+
+interface CategorySummary {
+  category: string;
+  color: string;
+  count: number;
+  bucketsNeeded: number;
+  brands: Record<string, number>;
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
+interface SerialSequencingAdvisorProps {
+  inventory: AsinInventoryItem[];
+  onComplete: () => void;
+}
+
+export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequencingAdvisorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [bucketSize, setBucketSize] = useState(25);
+  const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
+  const [isApplying, setIsApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0 });
+  const [searchPreview, setSearchPreview] = useState('');
+  const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
+  const { toast } = useToast();
+
+  // Filter to active items with quantity > 0
+  const activeItems = useMemo(() => 
+    inventory.filter(item => item.isActive && item.quantity > 0),
+    [inventory]
+  );
+
+  // ─── Step 1: Analysis ───────────────────────────────────────────────────────
+
+  const categorySummary = useMemo((): CategorySummary[] => {
+    const map = new Map<string, CategorySummary>();
+    
+    activeItems.forEach(item => {
+      const { category, color } = detectCategory(item.title);
+      const brand = detectBrand(item.title);
+      
+      if (!map.has(category)) {
+        map.set(category, { category, color, count: 0, bucketsNeeded: 0, brands: {} });
+      }
+      const entry = map.get(category)!;
+      entry.count++;
+      entry.brands[brand] = (entry.brands[brand] || 0) + 1;
+    });
+
+    // Calculate buckets needed
+    map.forEach(entry => {
+      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [activeItems, bucketSize]);
+
+  const totalBuckets = useMemo(() => 
+    categorySummary.reduce((sum, c) => sum + c.bucketsNeeded, 0),
+    [categorySummary]
+  );
+
+  // ─── Step 2: Generate Sequenced Items ─────────────────────────────────────
+
+  const sequencedItems = useMemo((): SequencedItem[] => {
+    if (step < 2) return [];
+
+    // Categorize and sort
+    const items = activeItems.map(item => {
+      const { category, color } = detectCategory(item.title);
+      const brand = detectBrand(item.title);
+      return { ...item, category, categoryColor: color, brand };
+    });
+
+    // Sort: Category → Brand → Title
+    items.sort((a, b) => {
+      const catCmp = a.category.localeCompare(b.category);
+      if (catCmp !== 0) return catCmp;
+      const brandCmp = a.brand.localeCompare(b.brand);
+      if (brandCmp !== 0) return brandCmp;
+      return (a.title || '').localeCompare(b.title || '');
+    });
+
+    // Assign serial numbers
+    let serialCounter = 1;
+    return items.map(item => {
+      const isLocked = lockedSerials.has(item.id);
+      const suggestedSerial = String(serialCounter).padStart(5, '0');
+      serialCounter++;
+
+      return {
+        id: item.id,
+        asin: item.asin,
+        title: item.title || 'Untitled',
+        currentSerial: item.serialNumber,
+        suggestedSerial: isLocked ? item.serialNumber : suggestedSerial,
+        category: item.category,
+        categoryColor: item.categoryColor,
+        brand: item.brand,
+        bucket: Math.ceil(serialCounter / bucketSize),
+        isLocked,
+        changed: !isLocked && item.serialNumber !== suggestedSerial,
+      };
+    });
+  }, [step, activeItems, lockedSerials, bucketSize]);
+
+  // Bucket grouping for preview
+  const bucketGroups = useMemo(() => {
+    const groups = new Map<number, { items: SequencedItem[]; categories: Set<string> }>();
+    sequencedItems.forEach(item => {
+      const bucketNum = Math.ceil(parseInt(item.suggestedSerial) / bucketSize);
+      if (!groups.has(bucketNum)) {
+        groups.set(bucketNum, { items: [], categories: new Set() });
+      }
+      const g = groups.get(bucketNum)!;
+      g.items.push(item);
+      g.categories.add(item.category);
+    });
+    return groups;
+  }, [sequencedItems, bucketSize]);
+
+  // Filtered items for search
+  const filteredSequencedItems = useMemo(() => {
+    if (!searchPreview) return sequencedItems;
+    const lower = searchPreview.toLowerCase();
+    return sequencedItems.filter(item =>
+      item.title.toLowerCase().includes(lower) ||
+      item.asin.toLowerCase().includes(lower) ||
+      item.currentSerial.includes(searchPreview) ||
+      item.suggestedSerial.includes(searchPreview) ||
+      item.category.toLowerCase().includes(lower) ||
+      item.brand.toLowerCase().includes(lower)
+    );
+  }, [sequencedItems, searchPreview]);
+
+  const changedCount = useMemo(() => 
+    sequencedItems.filter(i => i.changed).length, 
+    [sequencedItems]
+  );
+
+  // ─── Step 3: Apply ─────────────────────────────────────────────────────────
+
+  const handleApply = useCallback(async () => {
+    const toUpdate = sequencedItems.filter(i => i.changed);
+    if (toUpdate.length === 0) {
+      toast({ title: 'No changes', description: 'All serial numbers are already optimal.' });
+      return;
+    }
+
+    setIsApplying(true);
+    setApplyProgress({ current: 0, total: toUpdate.length });
+
+    try {
+      // Batch updates in chunks of 50
+      const chunkSize = 50;
+      for (let i = 0; i < toUpdate.length; i += chunkSize) {
+        const chunk = toUpdate.slice(i, i + chunkSize);
+        
+        const promises = chunk.map(item =>
+          supabase
+            .from('asin_inventory')
+            .update({ serial_number: item.suggestedSerial } as any)
+            .eq('id', item.id as any)
+        );
+
+        await Promise.all(promises);
+        setApplyProgress(prev => ({ ...prev, current: Math.min(i + chunkSize, toUpdate.length) }));
+      }
+
+      toast({
+        title: 'Sequencing Complete',
+        description: `Successfully reassigned ${toUpdate.length} serial numbers.`,
+      });
+
+      onComplete();
+      setStep(1);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Failed to apply sequencing:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to apply some serial number changes. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApplying(false);
+    }
+  }, [sequencedItems, onComplete, toast]);
+
+  const toggleLock = (id: string) => {
+    setLockedSerials(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleBucket = (bucket: number) => {
+    setExpandedBuckets(prev => {
+      const next = new Set(prev);
+      if (next.has(bucket)) next.delete(bucket);
+      else next.add(bucket);
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <EnhancedActionButton
+        label="Serial Advisor"
+        icon={Shuffle}
+        variant="purple"
+        tooltip="Intelligent serial number sequencing by product category"
+        onClick={() => { setIsOpen(true); setStep(1); }}
+      />
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Layers className="w-5 h-5 text-primary" />
+              Serial Number Sequencing Advisor
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Group similar products into sequential buckets of {bucketSize} for organized physical storage
+            </p>
+          </DialogHeader>
+
+          {/* Step Indicator */}
+          <div className="flex items-center gap-2 py-2">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                  step >= s 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground'
+                )}>
+                  {step > s ? <CheckCircle className="w-4 h-4" /> : s}
+                </div>
+                <span className={cn(
+                  'text-sm font-medium hidden sm:inline',
+                  step >= s ? 'text-foreground' : 'text-muted-foreground'
+                )}>
+                  {s === 1 ? 'Analyze' : s === 2 ? 'Preview' : 'Apply'}
+                </span>
+                {s < 3 && <ArrowRight className="w-4 h-4 text-muted-foreground" />}
+              </div>
+            ))}
+          </div>
+
+          <Separator />
+
+          {/* Step Content */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {/* ─── STEP 1: ANALYZE ─── */}
+            {step === 1 && (
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Category Analysis
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {activeItems.length} active items detected across {categorySummary.length} categories
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Bucket Size:</Label>
+                    <Input
+                      type="number"
+                      value={bucketSize}
+                      onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
+                      className="w-20 h-8"
+                      min={1}
+                      max={100}
+                    />
+                  </div>
+                </div>
+
+                <ScrollArea className="h-[45vh]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Buckets</TableHead>
+                        <TableHead>Top Brands</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {categorySummary.map(cat => (
+                        <TableRow key={cat.category}>
+                          <TableCell>
+                            <Badge variant="outline" className={cn('font-medium', cat.color)}>
+                              {cat.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">
+                            {cat.count}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {cat.bucketsNeeded}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(cat.brands)
+                                .sort(([,a], [,b]) => b - a)
+                                .slice(0, 4)
+                                .map(([brand, count]) => (
+                                  <span key={brand} className="text-xs text-muted-foreground">
+                                    {brand}({count})
+                                  </span>
+                                ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                  <div className="text-sm">
+                    <span className="font-semibold">{totalBuckets}</span> total buckets needed
+                    <span className="mx-2 text-muted-foreground">•</span>
+                    Serial range: <span className="font-mono font-semibold">00001</span> – <span className="font-mono font-semibold">{String(activeItems.length).padStart(5, '0')}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── STEP 2: PREVIEW ─── */}
+            {step === 2 && (
+              <div className="space-y-3 py-2 h-full flex flex-col">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by title, ASIN, serial, category..."
+                      value={searchPreview}
+                      onChange={e => setSearchPreview(e.target.value)}
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                  <Badge variant="outline" className="bg-primary/10 text-primary">
+                    {changedCount} changes
+                  </Badge>
+                  <Badge variant="outline">
+                    {lockedSerials.size} locked
+                  </Badge>
+                </div>
+
+                {/* Bucket-based view */}
+                <ScrollArea className="flex-1 min-h-0 h-[45vh]">
+                  <div className="space-y-2 pr-2">
+                    {Array.from(bucketGroups.entries())
+                      .sort(([a], [b]) => a - b)
+                      .map(([bucketNum, group]) => {
+                        const isExpanded = expandedBuckets.has(bucketNum);
+                        const startSerial = String((bucketNum - 1) * bucketSize + 1).padStart(5, '0');
+                        const endSerial = String(Math.min(bucketNum * bucketSize, activeItems.length)).padStart(5, '0');
+                        const catLabels = Array.from(group.categories);
+                        
+                        // Filter items in this bucket by search
+                        const visibleItems = searchPreview
+                          ? group.items.filter(item => filteredSequencedItems.includes(item))
+                          : group.items;
+
+                        if (searchPreview && visibleItems.length === 0) return null;
+
+                        return (
+                          <div key={bucketNum} className="border border-border rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => toggleBucket(bucketNum)}
+                              className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-sm font-bold text-primary">
+                                  Bucket {bucketNum}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  {startSerial}–{endSerial}
+                                </span>
+                                <div className="flex gap-1 flex-wrap">
+                                  {catLabels.slice(0, 3).map(cat => {
+                                    const rule = CATEGORY_RULES.find(r => r.category === cat);
+                                    return (
+                                      <Badge key={cat} variant="outline" className={cn('text-[10px] px-1.5 py-0', rule?.color || '')}>
+                                        {cat}
+                                      </Badge>
+                                    );
+                                  })}
+                                  {catLabels.length > 3 && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      +{catLabels.length - 3}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{group.items.length} items</span>
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </div>
+                            </button>
+                            
+                            {isExpanded && (
+                              <div className="border-t border-border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-10"></TableHead>
+                                      <TableHead className="w-24">Current</TableHead>
+                                      <TableHead className="w-8"></TableHead>
+                                      <TableHead className="w-24">Suggested</TableHead>
+                                      <TableHead>Category</TableHead>
+                                      <TableHead>Brand</TableHead>
+                                      <TableHead>Title</TableHead>
+                                      <TableHead className="w-20">ASIN</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {visibleItems.map(item => (
+                                      <TableRow 
+                                        key={item.id}
+                                        className={cn(
+                                          item.changed && 'bg-primary/5',
+                                          item.isLocked && 'opacity-60'
+                                        )}
+                                      >
+                                        <TableCell>
+                                          <button
+                                            onClick={() => toggleLock(item.id)}
+                                            className="p-1 hover:bg-muted rounded"
+                                            title={item.isLocked ? 'Unlock serial' : 'Lock serial (exclude from resequencing)'}
+                                          >
+                                            {item.isLocked 
+                                              ? <Lock className="w-3.5 h-3.5 text-amber-500" /> 
+                                              : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
+                                            }
+                                          </button>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-sm tabular-nums">
+                                          {item.currentSerial}
+                                        </TableCell>
+                                        <TableCell>
+                                          {item.changed && <ArrowRight className="w-3.5 h-3.5 text-primary" />}
+                                        </TableCell>
+                                        <TableCell className={cn(
+                                          'font-mono text-sm font-semibold tabular-nums',
+                                          item.changed && 'text-primary'
+                                        )}>
+                                          {item.suggestedSerial}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', item.categoryColor)}>
+                                            {item.category}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">
+                                          {item.brand}
+                                        </TableCell>
+                                        <TableCell className="max-w-[200px] truncate text-sm" title={item.title}>
+                                          {item.title}
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs">
+                                          {item.asin}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* ─── STEP 3: APPLY ─── */}
+            {step === 3 && (
+              <div className="space-y-4 py-4">
+                <div className="p-6 bg-muted/50 rounded-lg border border-border text-center space-y-3">
+                  <Zap className="w-10 h-10 mx-auto text-primary" />
+                  <h3 className="text-lg font-semibold">Ready to Apply</h3>
+                  <p className="text-muted-foreground">
+                    <span className="font-bold text-foreground">{changedCount}</span> items will have their serial numbers reassigned.
+                    <br />
+                    <span className="font-bold text-foreground">{lockedSerials.size}</span> items are locked and will be skipped.
+                  </p>
+                  
+                  {changedCount > 0 && (
+                    <div className="flex items-center gap-2 justify-center text-sm text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>This action will overwrite existing serial numbers. Make sure to review the preview first.</span>
+                    </div>
+                  )}
+                </div>
+
+                {isApplying && (
+                  <div className="space-y-2 p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 font-medium">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        Applying changes...
+                      </span>
+                      <span className="font-semibold tabular-nums">
+                        {applyProgress.current} / {applyProgress.total}
+                      </span>
+                    </div>
+                    <Progress
+                      value={(applyProgress.current / applyProgress.total) * 100}
+                      className="h-2"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Footer */}
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <div>
+              {step > 1 && (
+                <Button variant="outline" onClick={() => setStep((step - 1) as 1 | 2)} disabled={isApplying}>
+                  Back
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isApplying}>
+                Cancel
+              </Button>
+              {step === 1 && (
+                <Button onClick={() => setStep(2)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview Sequencing
+                </Button>
+              )}
+              {step === 2 && (
+                <Button onClick={() => setStep(3)} disabled={changedCount === 0}>
+                  Continue to Apply ({changedCount} changes)
+                </Button>
+              )}
+              {step === 3 && (
+                <Button 
+                  onClick={handleApply} 
+                  disabled={isApplying || changedCount === 0}
+                  className="bg-primary"
+                >
+                  {isApplying ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Applying...</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4 mr-2" />Apply {changedCount} Changes</>
+                  )}
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
