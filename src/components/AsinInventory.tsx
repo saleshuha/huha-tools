@@ -37,6 +37,7 @@ import { FetchTitlesPreviewDialog } from './FetchTitlesPreviewDialog';
 import { BulkSerialCleanup } from './BulkSerialCleanup';
 import { SunskyCostAnalyzer } from './SunskyCostAnalyzer';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
+import { SerialSequencingAdvisor } from './SerialSequencingAdvisor';
 import { DisableItemsDialog } from './DisableItemsDialog';
 import { EnableItemDialog } from './EnableItemDialog';
 import { PrintQuantityDialog } from './PrintQuantityDialog';
@@ -1501,6 +1502,12 @@ export function AsinInventory() {
                       tooltip="View and use missing serial numbers"
                     />
                   )}
+
+                  {/* Serial Number Sequencing Advisor */}
+                  <SerialSequencingAdvisor
+                    inventory={fullInventory}
+                    onComplete={() => { refetch(); retryFullInventory(); }}
+                  />
                 </div>
               </ActionSection>
 
