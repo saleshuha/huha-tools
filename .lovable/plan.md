@@ -1,54 +1,82 @@
 
 
-## Plan: Fix Sunsky Cost Scan — Reliability, Caching, Pause/Resume
+## Plan: Intelligent Serial Number Sequencing Suggestion System
 
-### Issues Identified
+### Problem
+Currently, 2,069 items are assigned serial numbers sequentially as they arrive. This means bucket 1 (00001-00025) contains a mix of TPU cases, screen protectors, and random items. Finding products physically is inefficient because similar items are scattered across different buckets.
 
-1. **False "Not Found" results**: The code checks `result?.result === 'success' && result?.data?.product` but the edge function returns `{ result: 'success', data: result.data || result }` — the product data structure may not have a `product` key. The actual Sunsky API response nests data differently, so the price extraction path (`product.price || product.originalPrice`) may be wrong.
+### Current Data Analysis
+Your inventory has these product categories:
+- **Phone Cases (TPU/Carbon Fiber)**: ~1,009 items
+- **Screen Protectors**: ~235 items
+- **TV/AC Remotes**: ~119 items
+- **Cables/Chargers**: ~42 items
+- **Audio (Earphones)**: ~14 items
+- **Other** (leather cases, silicone cases, watch bands, shockproof cases, flip covers, etc.): ~650 items
 
-2. **No caching**: Every scan re-fetches all items from the API even if costs were already fetched previously.
+### Solution: Serial Number Resequencing Advisor
 
-3. **No pause/resume**: Only stop exists, no way to pause and continue.
+A new tool accessible from the "Data Entry & Import" section that:
 
-4. **Scans all inventory regardless of stock**: Should scan ALL items with SKUs (not just in-stock), then calculate cost only for in-stock units.
+1. **Categorizes all products** by parsing titles using keyword matching into granular sub-categories (not just "Phone Case" but "TPU Carbon Fiber Case", "Leather Flip Case", "Silicone Case", "Screen Protector", "Watch Band", "Remote Control", etc.)
 
----
+2. **Generates an optimal serial number mapping** that groups similar products into the same buckets of 25, sorted alphabetically within each category for easy physical lookup
+
+3. **Shows a preview** of the suggested resequencing — current serial vs suggested serial, organized by bucket, with category labels
+
+4. **Applies changes** — bulk-updates `serial_number` in `asin_inventory` for all affected rows in a single operation
+
+### Category Detection Logic (Title Parsing)
+
+```text
+Priority-ordered keyword rules:
+1. "Tempered Glass" / "Screen Protector"  → Screen Protector
+2. "TPU Case" / "Carbon Fiber"            → TPU Carbon Fiber Case  
+3. "Silicone Case" / "Silicone Phone"     → Silicone Case
+4. "Leather Case" / "Flip Leather"        → Leather Case
+5. "Shockproof" / "Rugged"               → Shockproof Case
+6. "Remote" / "IR Remote"                → Remote Control
+7. "Watch Band" / "Watch Strap"          → Watch Band
+8. "Cable" / "Charger" / "Adapter"       → Cable & Charger
+9. "Earphone" / "Headphone" / "Earbuds"  → Audio Accessory
+10. "HDMI" / "Converter" / "Hub"         → Electronics Accessory
+11. Everything else                       → Miscellaneous
+```
+
+Within each category, items are further sub-sorted by brand/device (Samsung, iPhone, Xiaomi, etc.) extracted from the title.
+
+### UI Design
+
+A new dialog "Serial Number Sequencing Advisor" with:
+
+- **Step 1 - Analyze**: Scans all items, categorizes them, shows a summary table (Category | Item Count | Buckets Needed)
+- **Step 2 - Preview**: Shows the proposed bucket layout in a table:
+  - Bucket 1 (00001-00025): TPU Carbon Fiber Cases (Samsung)
+  - Bucket 2 (00026-00050): TPU Carbon Fiber Cases (Xiaomi)
+  - etc.
+- **Step 3 - Apply**: One-click to apply the new serial number mapping. Shows a confirmation with "X items will be reassigned"
+- Option to **exclude items** from resequencing (lock certain serials)
+- Option to set **custom bucket size** (default 25)
 
 ### Implementation Steps
 
-#### 1. Add `sunsky_product_costs` cache table (DB migration)
-- Columns: `id`, `user_id`, `sku_code` (unique per user), `cost`, `title`, `currency`, `fetched_at`, `created_at`, `updated_at`
-- RLS policies for user isolation
-- This separates cached API costs from the manually-managed `sunsky_skus` table
+#### 1. Create new component `SerialSequencingAdvisor.tsx`
+- Title parser function that categorizes products into ~12 categories
+- Brand extractor (Samsung, iPhone, Xiaomi, OPPO, Realme, Motorola, etc.)
+- Sorting algorithm: Category → Brand → Title alphabetical
+- Bucket assignment: assigns new serial numbers (zero-padded to 5 digits) based on sorted order
+- Preview table with current vs proposed serial, category badge, bucket grouping
+- Apply function that batch-updates `serial_number` in `asin_inventory`
 
-#### 2. Fix API response parsing in `SunskyCostAnalyzer.tsx`
-- Log and handle the actual response structure from `handleGetProductDetails`
-- The edge function returns `{ result: 'success', data: ... }` where `data` is the raw Sunsky response (not wrapped in `.product`)
-- Fix price extraction to check multiple paths: `data.price`, `data.originalPrice`, `data.priceUs`, etc.
-- Handle the `result: 'error'` case properly (currently the code checks `result?.result === 'success'` but the edge function may return errors differently via `response.error`)
+#### 2. Add button to AsinInventory.tsx
+- New `EnhancedActionButton` in the "Data Entry & Import" section
+- Opens the `SerialSequencingAdvisor` dialog
 
-#### 3. Save fetched costs to database
-- After successfully fetching a cost from the API, upsert into `sunsky_product_costs` table
-- On scan start, first check `sunsky_product_costs` (and `sunsky_skus`) for cached costs before hitting the API
-- Three-tier lookup: `sunsky_product_costs` cache → `sunsky_skus` local table → live API
-
-#### 4. Scan all SKU items, calculate cost for in-stock only
-- Fetch costs for all items with valid SKUs (regardless of stock level)
-- Display in-stock quantity and calculate total cost based on current in-stock units only
-- Show items with 0 stock as "costed but no stock"
-
-#### 5. Add Pause/Resume functionality
-- Replace the simple `cancelRef` boolean with a state machine: `idle` | `scanning` | `paused` | `complete`
-- Add a "Pause" button that sets state to `paused` — the scan loop awaits until resumed
-- Add "Resume" button to continue from where it left off
-- Keep "Stop" button to fully cancel
-
-#### 6. Update the UI
-- Add pause/resume buttons in the footer
-- Show scan state (Scanning / Paused / Complete)
-- Update summary cards to distinguish "costed items" vs "in-stock costed items"
+#### 3. No database migration needed
+- Uses existing `asin_inventory.serial_number` column
+- All logic is client-side categorization + direct updates
 
 ### Files to Create/Modify
-- **New migration**: Create `sunsky_product_costs` table
-- **Edit**: `src/components/SunskyCostAnalyzer.tsx` — fix parsing, add caching, add pause/resume, scan all items
+- **New**: `src/components/SerialSequencingAdvisor.tsx`
+- **Edit**: `src/components/AsinInventory.tsx` (add button + import)
 
