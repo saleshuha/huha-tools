@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
 
     // Check if this is a trigger call via x-trigger-secret header
     const triggerSecret = req.headers.get("x-trigger-secret");
-    if (triggerSecret && triggerSecret === supabaseKey) {
+    const expectedTriggerSecret = "shopify-auto-sync-trigger-vfqqlifvhooefxvvyebm";
+    if (triggerSecret && triggerSecret === expectedTriggerSecret) {
       // Trigger call — user_id will be in the body
       const url = new URL(req.url);
       const action = url.searchParams.get("action") || "sync";
