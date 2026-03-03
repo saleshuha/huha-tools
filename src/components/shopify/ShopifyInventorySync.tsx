@@ -33,13 +33,23 @@ export function ShopifyInventorySync() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch local inventory (active items with SKU)
-      const { data: inventory } = await supabase
-        .from("asin_inventory")
-        .select("sku, title, quantity")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .not("sku", "is", null);
+      // Fetch ALL local inventory (active items with SKU) - paginate to avoid 1000 row limit
+      let inventory: { sku: string | null; title: string | null; quantity: number }[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data: page } = await supabase
+          .from("asin_inventory")
+          .select("sku, title, quantity")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .not("sku", "is", null)
+          .range(from, from + pageSize - 1);
+        if (!page || page.length === 0) break;
+        inventory = inventory.concat(page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
 
       // Group by SKU and sum quantities
       const localMap = new Map<string, { title: string; qty: number }>();
