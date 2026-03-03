@@ -26,6 +26,7 @@ export function ShopifyInventorySync() {
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [selectAll, setSelectAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "matched" | "not_matched" | "in_sync" | "out_of_sync">("all");
 
   const loadComparison = async () => {
     setLoading(true);
@@ -187,11 +188,19 @@ export function ShopifyInventorySync() {
     }
   };
 
-  const filtered = items.filter(
-    (i) =>
+  const filtered = items.filter((i) => {
+    const matchesSearch =
       i.sku.toLowerCase().includes(search.toLowerCase()) ||
-      i.title.toLowerCase().includes(search.toLowerCase())
-  );
+      i.title.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    switch (statusFilter) {
+      case "matched": return i.matched;
+      case "not_matched": return !i.matched;
+      case "in_sync": return i.matched && i.local_qty === i.shopify_qty;
+      case "out_of_sync": return i.matched && i.local_qty !== i.shopify_qty;
+      default: return true;
+    }
+  });
 
   const selectedCount = items.filter((i) => i.selected).length;
   const mismatchCount = items.filter(
@@ -239,11 +248,45 @@ export function ShopifyInventorySync() {
                     className="pl-9"
                   />
                 </div>
-                <div className="flex gap-2 text-sm text-muted-foreground">
-                  <Badge variant="outline">{items.length} total</Badge>
-                  <Badge variant="secondary">{items.filter((i) => i.matched).length} matched</Badge>
+                <div className="flex gap-2 text-sm flex-wrap">
+                  <Badge
+                    variant={statusFilter === "all" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setStatusFilter("all")}
+                  >
+                    {items.length} total
+                  </Badge>
+                  <Badge
+                    variant={statusFilter === "matched" ? "default" : "secondary"}
+                    className="cursor-pointer"
+                    onClick={() => setStatusFilter(statusFilter === "matched" ? "all" : "matched")}
+                  >
+                    {items.filter((i) => i.matched).length} matched
+                  </Badge>
+                  <Badge
+                    variant={statusFilter === "not_matched" ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setStatusFilter(statusFilter === "not_matched" ? "all" : "not_matched")}
+                  >
+                    {items.filter((i) => !i.matched).length} not in Shopify
+                  </Badge>
+                  {items.filter((i) => i.matched && i.local_qty === i.shopify_qty).length > 0 && (
+                    <Badge
+                      variant={statusFilter === "in_sync" ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => setStatusFilter(statusFilter === "in_sync" ? "all" : "in_sync")}
+                    >
+                      {items.filter((i) => i.matched && i.local_qty === i.shopify_qty).length} in sync
+                    </Badge>
+                  )}
                   {mismatchCount > 0 && (
-                    <Badge variant="destructive">{mismatchCount} need sync</Badge>
+                    <Badge
+                      variant={statusFilter === "out_of_sync" ? "default" : "destructive"}
+                      className="cursor-pointer"
+                      onClick={() => setStatusFilter(statusFilter === "out_of_sync" ? "all" : "out_of_sync")}
+                    >
+                      {mismatchCount} need sync
+                    </Badge>
                   )}
                 </div>
               </div>
