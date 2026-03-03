@@ -1,10 +1,38 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShopifySettings } from "@/components/shopify/ShopifySettings";
 import { ShopifyInventorySync } from "@/components/shopify/ShopifyInventorySync";
 import { ShopifySyncHistory } from "@/components/shopify/ShopifySyncHistory";
-import { Store } from "lucide-react";
+import { Store, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
 export default function ShopifySyncPage() {
+  const [config, setConfig] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadConfig = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("shopify_config" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      setConfig(data);
+    } catch {
+      // no config
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadConfig(); }, []);
+
+  const isConnected = config?.store_domain && config?.api_token;
+  const hasLocation = !!config?.location_id;
+  const isTokenInvalid = config?.api_token && (config.api_token.startsWith("shpss_") || config.api_token.startsWith("shpca_"));
+
   return (
     <div className="container mx-auto p-6 max-w-5xl">
       <div className="flex items-center gap-3 mb-6">
@@ -16,6 +44,49 @@ export default function ShopifySyncPage() {
           </p>
         </div>
       </div>
+
+      {/* Connection Status Banner */}
+      {!loading && (
+        <div className={`mb-4 flex items-center gap-3 rounded-lg border p-3 ${
+          isTokenInvalid
+            ? "border-yellow-500/30 bg-yellow-500/10"
+            : isConnected && hasLocation
+            ? "border-green-500/30 bg-green-500/10"
+            : "border-red-500/30 bg-red-500/10"
+        }`}>
+          {isTokenInvalid ? (
+            <>
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Wrong token type</p>
+                <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
+                  You're using a Storefront token. Switch to an Admin API token (shpat_) in Settings.
+                </p>
+              </div>
+            </>
+          ) : isConnected && hasLocation ? (
+            <>
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">Connected to Shopify</p>
+                <p className="text-xs text-green-600/80 dark:text-green-400/80">
+                  Store: {config.store_domain} · Location: {config.location_id}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <XCircle className="h-5 w-5 text-red-500" />
+              <div>
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">Not connected</p>
+                <p className="text-xs text-red-600/80 dark:text-red-400/80">
+                  {!isConnected ? "Go to Settings to add your Shopify credentials." : "No location selected — test your connection in Settings."}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="sync" className="space-y-4">
         <TabsList>
@@ -29,7 +100,7 @@ export default function ShopifySyncPage() {
         </TabsContent>
 
         <TabsContent value="settings">
-          <ShopifySettings />
+          <ShopifySettings onConfigSaved={loadConfig} />
         </TabsContent>
 
         <TabsContent value="history">

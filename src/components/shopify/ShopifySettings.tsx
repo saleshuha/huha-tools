@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, Store } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Store, AlertTriangle } from "lucide-react";
 
 interface ShopifySettingsProps {
   onConfigSaved?: () => void;
@@ -25,10 +25,25 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
   const [shopName, setShopName] = useState("");
   const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
   const [existingConfig, setExistingConfig] = useState(false);
+  const [tokenWarning, setTokenWarning] = useState("");
 
   useEffect(() => {
     loadConfig();
   }, []);
+
+  const validateToken = (token: string) => {
+    if (!token) {
+      setTokenWarning("");
+      return;
+    }
+    if (token.startsWith("shpss_") || token.startsWith("shpca_")) {
+      setTokenWarning("This looks like a Storefront API token. You need an Admin API token (starts with shpat_). Go to Shopify Admin → Settings → Apps → Develop apps to create one.");
+    } else if (!token.startsWith("shpat_")) {
+      setTokenWarning("Admin API tokens typically start with 'shpat_'. Make sure you're using the correct token from Shopify Admin → Settings → Apps → Develop apps.");
+    } else {
+      setTokenWarning("");
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -48,6 +63,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
         setLocationId(config.location_id || "");
         setSyncEnabled(config.sync_enabled || false);
         setExistingConfig(true);
+        validateToken(config.api_token || "");
       }
     } catch {
       // No config yet
@@ -61,6 +77,12 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       toast.error("Please enter store domain and API token first");
       return;
     }
+
+    if (apiToken.startsWith("shpss_") || apiToken.startsWith("shpca_")) {
+      toast.error("You're using a Storefront API token. Please use an Admin API token (starts with shpat_).");
+      return;
+    }
+
     setTesting(true);
     setConnectionStatus("idle");
 
@@ -90,14 +112,26 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
           setLocations(
             result.locations.map((l: any) => ({ id: String(l.id), name: l.name }))
           );
+          // Auto-select first location if none set
           if (!locationId && result.locations.length > 0) {
-            setLocationId(String(result.locations[0].id));
+            const firstLocId = String(result.locations[0].id);
+            setLocationId(firstLocId);
           }
         }
         toast.success(`Connected to ${result.shop?.name || storeDomain}`);
+
+        // Auto-save location after successful test
+        setTimeout(() => saveConfig(false), 500);
       } else {
         setConnectionStatus("error");
-        toast.error(result.error || "Connection failed");
+        const errMsg = result.error || "Connection failed";
+        if (errMsg.includes("401") || errMsg.includes("403")) {
+          toast.error("Authentication failed. Make sure you're using an Admin API token (starts with shpat_) with the correct permissions.");
+        } else if (errMsg.includes("404")) {
+          toast.error("Store not found. Please check your store domain.");
+        } else {
+          toast.error(errMsg);
+        }
       }
     } catch (e: any) {
       setConnectionStatus("error");
@@ -164,8 +198,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
             Shopify Store Connection
           </CardTitle>
           <CardDescription>
-            Connect your Shopify store to sync inventory automatically. Create an Admin API access
-            token in Shopify Admin → Settings → Apps → Develop apps.
+            Connect your Shopify store to sync inventory. You need an <strong>Admin API</strong> access token (starts with <code>shpat_</code>).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -189,11 +222,21 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
               type="password"
               placeholder="shpat_xxxxx..."
               value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
+              onChange={(e) => {
+                setApiToken(e.target.value);
+                validateToken(e.target.value);
+              }}
             />
-            <p className="text-xs text-muted-foreground">
-              Found in Shopify Admin → Settings → Apps → Develop apps → Your app → API credentials
-            </p>
+            {tokenWarning ? (
+              <div className="flex items-start gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-yellow-600 dark:text-yellow-400">{tokenWarning}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Shopify Admin → Settings → Apps → Develop apps → Your app → API credentials
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -249,6 +292,18 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save Settings
           </Button>
+
+          {/* Setup Guide */}
+          <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+            <h4 className="text-sm font-medium">How to create your Shopify Admin API token:</h4>
+            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>Go to <strong>Shopify Admin</strong> → Settings → Apps and sales channels → <strong>Develop apps</strong></li>
+              <li>Click <strong>Create an app</strong> → name it (e.g., "Inventory Sync")</li>
+              <li>Click <strong>Configure Admin API scopes</strong> → enable: <code>read_products</code>, <code>write_products</code>, <code>read_inventory</code>, <code>write_inventory</code>, <code>read_locations</code></li>
+              <li>Click <strong>Save</strong> → then <strong>Install app</strong></li>
+              <li>Copy the <strong>Admin API access token</strong> (starts with <code>shpat_</code>)</li>
+            </ol>
+          </div>
         </CardContent>
       </Card>
     </div>
