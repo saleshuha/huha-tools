@@ -38,17 +38,12 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
     }
 
     if (token.startsWith("shpss_") || token.startsWith("shpca_")) {
-      setTokenWarning("This is a Storefront token and won't work for inventory sync. Use the Admin API access token from Shopify Admin → Settings → Apps → Develop apps.");
-      return;
+      setTokenWarning("⚠️ This looks like a Storefront API token (shpss_/shpca_). It likely won't work for inventory sync. You need the Admin API access token — see the setup guide below.");
+    } else if (/^[a-f0-9]{32}$/i.test(token)) {
+      setTokenWarning("⚠️ This looks like an API key or secret (32 hex chars), not an access token. You need the Admin API access token revealed after clicking 'Install app'.");
+    } else {
+      setTokenWarning("");
     }
-
-    if (/^[a-f0-9]{32}$/i.test(token)) {
-      setTokenWarning("This looks like a Shopify app API key (32 hex chars), not an Admin API access token. Open your custom app and copy the Admin API access token from API credentials.");
-      return;
-    }
-
-    // Shopify access token prefixes can vary, so only block known invalid formats
-    setTokenWarning("");
   };
 
   const loadConfig = async () => {
@@ -84,15 +79,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       return;
     }
 
-    if (apiToken.startsWith("shpss_") || apiToken.startsWith("shpca_")) {
-      toast.error("You're using a Storefront API token. Please use the Admin API access token from Develop apps.");
-      return;
-    }
-
-    if (/^[a-f0-9]{32}$/i.test(apiToken)) {
-      toast.error("This is an API key, not an Admin API access token. Copy the Admin API access token from Shopify app credentials.");
-      return;
-    }
+    // Allow any token to be tested — the API response will confirm validity
 
     setTesting(true);
     setConnectionStatus("idle");
@@ -305,14 +292,23 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
           </Button>
 
           {/* Setup Guide */}
-          <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
-            <h4 className="text-sm font-medium">How to create your Shopify Admin API token:</h4>
+          <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+            <h4 className="text-sm font-medium">⚠️ How to get the correct token:</h4>
+            <div className="text-xs text-muted-foreground space-y-2">
+              <p>Shopify's Develop apps page shows <strong>multiple credentials</strong>. Only one works for inventory sync:</p>
+              <ul className="list-disc list-inside space-y-1 pl-1">
+                <li><strong>API key</strong> (Client ID) — ❌ Won't work</li>
+                <li><strong>API secret key</strong> (Client Secret) — ❌ Won't work</li>
+                <li><strong>Storefront API token</strong> (starts with <code>shpss_</code>) — ❌ Won't work</li>
+                <li><strong>Admin API access token</strong> (starts with <code>shpat_</code>) — ✅ This is what you need</li>
+              </ul>
+            </div>
             <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Go to <strong>Shopify Admin</strong> → Settings → Apps and sales channels → <strong>Develop apps</strong></li>
-              <li>Click <strong>Create an app</strong> → name it (e.g., "Inventory Sync")</li>
-              <li>Click <strong>Configure Admin API scopes</strong> → enable: <code>read_products</code>, <code>write_products</code>, <code>read_inventory</code>, <code>write_inventory</code>, <code>read_locations</code></li>
-              <li>Click <strong>Save</strong> → then <strong>Install app</strong></li>
-              <li>Copy the <strong>Admin API access token</strong> from your custom app credentials</li>
+              <li>Go to <strong>Shopify Admin</strong> → Settings → Apps → <strong>Develop apps</strong></li>
+              <li>Create or open your app → <strong>Configure Admin API scopes</strong> → enable: <code>read_products</code>, <code>write_products</code>, <code>read_inventory</code>, <code>write_inventory</code>, <code>read_locations</code></li>
+              <li>Click <strong>Save</strong> → then click <strong>Install app</strong></li>
+              <li>A popup appears with the <strong>Admin API access token</strong> — copy it immediately!</li>
+              <li><strong>Important:</strong> This token is only shown once. If you missed it, uninstall the app and reinstall to get a new one.</li>
             </ol>
           </div>
         </CardContent>
