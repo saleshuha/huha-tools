@@ -36,12 +36,18 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       setTokenWarning("");
       return;
     }
+
     if (token.startsWith("shpss_") || token.startsWith("shpca_")) {
       setTokenWarning("This is a Storefront token and won't work for inventory sync. Use the Admin API access token from Shopify Admin → Settings → Apps → Develop apps.");
       return;
     }
 
-    // Shopify token prefixes can vary by app/version, so only hard-block known Storefront prefixes
+    if (/^[a-f0-9]{32}$/i.test(token)) {
+      setTokenWarning("This looks like a Shopify app API key (32 hex chars), not an Admin API access token. Open your custom app and copy the Admin API access token from API credentials.");
+      return;
+    }
+
+    // Shopify access token prefixes can vary, so only block known invalid formats
     setTokenWarning("");
   };
 
@@ -80,6 +86,11 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
 
     if (apiToken.startsWith("shpss_") || apiToken.startsWith("shpca_")) {
       toast.error("You're using a Storefront API token. Please use the Admin API access token from Develop apps.");
+      return;
+    }
+
+    if (/^[a-f0-9]{32}$/i.test(apiToken)) {
+      toast.error("This is an API key, not an Admin API access token. Copy the Admin API access token from Shopify app credentials.");
       return;
     }
 

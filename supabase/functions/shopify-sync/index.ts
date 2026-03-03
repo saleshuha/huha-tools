@@ -68,8 +68,12 @@ Deno.serve(async (req) => {
 
       if (!shopRes.ok) {
         const errText = await shopRes.text();
+        const friendlyError = shopRes.status === 401
+          ? "Shopify authentication failed. Use your app's Admin API access token (not API key/secret or Storefront token)."
+          : `Shopify API error: ${shopRes.status}`;
+
         return new Response(
-          JSON.stringify({ error: `Shopify API error: ${shopRes.status}`, details: errText }),
+          JSON.stringify({ error: friendlyError, details: errText }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
