@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, Store, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Store } from "lucide-react";
 
 interface ShopifySettingsProps {
   onConfigSaved?: () => void;
@@ -15,7 +15,8 @@ interface ShopifySettingsProps {
 
 export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
   const [storeDomain, setStoreDomain] = useState("");
-  const [apiToken, setApiToken] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [locationId, setLocationId] = useState("");
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,26 +26,10 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
   const [shopName, setShopName] = useState("");
   const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
   const [existingConfig, setExistingConfig] = useState(false);
-  const [tokenWarning, setTokenWarning] = useState("");
 
   useEffect(() => {
     loadConfig();
   }, []);
-
-  const validateToken = (token: string) => {
-    if (!token) {
-      setTokenWarning("");
-      return;
-    }
-
-    if (token.startsWith("shpss_") || token.startsWith("shpca_")) {
-      setTokenWarning("⚠️ This looks like a Storefront API token (shpss_/shpca_). It likely won't work for inventory sync. You need the Admin API access token — see the setup guide below.");
-    } else if (/^[a-f0-9]{32}$/i.test(token)) {
-      setTokenWarning("⚠️ This looks like an API key or secret (32 hex chars), not an access token. You need the Admin API access token revealed after clicking 'Install app'.");
-    } else {
-      setTokenWarning("");
-    }
-  };
 
   const loadConfig = async () => {
     try {
@@ -60,11 +45,11 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       if (data) {
         const config = data as any;
         setStoreDomain(config.store_domain || "");
-        setApiToken(config.api_token || "");
+        setClientId(config.client_id || "");
+        setClientSecret(config.client_secret || "");
         setLocationId(config.location_id || "");
         setSyncEnabled(config.sync_enabled || false);
         setExistingConfig(true);
-        validateToken(config.api_token || "");
       }
     } catch {
       // No config yet
@@ -74,12 +59,10 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
   };
 
   const testConnection = async () => {
-    if (!storeDomain || !apiToken) {
-      toast.error("Please enter store domain and API token first");
+    if (!storeDomain || !clientId || !clientSecret) {
+      toast.error("Please enter store domain, Client ID, and Client Secret");
       return;
     }
-
-    // Allow any token to be tested — the API response will confirm validity
 
     setTesting(true);
     setConnectionStatus("idle");
@@ -110,26 +93,16 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
           setLocations(
             result.locations.map((l: any) => ({ id: String(l.id), name: l.name }))
           );
-          // Auto-select first location if none set
           if (!locationId && result.locations.length > 0) {
             const firstLocId = String(result.locations[0].id);
             setLocationId(firstLocId);
           }
         }
         toast.success(`Connected to ${result.shop?.name || storeDomain}`);
-
-        // Auto-save location after successful test
         setTimeout(() => saveConfig(false), 500);
       } else {
         setConnectionStatus("error");
-        const errMsg = result.error || "Connection failed";
-        if (errMsg.includes("401") || errMsg.includes("403")) {
-          toast.error("Authentication failed. Make sure you're using an Admin API token (starts with shpat_) with the correct permissions.");
-        } else if (errMsg.includes("404")) {
-          toast.error("Store not found. Please check your store domain.");
-        } else {
-          toast.error(errMsg);
-        }
+        toast.error(result.error || "Connection failed");
       }
     } catch (e: any) {
       setConnectionStatus("error");
@@ -149,7 +122,8 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       const configData = {
         user_id: user.id,
         store_domain: domain,
-        api_token: apiToken,
+        client_id: clientId,
+        client_secret: clientSecret,
         location_id: locationId || null,
         sync_enabled: syncEnabled,
       };
@@ -196,7 +170,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
             Shopify Store Connection
           </CardTitle>
           <CardDescription>
-            Connect your Shopify store to sync inventory. Use the <strong>Admin API</strong> access token from your custom app in Shopify Develop apps.
+            Connect your Shopify store using <strong>Client Credentials</strong> (Client ID + Client Secret) from your custom app.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -214,27 +188,30 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="api-token">Admin API Access Token</Label>
+            <Label htmlFor="client-id">Client ID</Label>
             <Input
-              id="api-token"
-              type="password"
-              placeholder="shpat_xxxxx..."
-              value={apiToken}
-              onChange={(e) => {
-                setApiToken(e.target.value);
-                validateToken(e.target.value);
-              }}
+              id="client-id"
+              placeholder="e.g. abc123def456..."
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
             />
-            {tokenWarning ? (
-              <div className="flex items-start gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">{tokenWarning}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Shopify Admin → Settings → Apps → Develop apps → Your app → API credentials
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Found in Shopify Admin → Settings → Apps → Develop apps → Your app → API credentials
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client-secret">Client Secret</Label>
+            <Input
+              id="client-secret"
+              type="password"
+              placeholder="e.g. shpss_xxxxx..."
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              The "Client secret" value shown in your app's API credentials
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -293,23 +270,17 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
 
           {/* Setup Guide */}
           <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-            <h4 className="text-sm font-medium">⚠️ How to get the correct token:</h4>
-            <div className="text-xs text-muted-foreground space-y-2">
-              <p>Shopify's Develop apps page shows <strong>multiple credentials</strong>. Only one works for inventory sync:</p>
-              <ul className="list-disc list-inside space-y-1 pl-1">
-                <li><strong>API key</strong> (Client ID) — ❌ Won't work</li>
-                <li><strong>API secret key</strong> (Client Secret) — ❌ Won't work</li>
-                <li><strong>Storefront API token</strong> (starts with <code>shpss_</code>) — ❌ Won't work</li>
-                <li><strong>Admin API access token</strong> (starts with <code>shpat_</code>) — ✅ This is what you need</li>
-              </ul>
-            </div>
+            <h4 className="text-sm font-medium">How to set up your Shopify app:</h4>
             <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
               <li>Go to <strong>Shopify Admin</strong> → Settings → Apps → <strong>Develop apps</strong></li>
               <li>Create or open your app → <strong>Configure Admin API scopes</strong> → enable: <code>read_products</code>, <code>write_products</code>, <code>read_inventory</code>, <code>write_inventory</code>, <code>read_locations</code></li>
               <li>Click <strong>Save</strong> → then click <strong>Install app</strong></li>
-              <li>A popup appears with the <strong>Admin API access token</strong> — copy it immediately!</li>
-              <li><strong>Important:</strong> This token is only shown once. If you missed it, uninstall the app and reinstall to get a new one.</li>
+              <li>Go to the <strong>API credentials</strong> tab</li>
+              <li>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> and paste them above</li>
             </ol>
+            <p className="text-xs text-muted-foreground mt-2">
+              The system automatically obtains a short-lived access token using your Client ID and Secret (OAuth Client Credentials flow). No need to copy an access token manually.
+            </p>
           </div>
         </CardContent>
       </Card>

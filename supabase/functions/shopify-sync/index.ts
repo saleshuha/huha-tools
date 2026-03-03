@@ -12,6 +12,26 @@ interface SyncItem {
   local_quantity: number;
 }
 
+async function getAccessToken(storeDomain: string, clientId: string, clientSecret: string): Promise<string> {
+  const res = await fetch(`https://${storeDomain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OAuth token exchange failed (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.access_token;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,7 +50,6 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const { data: { user }, error: userError } = await anonClient.auth.getUser(
       authHeader.replace("Bearer ", "")
@@ -45,31 +64,50 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "sync";
 
-    // Get shopify config
     const { data: config, error: configError } = await supabase
       .from("shopify_config")
       .select("*")
       .eq("user_id", user.id)
       .single();
 
-    if (action === "test-connection") {
-      if (!config) {
-        return new Response(JSON.stringify({ error: "No Shopify config found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!config) {
+      return new Response(JSON.stringify({ error: "No Shopify config found. Please save your settings first." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      // Test connection by fetching shop info
+    // Determine how to authenticate: new OAuth flow (client_id + client_secret) or legacy api_token
+    let accessToken: string;
+    if (config.client_id && config.client_secret) {
+      try {
+        accessToken = await getAccessToken(config.store_domain, config.client_id, config.client_secret);
+      } catch (e) {
+        return new Response(
+          JSON.stringify({ error: `Failed to obtain Shopify access token: ${e.message}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (config.api_token) {
+      // Legacy: direct api_token
+      accessToken = config.api_token;
+    } else {
+      return new Response(
+        JSON.stringify({ error: "No credentials configured. Add your Client ID and Client Secret in Settings." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "test-connection") {
       const shopRes = await fetch(
         `https://${config.store_domain}/admin/api/2024-01/shop.json`,
-        { headers: { "X-Shopify-Access-Token": config.api_token } }
+        { headers: { "X-Shopify-Access-Token": accessToken } }
       );
 
       if (!shopRes.ok) {
         const errText = await shopRes.text();
         const friendlyError = shopRes.status === 401
-          ? "Shopify authentication failed. Use your app's Admin API access token (not API key/secret or Storefront token)."
+          ? "Authentication failed. Check that your Client ID and Client Secret are correct and the app is installed."
           : `Shopify API error: ${shopRes.status}`;
 
         return new Response(
@@ -79,11 +117,10 @@ Deno.serve(async (req) => {
       }
 
       const shopData = await shopRes.json();
-      
-      // Also fetch locations
+
       const locRes = await fetch(
         `https://${config.store_domain}/admin/api/2024-01/locations.json`,
-        { headers: { "X-Shopify-Access-Token": config.api_token } }
+        { headers: { "X-Shopify-Access-Token": accessToken } }
       );
       let locations: any[] = [];
       if (locRes.ok) {
@@ -98,14 +135,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "fetch-products") {
-      if (!config) {
-        return new Response(JSON.stringify({ error: "No Shopify config found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Fetch all products with inventory info
       let allProducts: any[] = [];
       let pageInfo: string | null = null;
       let hasNext = true;
@@ -117,7 +146,7 @@ Deno.serve(async (req) => {
         }
 
         const res = await fetch(fetchUrl, {
-          headers: { "X-Shopify-Access-Token": config.api_token },
+          headers: { "X-Shopify-Access-Token": accessToken },
         });
 
         if (!res.ok) {
@@ -131,7 +160,6 @@ Deno.serve(async (req) => {
         const data = await res.json();
         allProducts = allProducts.concat(data.products || []);
 
-        // Check for pagination
         const linkHeader = res.headers.get("Link");
         if (linkHeader && linkHeader.includes('rel="next"')) {
           const match = linkHeader.match(/<[^>]*page_info=([^&>]+)[^>]*>;\s*rel="next"/);
@@ -142,7 +170,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Flatten variants with SKU
       const variants = allProducts.flatMap((p: any) =>
         (p.variants || []).map((v: any) => ({
           product_id: p.id,
@@ -161,13 +188,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "sync") {
-      if (!config) {
-        return new Response(JSON.stringify({ error: "No Shopify config found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
       const body = await req.json();
       const items: SyncItem[] = body.items || [];
 
@@ -186,7 +206,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Fetch all products to match SKUs
       let allProducts: any[] = [];
       let pageInfo: string | null = null;
       let hasNext = true;
@@ -198,7 +217,7 @@ Deno.serve(async (req) => {
         }
 
         const res = await fetch(fetchUrl, {
-          headers: { "X-Shopify-Access-Token": config.api_token },
+          headers: { "X-Shopify-Access-Token": accessToken },
         });
 
         if (!res.ok) break;
@@ -215,7 +234,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Build SKU -> inventory_item_id map
       const skuMap = new Map<string, { inventory_item_id: number; current_qty: number }>();
       for (const p of allProducts) {
         for (const v of p.variants || []) {
@@ -233,33 +251,23 @@ Deno.serve(async (req) => {
       for (const item of items) {
         const match = skuMap.get(item.sku);
         if (!match) {
-          results.push({
-            sku: item.sku,
-            status: "skipped",
-            error_message: "SKU not found in Shopify",
-          });
-
+          results.push({ sku: item.sku, status: "skipped", error_message: "SKU not found in Shopify" });
           await supabase.from("shopify_sync_log").insert({
-            user_id: user.id,
-            sku: item.sku,
-            title: item.title,
-            local_quantity: item.local_quantity,
-            shopify_quantity: null,
-            new_quantity: item.local_quantity,
-            status: "skipped",
+            user_id: user.id, sku: item.sku, title: item.title,
+            local_quantity: item.local_quantity, shopify_quantity: null,
+            new_quantity: item.local_quantity, status: "skipped",
             error_message: "SKU not found in Shopify",
           });
           continue;
         }
 
         try {
-          // Set inventory level
           const setRes = await fetch(
             `https://${config.store_domain}/admin/api/2024-01/inventory_levels/set.json`,
             {
               method: "POST",
               headers: {
-                "X-Shopify-Access-Token": config.api_token,
+                "X-Shopify-Access-Token": accessToken,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
@@ -272,61 +280,32 @@ Deno.serve(async (req) => {
 
           if (!setRes.ok) {
             const errText = await setRes.text();
-            results.push({
-              sku: item.sku,
-              status: "failed",
-              error_message: errText,
-            });
-
+            results.push({ sku: item.sku, status: "failed", error_message: errText });
             await supabase.from("shopify_sync_log").insert({
-              user_id: user.id,
-              sku: item.sku,
-              title: item.title,
-              local_quantity: item.local_quantity,
-              shopify_quantity: match.current_qty,
-              new_quantity: item.local_quantity,
-              status: "failed",
-              error_message: errText,
+              user_id: user.id, sku: item.sku, title: item.title,
+              local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
+              new_quantity: item.local_quantity, status: "failed", error_message: errText,
             });
           } else {
-            await setRes.json(); // consume body
+            await setRes.json();
             results.push({ sku: item.sku, status: "success" });
-
             await supabase.from("shopify_sync_log").insert({
-              user_id: user.id,
-              sku: item.sku,
-              title: item.title,
-              local_quantity: item.local_quantity,
-              shopify_quantity: match.current_qty,
-              new_quantity: item.local_quantity,
-              status: "success",
+              user_id: user.id, sku: item.sku, title: item.title,
+              local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
+              new_quantity: item.local_quantity, status: "success",
             });
           }
         } catch (e) {
-          results.push({
-            sku: item.sku,
-            status: "failed",
-            error_message: e.message,
-          });
-
+          results.push({ sku: item.sku, status: "failed", error_message: e.message });
           await supabase.from("shopify_sync_log").insert({
-            user_id: user.id,
-            sku: item.sku,
-            title: item.title,
-            local_quantity: item.local_quantity,
-            shopify_quantity: match.current_qty,
-            new_quantity: item.local_quantity,
-            status: "failed",
-            error_message: e.message,
+            user_id: user.id, sku: item.sku, title: item.title,
+            local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
+            new_quantity: item.local_quantity, status: "failed", error_message: e.message,
           });
         }
       }
 
-      // Update last sync timestamp
-      await supabase
-        .from("shopify_config")
-        .update({ last_sync_at: new Date().toISOString() })
-        .eq("user_id", user.id);
+      await supabase.from("shopify_config").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
 
       return new Response(JSON.stringify({ results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

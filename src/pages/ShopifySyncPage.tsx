@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShopifySettings } from "@/components/shopify/ShopifySettings";
 import { ShopifyInventorySync } from "@/components/shopify/ShopifyInventorySync";
 import { ShopifySyncHistory } from "@/components/shopify/ShopifySyncHistory";
-import { Store, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Store, CheckCircle, XCircle } from "lucide-react";
 
 export default function ShopifySyncPage() {
   const [config, setConfig] = useState<any>(null);
@@ -29,9 +29,8 @@ export default function ShopifySyncPage() {
 
   useEffect(() => { loadConfig(); }, []);
 
-  const isConnected = config?.store_domain && config?.api_token;
+  const isConnected = config?.store_domain && (config?.client_id || config?.api_token);
   const hasLocation = !!config?.location_id;
-  const isTokenInvalid = config?.api_token && (config.api_token.startsWith("shpss_") || config.api_token.startsWith("shpca_"));
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">
@@ -48,23 +47,11 @@ export default function ShopifySyncPage() {
       {/* Connection Status Banner */}
       {!loading && (
         <div className={`mb-4 flex items-center gap-3 rounded-lg border p-3 ${
-          isTokenInvalid
-            ? "border-yellow-500/30 bg-yellow-500/10"
-            : isConnected && hasLocation
+          isConnected && hasLocation
             ? "border-green-500/30 bg-green-500/10"
             : "border-red-500/30 bg-red-500/10"
         }`}>
-          {isTokenInvalid ? (
-            <>
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              <div>
-                <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Wrong token type</p>
-                <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
-                  You're using a Storefront token. Switch to an Admin API token (shpat_) in Settings.
-                </p>
-              </div>
-            </>
-          ) : isConnected && hasLocation ? (
+          {isConnected && hasLocation ? (
             <>
               <CheckCircle className="h-5 w-5 text-green-500" />
               <div>
