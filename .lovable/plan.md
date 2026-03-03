@@ -1,65 +1,50 @@
 
 
-## Plan: Shopify Inventory Sync via Admin API
+## Plan: Fix Shopify Connection & Guide on API Setup
 
-### Overview
-Build a new "Shopify Sync" page accessible from the sidebar that connects your Shopify store using the Admin API. When inventory quantities change in `asin_inventory`, the system syncs those changes to your Shopify store automatically.
+### Issues Found
 
-### How It Works
+1. **Edge function not deployed** — The `shopify-sync` function exists in code and config but was never deployed. This is why it returns 404.
+2. **`location_id` is null** — Your config has `location_id: null`, which means sync operations will fail even after the function is deployed. The "Test Connection" button should fetch locations, but it can't work because the function isn't deployed.
+3. **API token type** — Your stored token starts with `shpss_` which is a Storefront API token. You need an **Admin API** token (starts with `shpat_`) for inventory management.
 
-1. **You provide**: Your Shopify store domain (e.g., `mystore.myshopify.com`) and an Admin API access token (created in Shopify Admin → Settings → Apps → Develop apps)
-2. **We store**: Credentials securely in Supabase (encrypted in a `shopify_config` table)
-3. **Products are matched**: By SKU — your `asin_inventory.sku` matches Shopify's product variant SKU
-4. **Sync triggers**: Manual "Sync Now" button + option for automatic sync when stock changes
+### How to Create the Correct Shopify Admin API Token
 
-### Architecture
+Here are the step-by-step instructions:
 
-```text
-┌─────────────────┐       ┌──────────────────┐       ┌─────────────┐
-│  Shopify Sync   │──────▶│  Edge Function   │──────▶│  Shopify    │
-│  Page (React)   │       │  shopify-sync    │       │  Admin API  │
-└─────────────────┘       └──────────────────┘       └─────────────┘
-        │                         │
-        ▼                         ▼
-┌─────────────────┐       ┌──────────────────┐
-│  shopify_config │       │  shopify_sync_   │
-│  (credentials)  │       │  log (history)   │
-└─────────────────┘       └──────────────────┘
-```
+1. Go to **Shopify Admin** → `https://retail-wholesale-hub-e5ju4.myshopify.com/admin`
+2. Navigate to **Settings** → **Apps and sales channels** → **Develop apps**
+3. If you don't see "Develop apps", click **Allow custom app development** first
+4. Click **Create an app** → give it a name like "HuHa Inventory Sync"
+5. Click **Configure Admin API scopes** and enable these permissions:
+   - `read_products` — to read product/variant data
+   - `write_products` — to update products
+   - `read_inventory` — to read inventory levels
+   - `write_inventory` — to update inventory levels
+   - `read_locations` — to read location data
+6. Click **Save**, then click **Install app**
+7. Copy the **Admin API access token** (starts with `shpat_`)
+8. Paste it in the Shopify Sync → Settings tab in your app
 
-### Implementation Steps
+### Implementation Fix
 
-#### 1. Database: Create two tables
-- **`shopify_config`**: Stores store domain, API token (encrypted), last sync timestamp, sync enabled flag
-- **`shopify_sync_log`**: Records each sync action (SKU, old qty, new qty, status, timestamp) for audit trail
+#### 1. Deploy the edge function
+The `shopify-sync` edge function needs to be deployed (it exists in code but wasn't deployed).
 
-#### 2. Edge Function: `shopify-sync`
-- Accepts list of SKUs + quantities from the client
-- Reads Shopify credentials from `shopify_config`
-- Calls Shopify Admin API: `GET /admin/api/2024-01/products.json?fields=id,variants` to find variant by SKU
-- Then calls `POST /admin/api/2024-01/inventory_levels/set.json` to update inventory level
-- Logs results to `shopify_sync_log`
+#### 2. Fix `verify_jwt` setting
+Change from `false` to handle auth properly — currently it's `false` but the function manually validates the token, so this is fine. No change needed.
 
-#### 3. New Page: `/shopify-sync`
-- **Settings tab**: Enter/update Shopify store URL and Admin API token, test connection
-- **Sync tab**: Shows inventory comparison table (Local qty vs Shopify qty), with "Sync All" or per-item sync buttons
-- **History tab**: Shows sync log with status badges (success/failed)
+#### 3. Improve ShopifySettings error handling
+- Add better error messages when the API token is wrong type (`shpss_` vs `shpat_`)
+- Show a warning if the token doesn't start with `shpat_`
+- After successful test connection, auto-save the selected location
 
-#### 4. Sidebar: Add "Shopify Sync" button
-- New top-level sidebar item with a `Store` icon under the Inventory section
+#### 4. Add connection status indicator on the Sync tab
+- Show whether Shopify is connected at the top of the sync page
+- Display the store name and selected location
 
-### Files to Create/Modify
-- **New**: `supabase/functions/shopify-sync/index.ts` (edge function)
-- **New**: `src/pages/ShopifySyncPage.tsx` (main page)
-- **New**: `src/components/shopify/ShopifySettings.tsx` (config form)
-- **New**: `src/components/shopify/ShopifyInventorySync.tsx` (sync table)
-- **New**: `src/components/shopify/ShopifySyncHistory.tsx` (log viewer)
-- **Edit**: `src/components/AppSidebar.tsx` (add sidebar item)
-- **Edit**: `src/App.tsx` (add route)
-- **DB migration**: Create `shopify_config` and `shopify_sync_log` tables
-
-### Security
-- Shopify API token stored in `shopify_config` table (not in code)
-- Edge function validates auth before accessing credentials
-- All API calls go through the edge function (token never exposed to browser)
+### Files to Modify
+- **Deploy**: `supabase/functions/shopify-sync/index.ts` (deploy only, no code changes needed)
+- **Edit**: `src/components/shopify/ShopifySettings.tsx` — add token format validation and better UX
+- **Edit**: `src/pages/ShopifySyncPage.tsx` — add connection status indicator
 
