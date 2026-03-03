@@ -397,7 +397,31 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* Market Purchases */}
+              {/* Shopify Sync */}
+              {canAccessRoute('/shopify-sync') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    className={`group relative w-full rounded-md transition-all duration-200 ${
+                      isActive("/shopify-sync")
+                        ? "bg-primary/90 text-primary-foreground shadow-sm"
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <NavLink
+                      to="/shopify-sync"
+                      end
+                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                    >
+                      <ShoppingCart className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="font-medium text-sm">Shopify Sync</span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {canAccessRoute('/market-purchases') && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
