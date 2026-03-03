@@ -257,7 +257,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
             <div>
               <Label className="text-sm font-medium">Auto-Sync</Label>
               <p className="text-xs text-muted-foreground">
-                Automatically sync inventory when stock changes (coming soon)
+                Automatically sync inventory to Shopify when stock quantities change
               </p>
             </div>
             <Switch checked={syncEnabled} onCheckedChange={setSyncEnabled} />
