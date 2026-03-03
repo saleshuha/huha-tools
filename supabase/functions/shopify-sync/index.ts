@@ -53,8 +53,26 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     let userId: string;
 
-    // Check if the caller is using the service role key (trigger/auto-sync)
-    if (token === supabaseKey) {
+    // Check if this is a trigger call via x-trigger-secret header
+    const triggerSecret = req.headers.get("x-trigger-secret");
+    if (triggerSecret && triggerSecret === supabaseKey) {
+      // Trigger call — user_id will be in the body
+      const url = new URL(req.url);
+      const action = url.searchParams.get("action") || "sync";
+      if (action === "sync") {
+        const body = await req.clone().json();
+        userId = body.user_id;
+        if (!userId) {
+          return new Response(JSON.stringify({ error: "Missing user_id in trigger payload" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: "Trigger can only call sync action" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else if (token === supabaseKey) {
       // Service role call from database trigger — user_id will be in the body
       const url = new URL(req.url);
       const action = url.searchParams.get("action") || "sync";
@@ -74,14 +92,14 @@ Deno.serve(async (req) => {
     } else {
       // Normal user auth
       const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-      const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
-      if (userError || !user) {
+      const { data, error: claimsError } = await anonClient.auth.getUser(token);
+      if (claimsError || !data?.user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      userId = user.id;
+      userId = data.user.id;
     }
 
     const url = new URL(req.url);
