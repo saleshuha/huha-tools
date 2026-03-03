@@ -1,50 +1,42 @@
 
 
-## Plan: Fix Shopify Connection & Guide on API Setup
+## Root Cause Analysis
 
-### Issues Found
+The token `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` is confirmed to be a **Storefront API access token** (the `shpss_` prefix means "Shopify Storefront"). This is a different credential from what we need.
 
-1. **Edge function not deployed** — The `shopify-sync` function exists in code and config but was never deployed. This is why it returns 404.
-2. **`location_id` is null** — Your config has `location_id: null`, which means sync operations will fail even after the function is deployed. The "Test Connection" button should fetch locations, but it can't work because the function isn't deployed.
-3. **API token type** — Your stored token starts with `shpss_` which is a Storefront API token. You need an **Admin API** token (starts with `shpat_`) for inventory management.
+In Shopify's Develop apps, the **API credentials** tab shows multiple credentials:
+- **API key** (Client ID) — for OAuth, not API calls
+- **API secret key** (Client Secret) — for webhook verification, not API calls  
+- **Storefront API access token** (`shpss_...`) — only for storefront/public queries, cannot manage inventory
+- **Admin API access token** — this is what we need, but it is **only shown once** right after you click "Install app"
 
-### How to Create the Correct Shopify Admin API Token
+You are likely copying the **Storefront API access token** or the **API secret key**. Neither will work for inventory management.
 
-Here are the step-by-step instructions:
+## What You Need To Do In Shopify
 
-1. Go to **Shopify Admin** → `https://retail-wholesale-hub-e5ju4.myshopify.com/admin`
-2. Navigate to **Settings** → **Apps and sales channels** → **Develop apps**
-3. If you don't see "Develop apps", click **Allow custom app development** first
-4. Click **Create an app** → give it a name like "HuHa Inventory Sync"
-5. Click **Configure Admin API scopes** and enable these permissions:
-   - `read_products` — to read product/variant data
-   - `write_products` — to update products
-   - `read_inventory` — to read inventory levels
-   - `write_inventory` — to update inventory levels
-   - `read_locations` — to read location data
-6. Click **Save**, then click **Install app**
-7. Copy the **Admin API access token** (starts with `shpat_`)
-8. Paste it in the Shopify Sync → Settings tab in your app
+The Admin API access token is only revealed once during app installation. Since you may have already installed the app and missed it, you need to:
 
-### Implementation Fix
+1. Go to **Shopify Admin** → **Settings** → **Apps and sales channels** → **Develop apps**
+2. Open your existing custom app
+3. Click **Uninstall app** (this just removes the token, not the app config)
+4. Click **Install app** again
+5. A popup will show the **Admin API access token** — copy it immediately (it won't be shown again)
+6. This token should start with `shpat_` (for public/custom apps)
 
-#### 1. Deploy the edge function
-The `shopify-sync` edge function needs to be deployed (it exists in code but wasn't deployed).
+If the token shown after install does NOT start with `shpat_`, it's still fine — paste it and test.
 
-#### 2. Fix `verify_jwt` setting
-Change from `false` to handle auth properly — currently it's `false` but the function manually validates the token, so this is fine. No change needed.
+## Code Changes
 
-#### 3. Improve ShopifySettings error handling
-- Add better error messages when the API token is wrong type (`shpss_` vs `shpat_`)
-- Show a warning if the token doesn't start with `shpat_`
-- After successful test connection, auto-save the selected location
+### 1. Remove prefix-based blocking in ShopifySettings.tsx
+The current code blocks all `shpss_` tokens from even being submitted. Instead, we should allow any token to be tested and let the actual API response determine if it works. We'll keep warnings as soft guidance only.
 
-#### 4. Add connection status indicator on the Sync tab
-- Show whether Shopify is connected at the top of the sync page
-- Display the store name and selected location
+### 2. Improve error message from edge function  
+When the API returns 401, show a message that specifically tells the user to look for the **Admin API access token** (not the API secret, not the Storefront token).
+
+### 3. Update setup guide text
+Replace the current guide with clearer instructions that distinguish between the multiple credentials shown in Shopify's UI, emphasizing that they need to click "Install app" and copy the token from the popup that appears.
 
 ### Files to Modify
-- **Deploy**: `supabase/functions/shopify-sync/index.ts` (deploy only, no code changes needed)
-- **Edit**: `src/components/shopify/ShopifySettings.tsx` — add token format validation and better UX
-- **Edit**: `src/pages/ShopifySyncPage.tsx` — add connection status indicator
+- `src/components/shopify/ShopifySettings.tsx` — remove hard blocks on `shpss_`, update guide text, improve error messages
+- `supabase/functions/shopify-sync/index.ts` — improve 401 error message to be more specific about which credential to use
 
