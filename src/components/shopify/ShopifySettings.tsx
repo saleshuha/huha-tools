@@ -37,12 +37,12 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
       return;
     }
     if (token.startsWith("shpss_") || token.startsWith("shpca_")) {
-      setTokenWarning("This looks like a Storefront API token. You need an Admin API token (starts with shpat_). Go to Shopify Admin → Settings → Apps → Develop apps to create one.");
-    } else if (!token.startsWith("shpat_")) {
-      setTokenWarning("Admin API tokens typically start with 'shpat_'. Make sure you're using the correct token from Shopify Admin → Settings → Apps → Develop apps.");
-    } else {
-      setTokenWarning("");
+      setTokenWarning("This is a Storefront token and won't work for inventory sync. Use the Admin API access token from Shopify Admin → Settings → Apps → Develop apps.");
+      return;
     }
+
+    // Shopify token prefixes can vary by app/version, so only hard-block known Storefront prefixes
+    setTokenWarning("");
   };
 
   const loadConfig = async () => {
@@ -79,7 +79,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
     }
 
     if (apiToken.startsWith("shpss_") || apiToken.startsWith("shpca_")) {
-      toast.error("You're using a Storefront API token. Please use an Admin API token (starts with shpat_).");
+      toast.error("You're using a Storefront API token. Please use the Admin API access token from Develop apps.");
       return;
     }
 
@@ -198,7 +198,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
             Shopify Store Connection
           </CardTitle>
           <CardDescription>
-            Connect your Shopify store to sync inventory. You need an <strong>Admin API</strong> access token (starts with <code>shpat_</code>).
+            Connect your Shopify store to sync inventory. Use the <strong>Admin API</strong> access token from your custom app in Shopify Develop apps.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -301,7 +301,7 @@ export function ShopifySettings({ onConfigSaved }: ShopifySettingsProps) {
               <li>Click <strong>Create an app</strong> → name it (e.g., "Inventory Sync")</li>
               <li>Click <strong>Configure Admin API scopes</strong> → enable: <code>read_products</code>, <code>write_products</code>, <code>read_inventory</code>, <code>write_inventory</code>, <code>read_locations</code></li>
               <li>Click <strong>Save</strong> → then <strong>Install app</strong></li>
-              <li>Copy the <strong>Admin API access token</strong> (starts with <code>shpat_</code>)</li>
+              <li>Copy the <strong>Admin API access token</strong> from your custom app credentials</li>
             </ol>
           </div>
         </CardContent>
