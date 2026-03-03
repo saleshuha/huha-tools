@@ -3888,6 +3888,8 @@ export type Database = {
       shopify_config: {
         Row: {
           api_token: string
+          client_id: string | null
+          client_secret: string | null
           created_at: string
           id: string
           last_sync_at: string | null
@@ -3899,6 +3901,8 @@ export type Database = {
         }
         Insert: {
           api_token: string
+          client_id?: string | null
+          client_secret?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null
@@ -3910,6 +3914,8 @@ export type Database = {
         }
         Update: {
           api_token?: string
+          client_id?: string | null
+          client_secret?: string | null
           created_at?: string
           id?: string
           last_sync_at?: string | null
