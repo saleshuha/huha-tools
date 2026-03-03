@@ -3885,6 +3885,81 @@ export type Database = {
         }
         Relationships: []
       }
+      shopify_config: {
+        Row: {
+          api_token: string
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          location_id: string | null
+          store_domain: string
+          sync_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_token: string
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          location_id?: string | null
+          store_domain: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_token?: string
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          location_id?: string | null
+          store_domain?: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      shopify_sync_log: {
+        Row: {
+          error_message: string | null
+          id: string
+          local_quantity: number
+          new_quantity: number
+          shopify_quantity: number | null
+          sku: string
+          status: string
+          synced_at: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          local_quantity: number
+          new_quantity: number
+          shopify_quantity?: number | null
+          sku: string
+          status?: string
+          synced_at?: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          local_quantity?: number
+          new_quantity?: number
+          shopify_quantity?: number | null
+          sku?: string
+          status?: string
+          synced_at?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       sku_costs: {
         Row: {
           cost: number
