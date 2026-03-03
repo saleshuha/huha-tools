@@ -50,15 +50,38 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const { data: { user }, error: userError } = await anonClient.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const token = authHeader.replace("Bearer ", "");
+    let userId: string;
+
+    // Check if the caller is using the service role key (trigger/auto-sync)
+    if (token === supabaseKey) {
+      // Service role call from database trigger — user_id will be in the body
+      const url = new URL(req.url);
+      const action = url.searchParams.get("action") || "sync";
+      if (action === "sync") {
+        const body = await req.clone().json();
+        userId = body.user_id;
+        if (!userId) {
+          return new Response(JSON.stringify({ error: "Missing user_id in trigger payload" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: "Service role can only call sync action" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      // Normal user auth
+      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+      const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
     }
 
     const url = new URL(req.url);
@@ -67,7 +90,7 @@ Deno.serve(async (req) => {
     const { data: config, error: configError } = await supabase
       .from("shopify_config")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (!config) {
@@ -253,7 +276,7 @@ Deno.serve(async (req) => {
         if (!match) {
           results.push({ sku: item.sku, status: "skipped", error_message: "SKU not found in Shopify" });
           await supabase.from("shopify_sync_log").insert({
-            user_id: user.id, sku: item.sku, title: item.title,
+            user_id: userId, sku: item.sku, title: item.title,
             local_quantity: item.local_quantity, shopify_quantity: null,
             new_quantity: item.local_quantity, status: "skipped",
             error_message: "SKU not found in Shopify",
@@ -282,7 +305,7 @@ Deno.serve(async (req) => {
             const errText = await setRes.text();
             results.push({ sku: item.sku, status: "failed", error_message: errText });
             await supabase.from("shopify_sync_log").insert({
-              user_id: user.id, sku: item.sku, title: item.title,
+              user_id: userId, sku: item.sku, title: item.title,
               local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
               new_quantity: item.local_quantity, status: "failed", error_message: errText,
             });
@@ -290,7 +313,7 @@ Deno.serve(async (req) => {
             await setRes.json();
             results.push({ sku: item.sku, status: "success" });
             await supabase.from("shopify_sync_log").insert({
-              user_id: user.id, sku: item.sku, title: item.title,
+              user_id: userId, sku: item.sku, title: item.title,
               local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
               new_quantity: item.local_quantity, status: "success",
             });
@@ -298,14 +321,14 @@ Deno.serve(async (req) => {
         } catch (e) {
           results.push({ sku: item.sku, status: "failed", error_message: e.message });
           await supabase.from("shopify_sync_log").insert({
-            user_id: user.id, sku: item.sku, title: item.title,
+            user_id: userId, sku: item.sku, title: item.title,
             local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
             new_quantity: item.local_quantity, status: "failed", error_message: e.message,
           });
         }
       }
 
-      await supabase.from("shopify_config").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
+      await supabase.from("shopify_config").update({ last_sync_at: new Date().toISOString() }).eq("user_id", userId);
 
       return new Response(JSON.stringify({ results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
