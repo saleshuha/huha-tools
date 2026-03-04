@@ -354,6 +354,120 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "create-product") {
+      const body = await req.json();
+      const { title, body_html, vendor, product_type, tags, variants, images } = body;
+
+      if (!title) {
+        return new Response(JSON.stringify({ error: "Product title is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const productPayload: any = { product: { title, body_html, vendor, product_type, tags } };
+      if (variants && variants.length > 0) {
+        productPayload.product.variants = variants;
+      }
+      if (images && images.length > 0) {
+        productPayload.product.images = images.map((src: string) => ({ src }));
+      }
+
+      const res = await fetch(
+        `https://${config.store_domain}/admin/api/2024-01/products.json`,
+        {
+          method: "POST",
+          headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+          body: JSON.stringify(productPayload),
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        return new Response(JSON.stringify({ error: `Failed to create product: ${res.status}`, details: errText }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const created = await res.json();
+      return new Response(JSON.stringify({ success: true, product: created.product }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-product") {
+      const body = await req.json();
+      const { product_id, title, body_html, vendor, product_type, tags, variants } = body;
+
+      if (!product_id) {
+        return new Response(JSON.stringify({ error: "product_id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const productPayload: any = { product: { id: product_id } };
+      if (title !== undefined) productPayload.product.title = title;
+      if (body_html !== undefined) productPayload.product.body_html = body_html;
+      if (vendor !== undefined) productPayload.product.vendor = vendor;
+      if (product_type !== undefined) productPayload.product.product_type = product_type;
+      if (tags !== undefined) productPayload.product.tags = tags;
+      if (variants && variants.length > 0) productPayload.product.variants = variants;
+
+      const res = await fetch(
+        `https://${config.store_domain}/admin/api/2024-01/products/${product_id}.json`,
+        {
+          method: "PUT",
+          headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+          body: JSON.stringify(productPayload),
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        return new Response(JSON.stringify({ error: `Failed to update product: ${res.status}`, details: errText }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const updated = await res.json();
+      return new Response(JSON.stringify({ success: true, product: updated.product }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "fetch-products-full") {
+      let allProducts: any[] = [];
+      let pageInfo: string | null = null;
+      let hasNext = true;
+
+      while (hasNext) {
+        let fetchUrl = `https://${config.store_domain}/admin/api/2024-01/products.json?limit=250`;
+        if (pageInfo) {
+          fetchUrl += `&page_info=${pageInfo}`;
+        }
+
+        const res = await fetch(fetchUrl, {
+          headers: { "X-Shopify-Access-Token": accessToken },
+        });
+
+        if (!res.ok) break;
+        const data = await res.json();
+        allProducts = allProducts.concat(data.products || []);
+
+        const linkHeader = res.headers.get("Link");
+        if (linkHeader && linkHeader.includes('rel="next"')) {
+          const match = linkHeader.match(/<[^>]*page_info=([^&>]+)[^>]*>;\s*rel="next"/);
+          pageInfo = match ? match[1] : null;
+          hasNext = !!pageInfo;
+        } else {
+          hasNext = false;
+        }
+      }
+
+      return new Response(JSON.stringify({ products: allProducts }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
