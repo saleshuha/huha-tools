@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Search, Package, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Pencil, Search, Package, RefreshCw, Tag } from "lucide-react";
 
 interface ShopifyProduct {
   id: number;
@@ -62,6 +62,7 @@ export function ShopifyProductManager() {
   const [editProduct, setEditProduct] = useState<ShopifyProduct | null>(null);
   const [form, setForm] = useState<ProductFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [tagging, setTagging] = useState(false);
 
   const callEdge = async (action: string, body: any) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -169,6 +170,22 @@ export function ShopifyProductManager() {
     setEditProduct(p);
   };
 
+  const handleAutoTag = async () => {
+    setTagging(true);
+    try {
+      const data = await callEdge("auto-tag", {});
+      toast({
+        title: "Auto-tag complete",
+        description: `Tagged: ${data.tagged}, Already tagged: ${data.already_tagged}, Unmatched: ${data.skipped}`,
+      });
+      loadProducts();
+    } catch (e: any) {
+      toast({ title: "Auto-tag failed", description: e.message, variant: "destructive" });
+    } finally {
+      setTagging(false);
+    }
+  };
+
   const filtered = products.filter(
     (p) =>
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -234,6 +251,10 @@ export function ShopifyProductManager() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={loadProducts} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleAutoTag} disabled={tagging || loading}>
+              {tagging ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Tag className="h-4 w-4 mr-1" />}
+              Auto-Tag Matched
             </Button>
             <Button size="sm" onClick={() => { setForm(emptyForm); setCreateOpen(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Create Product
