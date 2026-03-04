@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShopifySettings } from "@/components/shopify/ShopifySettings";
 import { ShopifyInventorySync } from "@/components/shopify/ShopifyInventorySync";
 import { ShopifySyncHistory } from "@/components/shopify/ShopifySyncHistory";
+import { ShopifyProductManager } from "@/components/shopify/ShopifyProductManager";
 import { Store, CheckCircle, XCircle } from "lucide-react";
 
 export default function ShopifySyncPage() {
@@ -78,12 +79,17 @@ export default function ShopifySyncPage() {
       <Tabs defaultValue="sync" className="space-y-4">
         <TabsList>
           <TabsTrigger value="sync">Sync Inventory</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sync">
           <ShopifyInventorySync />
+        </TabsContent>
+
+        <TabsContent value="products">
+          <ShopifyProductManager />
         </TabsContent>
 
         <TabsContent value="settings">
