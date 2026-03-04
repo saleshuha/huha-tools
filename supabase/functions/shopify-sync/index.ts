@@ -276,19 +276,24 @@ Deno.serve(async (req) => {
         }
       }
 
-      const skuMap = new Map<string, { inventory_item_id: number; current_qty: number }>();
+      const skuMap = new Map<string, { inventory_item_id: number; current_qty: number; product_id: number; tags: string }>();
       for (const p of allProducts) {
         for (const v of p.variants || []) {
           if (v.sku) {
             skuMap.set(v.sku, {
               inventory_item_id: v.inventory_item_id,
               current_qty: v.inventory_quantity || 0,
+              product_id: p.id,
+              tags: p.tags || "",
             });
           }
         }
       }
 
       const results: any[] = [];
+      // Track product IDs that were successfully synced for auto-tagging
+      const syncedProductIds = new Set<number>();
+      const productTagsMap = new Map<number, string>();
 
       for (const item of items) {
         const match = skuMap.get(item.sku);
@@ -331,6 +336,8 @@ Deno.serve(async (req) => {
           } else {
             await setRes.json();
             results.push({ sku: item.sku, status: "success" });
+            syncedProductIds.add(match.product_id);
+            productTagsMap.set(match.product_id, match.tags);
             await supabase.from("shopify_sync_log").insert({
               user_id: userId, sku: item.sku, title: item.title,
               local_quantity: item.local_quantity, shopify_quantity: match.current_qty,
@@ -347,9 +354,103 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Auto-tag successfully synced products with "zurwa-warehouse"
+      let taggedCount = 0;
+      for (const productId of syncedProductIds) {
+        const existingTags = productTagsMap.get(productId) || "";
+        const tagList = existingTags.split(",").map((t: string) => t.trim()).filter(Boolean);
+        if (!tagList.includes("zurwa-warehouse")) {
+          tagList.push("zurwa-warehouse");
+          const newTags = tagList.join(", ");
+          try {
+            await fetch(
+              `https://${config.store_domain}/admin/api/2024-01/products/${productId}.json`,
+              {
+                method: "PUT",
+                headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+                body: JSON.stringify({ product: { id: productId, tags: newTags } }),
+              }
+            );
+            taggedCount++;
+          } catch (_) {
+            // tagging is best-effort, don't fail the sync
+          }
+        } else {
+          taggedCount++; // already tagged
+        }
+      }
+
       await supabase.from("shopify_config").update({ last_sync_at: new Date().toISOString() }).eq("user_id", userId);
 
-      return new Response(JSON.stringify({ results }), {
+      return new Response(JSON.stringify({ results, tagged: taggedCount }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Bulk auto-tag: tag all matched products (local inventory SKU matches Shopify) with "zurwa-warehouse"
+    if (action === "auto-tag") {
+      // Fetch all local SKUs
+      let allSkus: string[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data: page } = await supabase
+          .from("asin_inventory")
+          .select("sku")
+          .eq("user_id", userId)
+          .eq("is_active", true)
+          .not("sku", "is", null);
+        if (!page || page.length === 0) break;
+        allSkus = allSkus.concat(page.map((r: any) => r.sku).filter(Boolean));
+        break; // simplified — get all at once
+      }
+      const localSkuSet = new Set(allSkus);
+
+      // Fetch all Shopify products
+      let allProducts: any[] = [];
+      let pageInfo: string | null = null;
+      let hasNext = true;
+      while (hasNext) {
+        let fetchUrl = `https://${config.store_domain}/admin/api/2024-01/products.json?limit=250`;
+        if (pageInfo) fetchUrl += `&page_info=${pageInfo}`;
+        const res = await fetch(fetchUrl, { headers: { "X-Shopify-Access-Token": accessToken } });
+        if (!res.ok) break;
+        const data = await res.json();
+        allProducts = allProducts.concat(data.products || []);
+        const linkHeader = res.headers.get("Link");
+        if (linkHeader && linkHeader.includes('rel="next"')) {
+          const match = linkHeader.match(/<[^>]*page_info=([^&>]+)[^>]*>;\s*rel="next"/);
+          pageInfo = match ? match[1] : null;
+          hasNext = !!pageInfo;
+        } else { hasNext = false; }
+      }
+
+      // Find matched products and tag them
+      let taggedCount = 0;
+      let alreadyTagged = 0;
+      let skippedCount = 0;
+      for (const p of allProducts) {
+        const hasMatchedVariant = (p.variants || []).some((v: any) => v.sku && localSkuSet.has(v.sku));
+        if (!hasMatchedVariant) { skippedCount++; continue; }
+
+        const tagList = (p.tags || "").split(",").map((t: string) => t.trim()).filter(Boolean);
+        if (tagList.includes("zurwa-warehouse")) { alreadyTagged++; continue; }
+
+        tagList.push("zurwa-warehouse");
+        try {
+          const res = await fetch(
+            `https://${config.store_domain}/admin/api/2024-01/products/${p.id}.json`,
+            {
+              method: "PUT",
+              headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+              body: JSON.stringify({ product: { id: p.id, tags: tagList.join(", ") } }),
+            }
+          );
+          if (res.ok) taggedCount++;
+        } catch (_) { /* best effort */ }
+      }
+
+      return new Response(JSON.stringify({ success: true, tagged: taggedCount, already_tagged: alreadyTagged, skipped: skippedCount }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
