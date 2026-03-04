@@ -581,24 +581,35 @@ Deno.serve(async (req) => {
         );
       }
 
-      // 1. Fetch local inventory grouped by SKU
-      let query = supabase
-        .from("asin_inventory")
-        .select("asin, sku, title, quantity, status")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .not("sku", "is", null);
+      // 1. Fetch local inventory — fetch all active items, filter in-memory to avoid URL length limits
+      const skuSet = skus && skus.length > 0 ? new Set(skus as string[]) : null;
+      let allInvItems: any[] = [];
+      let invFrom = 0;
+      const invPageSize = 1000;
+      while (true) {
+        const { data: page, error: pageError } = await supabase
+          .from("asin_inventory")
+          .select("asin, sku, title, quantity, status")
+          .eq("user_id", userId)
+          .eq("is_active", true)
+          .not("sku", "is", null)
+          .range(invFrom, invFrom + invPageSize - 1);
 
-      if (skus && skus.length > 0) {
-        query = query.in("sku", skus);
+        if (pageError) {
+          return new Response(JSON.stringify({ error: pageError.message }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (!page || page.length === 0) break;
+        allInvItems = allInvItems.concat(page);
+        if (page.length < invPageSize) break;
+        invFrom += invPageSize;
       }
 
-      const { data: invItems, error: invError } = await query.limit(10000);
-      if (invError) {
-        return new Response(JSON.stringify({ error: invError.message }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      // Filter to requested SKUs in-memory
+      const invItems = skuSet
+        ? allInvItems.filter((item: any) => item.sku && skuSet.has(item.sku))
+        : allInvItems;
 
       // Group by SKU — aggregate quantity, pick first title/asin
       const skuGroup = new Map<string, { asin: string; sku: string; title: string; quantity: number }>();
