@@ -66,9 +66,9 @@ export function ShopifyProductManager() {
   const callEdge = async (action: string, body: any) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/shopify-sync?action=${action}`,
+      `${supabaseUrl}/functions/v1/shopify-sync?action=${action}`,
       {
         method: "POST",
         headers: {
