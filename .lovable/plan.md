@@ -1,39 +1,36 @@
 
 
-## Plan: Auto-Sync Inventory to Shopify on Stock Changes
+## Create & Update Product Listings on Shopify
 
-### How It Works
+Yes, this is absolutely possible. Your app already has the Shopify Admin API connection (OAuth client credentials flow) and fetches products. We can extend the Edge Function and add a new UI tab to support **creating new products** and **updating existing product details** (title, price, description, etc.) on your Shopify store.
 
-When `sync_enabled` is true in `shopify_config`, any quantity change in `asin_inventory` will automatically trigger a sync to Shopify. The mechanism:
+### What We'll Build
 
-1. **Enable `pg_net` extension** — allows making HTTP requests from inside PostgreSQL triggers
-2. **Create a trigger function** on `asin_inventory` that fires `AFTER UPDATE` when `quantity` changes
-3. The trigger looks up the user's `shopify_config` — if `sync_enabled = true` and credentials exist, it calls the `shopify-sync` edge function via `net.http_post()` with the updated SKU and quantity
-4. **Update the UI** to remove "(coming soon)" from the auto-sync toggle and persist the `sync_enabled` flag properly
+1. **New Edge Function actions** in `shopify-sync/index.ts`:
+   - `create-product` — calls Shopify's `POST /admin/api/2024-01/products.json` to create a new product with title, description, price, SKU, quantity, images, etc.
+   - `update-product` — calls Shopify's `PUT /admin/api/2024-01/products/{id}.json` to update an existing product's details (title, price, description, variant info).
 
-### Database Changes (Migration)
+2. **New UI component** `ShopifyProductManager.tsx`:
+   - A form/dialog to **create a new product** with fields: title, description, price, SKU, quantity, vendor, product type, and optional image URL.
+   - An **edit button** on matched/existing products in the inventory sync table (or a separate tab) that opens an edit dialog pre-filled with current Shopify data, allowing updates to title, price, description, etc.
+   - Success/error feedback via toast notifications.
 
-- Enable `pg_net` extension
-- Create function `trigger_shopify_auto_sync()`:
-  - Fires on `AFTER UPDATE OF quantity ON asin_inventory`
-  - Checks if `OLD.quantity != NEW.quantity`
-  - Looks up `shopify_config` for the user where `sync_enabled = true`
-  - If found, calls `net.http_post()` to the `shopify-sync` edge function with `action=sync` and the item's SKU + new quantity
-  - Uses the service role key (stored as a Supabase secret) for auth
-- Create the trigger on `asin_inventory`
+3. **New tab on ShopifySyncPage** — "Products" tab alongside Sync Inventory, Settings, and History, housing the product management UI.
 
-### Edge Function Changes (`shopify-sync`)
+### Technical Details
 
-- No major changes needed — the existing `sync` action already accepts `items: [{sku, local_quantity}]` and processes them
-- Add a small guard so the function works when called from the trigger (service role auth)
+- **Shopify REST Admin API endpoints used**:
+  - `POST /admin/api/2024-01/products.json` — create product
+  - `PUT /admin/api/2024-01/products/{product_id}.json` — update product
+- Authentication reuses the existing OAuth token flow already in the Edge Function.
+- The create/update actions will be called from the frontend via `fetch()` to the Edge Function (matching your existing pattern) with `?action=create-product` or `?action=update-product`.
+- Product data (title, body_html, vendor, product_type, variants with price/sku/inventory) will be sent in the request body.
 
-### UI Changes (`ShopifySettings.tsx`)
+### Files to Create/Modify
 
-- Remove "(coming soon)" text from the auto-sync toggle (line 260)
-- Ensure `sync_enabled` is saved to the database when toggled
-
-### Files to Modify
-- **Database migration** — enable `pg_net`, create trigger function + trigger
-- `src/components/shopify/ShopifySettings.tsx` — update auto-sync label
-- `supabase/functions/shopify-sync/index.ts` — minor: allow service-role auth for trigger calls
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `create-product` and `update-product` action handlers |
+| `src/components/shopify/ShopifyProductManager.tsx` | New component with create/edit product forms |
+| `src/pages/ShopifySyncPage.tsx` | Add "Products" tab |
 
