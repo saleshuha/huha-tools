@@ -5,6 +5,7 @@ import { ShopifySettings } from "@/components/shopify/ShopifySettings";
 import { ShopifyInventorySync } from "@/components/shopify/ShopifyInventorySync";
 import { ShopifySyncHistory } from "@/components/shopify/ShopifySyncHistory";
 import { ShopifyProductManager } from "@/components/shopify/ShopifyProductManager";
+import { ShopifyPushInventory } from "@/components/shopify/ShopifyPushInventory";
 import { Store, CheckCircle, XCircle } from "lucide-react";
 
 export default function ShopifySyncPage() {
@@ -88,8 +89,9 @@ export default function ShopifySyncPage() {
           <ShopifyInventorySync />
         </TabsContent>
 
-        <TabsContent value="products">
+        <TabsContent value="products" className="space-y-6">
           <ShopifyProductManager />
+          <ShopifyPushInventory />
         </TabsContent>
 
         <TabsContent value="settings">

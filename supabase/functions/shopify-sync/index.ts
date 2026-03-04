@@ -569,6 +569,217 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "bulk-create-from-inventory") {
+      const body = await req.json();
+      const { skus } = body; // optional array of SKUs; if empty, push all unmatched
+
+      const locationId = config.location_id;
+      if (!locationId) {
+        return new Response(
+          JSON.stringify({ error: "No location_id configured. Please set up your Shopify location first." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 1. Fetch local inventory grouped by SKU
+      let query = supabase
+        .from("asin_inventory")
+        .select("asin, sku, title, quantity, status")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .not("sku", "is", null);
+
+      if (skus && skus.length > 0) {
+        query = query.in("sku", skus);
+      }
+
+      const { data: invItems, error: invError } = await query.limit(10000);
+      if (invError) {
+        return new Response(JSON.stringify({ error: invError.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Group by SKU — aggregate quantity, pick first title/asin
+      const skuGroup = new Map<string, { asin: string; sku: string; title: string; quantity: number }>();
+      for (const item of (invItems || [])) {
+        if (!item.sku) continue;
+        const existing = skuGroup.get(item.sku);
+        if (existing) {
+          existing.quantity += item.quantity || 0;
+        } else {
+          skuGroup.set(item.sku, {
+            asin: item.asin,
+            sku: item.sku,
+            title: item.title || `SKU: ${item.sku}`,
+            quantity: item.quantity || 0,
+          });
+        }
+      }
+
+      // 2. Fetch images for all ASINs
+      const allAsins = [...new Set([...skuGroup.values()].map(v => v.asin).filter(Boolean))];
+      let imageMap = new Map<string, string[]>();
+      if (allAsins.length > 0) {
+        const { data: images } = await supabase
+          .from("product_images")
+          .select("asin, image_url")
+          .eq("user_id", userId)
+          .in("asin", allAsins);
+
+        for (const img of (images || [])) {
+          const existing = imageMap.get(img.asin) || [];
+          existing.push(img.image_url);
+          imageMap.set(img.asin, existing);
+        }
+      }
+
+      // 3. Create products in Shopify
+      let created = 0;
+      let failed = 0;
+      const errors: any[] = [];
+
+      for (const [sku, item] of skuGroup) {
+        const imgs = imageMap.get(item.asin) || [];
+        const productPayload: any = {
+          product: {
+            title: item.title,
+            tags: "zurwa-warehouse",
+            variants: [{ sku: item.sku, price: "0.00", inventory_management: "shopify" }],
+          },
+        };
+        if (imgs.length > 0) {
+          productPayload.product.images = imgs.map((src: string) => ({ src }));
+        }
+
+        try {
+          const createRes = await fetch(
+            `https://${config.store_domain}/admin/api/2024-01/products.json`,
+            {
+              method: "POST",
+              headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+              body: JSON.stringify(productPayload),
+            }
+          );
+
+          if (!createRes.ok) {
+            const errText = await createRes.text();
+            failed++;
+            errors.push({ sku, error: errText });
+            continue;
+          }
+
+          const createdProduct = await createRes.json();
+          const variant = createdProduct.product?.variants?.[0];
+
+          // Set inventory level
+          if (variant?.inventory_item_id && item.quantity > 0) {
+            const setRes = await fetch(
+              `https://${config.store_domain}/admin/api/2024-01/inventory_levels/set.json`,
+              {
+                method: "POST",
+                headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  location_id: parseInt(locationId),
+                  inventory_item_id: variant.inventory_item_id,
+                  available: item.quantity,
+                }),
+              }
+            );
+            if (!setRes.ok) await setRes.text(); // consume
+            else await setRes.json(); // consume
+          }
+
+          created++;
+        } catch (e) {
+          failed++;
+          errors.push({ sku, error: e.message });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, created, failed, total: skuGroup.size, errors: errors.slice(0, 10) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fetch unmatched local inventory (SKUs not in Shopify)
+    if (action === "fetch-unmatched-inventory") {
+      // Get all Shopify SKUs
+      let allProducts: any[] = [];
+      let pageInfo: string | null = null;
+      let hasNext = true;
+      while (hasNext) {
+        let fetchUrl = `https://${config.store_domain}/admin/api/2024-01/products.json?limit=250&fields=id,variants`;
+        if (pageInfo) fetchUrl = `https://${config.store_domain}/admin/api/2024-01/products.json?limit=250&page_info=${pageInfo}`;
+        const res = await fetch(fetchUrl, { headers: { "X-Shopify-Access-Token": accessToken } });
+        if (!res.ok) break;
+        const data = await res.json();
+        allProducts = allProducts.concat(data.products || []);
+        const linkHeader = res.headers.get("Link");
+        if (linkHeader && linkHeader.includes('rel="next"')) {
+          const match = linkHeader.match(/<[^>]*page_info=([^&>]+)[^>]*>;\s*rel="next"/);
+          pageInfo = match ? match[1] : null;
+          hasNext = !!pageInfo;
+        } else { hasNext = false; }
+      }
+
+      const shopifySkus = new Set<string>();
+      for (const p of allProducts) {
+        for (const v of (p.variants || [])) {
+          if (v.sku) shopifySkus.add(v.sku);
+        }
+      }
+
+      // Get local inventory
+      const { data: localItems } = await supabase
+        .from("asin_inventory")
+        .select("asin, sku, title, quantity, status")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .not("sku", "is", null)
+        .limit(10000);
+
+      // Group by SKU and filter unmatched
+      const skuGroup = new Map<string, { asin: string; sku: string; title: string; quantity: number }>();
+      for (const item of (localItems || [])) {
+        if (!item.sku || shopifySkus.has(item.sku)) continue;
+        const existing = skuGroup.get(item.sku);
+        if (existing) {
+          existing.quantity += item.quantity || 0;
+        } else {
+          skuGroup.set(item.sku, {
+            asin: item.asin,
+            sku: item.sku,
+            title: item.title || `SKU: ${item.sku}`,
+            quantity: item.quantity || 0,
+          });
+        }
+      }
+
+      // Fetch images
+      const allAsins = [...new Set([...skuGroup.values()].map(v => v.asin).filter(Boolean))];
+      let imageMap: Record<string, string> = {};
+      if (allAsins.length > 0) {
+        const { data: images } = await supabase
+          .from("product_images")
+          .select("asin, image_url")
+          .eq("user_id", userId)
+          .in("asin", allAsins);
+        for (const img of (images || [])) {
+          if (!imageMap[img.asin]) imageMap[img.asin] = img.image_url;
+        }
+      }
+
+      const items = [...skuGroup.values()].map(item => ({
+        ...item,
+        image_url: imageMap[item.asin] || null,
+      }));
+
+      return new Response(JSON.stringify({ items }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
