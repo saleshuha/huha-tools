@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Upload, Package, RefreshCw } from "lucide-react";
+import { Loader2, Upload, Package, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 
 interface UnmatchedItem {
   asin: string;
@@ -20,6 +20,7 @@ export function ShopifyPushInventory() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [pushProgress, setPushProgress] = useState({ done: 0, total: 0, created: 0, failed: 0 });
   const [fetched, setFetched] = useState(false);
 
   const callEdge = async (action: string, body: any) => {
@@ -73,15 +74,33 @@ export function ShopifyPushInventory() {
   const handlePush = async () => {
     if (selected.size === 0) return;
     setPushing(true);
+    const allSkus = [...selected];
+    const batchSize = 5;
+    let totalCreated = 0;
+    let totalFailed = 0;
+    setPushProgress({ done: 0, total: allSkus.length, created: 0, failed: 0 });
+
     try {
-      const data = await callEdge("bulk-create-from-inventory", {
-        skus: [...selected],
-      });
+      for (let i = 0; i < allSkus.length; i += batchSize) {
+        const batch = allSkus.slice(i, i + batchSize);
+        try {
+          const data = await callEdge("bulk-create-from-inventory", { skus: batch });
+          totalCreated += data.created || 0;
+          totalFailed += data.failed || 0;
+        } catch {
+          totalFailed += batch.length;
+        }
+        setPushProgress({
+          done: Math.min(i + batchSize, allSkus.length),
+          total: allSkus.length,
+          created: totalCreated,
+          failed: totalFailed,
+        });
+      }
       toast({
         title: "Push complete",
-        description: `Created: ${data.created}, Failed: ${data.failed} out of ${data.total}`,
+        description: `Created: ${totalCreated}, Failed: ${totalFailed} out of ${allSkus.length}`,
       });
-      // Refresh the list
       fetchUnmatched();
     } catch (e: any) {
       toast({ title: "Push failed", description: e.message, variant: "destructive" });
@@ -135,7 +154,16 @@ export function ShopifyPushInventory() {
               </div>
             </div>
 
-            {pushing && <Progress value={undefined} className="h-2" />}
+            {pushing && (
+              <div className="space-y-1">
+                <Progress value={pushProgress.total > 0 ? (pushProgress.done / pushProgress.total) * 100 : 0} className="h-2" />
+                <p className="text-xs text-muted-foreground flex items-center gap-3">
+                  <span>Processing {pushProgress.done}/{pushProgress.total}</span>
+                  <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-500" /> {pushProgress.created}</span>
+                  {pushProgress.failed > 0 && <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-destructive" /> {pushProgress.failed}</span>}
+                </p>
+              </div>
+            )}
 
             <div className="border rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
               <table className="w-full text-sm">
