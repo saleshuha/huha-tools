@@ -8,5 +8,5 @@ export interface ExcelData {
 }
 
 export interface ColumnMapping {
-  [sourceColumn: string]: string; // source column -> target column
+  [sourceColumn: string]: string[]; // source column -> array of target columns
 }

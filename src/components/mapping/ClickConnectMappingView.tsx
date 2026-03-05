@@ -14,7 +14,7 @@ interface ClickConnectMappingViewProps {
   defaultValues?: Record<string, string>;
   pretextValues?: Record<string, string>;
   onCreateMapping: (sourceColumn: string, targetColumn: string) => void;
-  onRemoveMapping: (sourceColumn: string) => void;
+  onRemoveMapping: (sourceColumn: string, targetColumn?: string) => void;
   onSetDefaultValue?: (targetColumn: string, value: string) => void;
   onRemoveDefaultValue?: (targetColumn: string) => void;
   onSetPretextValue?: (sourceColumn: string, value: string) => void;
@@ -65,8 +65,8 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
     );
   }
 
-  const mappedTargetColumns = Object.values(mappings);
-  const unmappedTargetColumns = targetData.headers.filter(col => !mappedTargetColumns.includes(col));
+  const allMappedTargets = Object.values(mappings).flat();
+  const unmappedTargetColumns = targetData.headers.filter(col => !allMappedTargets.includes(col));
 
   return (
     <div className="space-y-6">
@@ -80,7 +80,7 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
             </p>
             <p className="text-sm text-muted-foreground">
               {step === 'select-source' 
-                ? 'Select a source column to map' 
+                ? 'Select a source column to map (can map to multiple targets)' 
                 : `Selected: ${selectedSource} → Click target column to connect`}
             </p>
           </div>
@@ -97,86 +97,89 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 text-primary">Source Columns</h3>
           <div className="space-y-3">
-            {sourceData.headers.map((column) => (
-              <div key={column} className="space-y-2">
-                <Button
-                  variant={selectedSource === column ? "default" : "outline"}
-                  className={`w-full justify-start text-left p-4 h-auto ${
-                    step === 'select-source' 
-                      ? 'hover:bg-primary/10 hover:border-primary/50' 
-                      : 'opacity-50 cursor-not-allowed'
-                  } ${
-                    mappings[column] ? 'bg-success/10 border-success/30' : ''
-                  }`}
-                  onClick={() => step === 'select-source' && handleSourceClick(column)}
-                  disabled={step !== 'select-source'}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>{column}</span>
-                    <div className="flex items-center space-x-2">
-                      {mappings[column] && (
-                        <>
-                          <ArrowRight className="w-4 h-4" />
-                          <Badge variant="secondary" className="text-xs">
-                            {mappings[column]}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemoveMapping(column);
-                            }}
-                            className="hover:bg-destructive/10 hover:text-destructive p-1"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </>
+            {sourceData.headers.map((column) => {
+              const mappedTargets = mappings[column] || [];
+              return (
+                <div key={column} className="space-y-2">
+                  <Button
+                    variant={selectedSource === column ? "default" : "outline"}
+                    className={`w-full justify-start text-left p-4 h-auto ${
+                      step === 'select-source' 
+                        ? 'hover:bg-primary/10 hover:border-primary/50' 
+                        : 'opacity-50 cursor-not-allowed'
+                    } ${
+                      mappedTargets.length > 0 ? 'bg-success/10 border-success/30' : ''
+                    }`}
+                    onClick={() => step === 'select-source' && handleSourceClick(column)}
+                    disabled={step !== 'select-source'}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span>{column}</span>
+                      <div className="flex items-center space-x-2 flex-wrap gap-1">
+                        {mappedTargets.length > 0 && (
+                          <>
+                            <ArrowRight className="w-4 h-4" />
+                            {mappedTargets.map(target => (
+                              <Badge key={target} variant="secondary" className="text-xs flex items-center gap-1">
+                                {target}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveMapping(column, target);
+                                  }}
+                                  className="hover:text-destructive"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </Button>
+
+                  {/* Pretext input for mapped columns */}
+                  {mappedTargets.length > 0 && (
+                    <div className="ml-4 flex items-center space-x-3 p-3 border border-primary/20 rounded-lg bg-primary/5">
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-xs font-medium text-primary">Add Pretext</Label>
+                        <p className="text-xs text-muted-foreground">Text to prepend</p>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          placeholder="e.g., 'Mr. '"
+                          value={pretextValues[column] || ''}
+                          onChange={(e) => {
+                            if (onSetPretextValue) {
+                              onSetPretextValue(column, e.target.value);
+                            }
+                          }}
+                          className="bg-background border hover:border-primary/50 focus:border-primary text-sm"
+                        />
+                      </div>
+                      
+                      {pretextValues[column] && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (onRemovePretextValue) {
+                              onRemovePretextValue(column);
+                            }
+                          }}
+                          className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive p-1"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       )}
                     </div>
-                  </div>
-                </Button>
-
-                {/* Pretext input for mapped columns */}
-                {mappings[column] && (
-                  <div className="ml-4 flex items-center space-x-3 p-3 border border-primary/20 rounded-lg bg-primary/5">
-                    <div className="flex-1 min-w-0">
-                      <Label className="text-xs font-medium text-primary">Add Pretext</Label>
-                      <p className="text-xs text-muted-foreground">Text to prepend</p>
-                    </div>
-                    
-                    <div className="flex-1">
-                      <Input
-                        type="text"
-                        placeholder="e.g., 'Mr. '"
-                        value={pretextValues[column] || ''}
-                        onChange={(e) => {
-                          if (onSetPretextValue) {
-                            onSetPretextValue(column, e.target.value);
-                          }
-                        }}
-                        className="bg-background border hover:border-primary/50 focus:border-primary text-sm"
-                      />
-                    </div>
-                    
-                    {pretextValues[column] && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (onRemovePretextValue) {
-                            onRemovePretextValue(column);
-                          }
-                        }}
-                        className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive p-1"
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
 
@@ -185,7 +188,7 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
           <h3 className="text-lg font-semibold mb-4 text-accent">Target Columns</h3>
           <div className="space-y-2">
             {targetData.headers.map((column) => {
-              const isMapped = Object.values(mappings).includes(column);
+              const isMapped = allMappedTargets.includes(column);
               return (
                 <Button
                   key={column}

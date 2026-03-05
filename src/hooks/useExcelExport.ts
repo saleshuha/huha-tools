@@ -6,12 +6,10 @@ import JSZip from 'jszip';
 export const useExcelExport = () => {
   const { toast } = useToast();
 
-  // Helper function to get file size in bytes
   const getFileSizeInBytes = (content: string): number => {
     return new Blob([content]).size;
   };
 
-  // Helper function to convert array to CSV content
   const arrayToCSV = (data: string[][]): string => {
     return data.map(row => 
       row.map(field => {
@@ -38,17 +36,25 @@ export const useExcelExport = () => {
     }
 
     try {
-      // Prepare mapped data rows
       const mappedRows: string[][] = [];
       
       sourceData.data.forEach(sourceRow => {
         const targetRow = new Array(targetData.headers.length).fill('');
-        Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+        Object.entries(mappings).forEach(([sourceCol, targetCols]) => {
           const sourceIndex = sourceData.headers.indexOf(sourceCol);
-          const targetIndex = targetData.headers.indexOf(targetCol);
-          if (sourceIndex !== -1 && targetIndex !== -1) {
-            const value = sourceRow[sourceIndex];
-            targetRow[targetIndex] = value !== undefined ? String(value) : '';
+          if (sourceIndex === -1) return;
+          const value = sourceRow[sourceIndex] !== undefined ? String(sourceRow[sourceIndex]) : '';
+          
+          for (const targetCol of targetCols) {
+            const targetIndex = targetData.headers.indexOf(targetCol);
+            if (targetIndex !== -1) {
+              // If target cell already has a value (from another source), concatenate
+              if (targetRow[targetIndex] !== '' && targetRow[targetIndex] !== null) {
+                targetRow[targetIndex] = targetRow[targetIndex] + ', ' + value;
+              } else {
+                targetRow[targetIndex] = value;
+              }
+            }
           }
         });
         mappedRows.push(targetRow);
@@ -61,16 +67,13 @@ export const useExcelExport = () => {
       const zip = new JSZip();
       let fileCount = 1;
 
-      // Split data into chunks of 9900 rows
       for (let i = 0; i < totalRows; i += maxRowsPerFile) {
         const endIndex = Math.min(i + maxRowsPerFile, totalRows);
         const rowsChunk = mappedRows.slice(i, endIndex);
         
-        // Create CSV with headers + data chunk
         const csvData = [targetData.headers, ...rowsChunk];
         const csvContent = arrayToCSV(csvData);
         
-        // Create filename for this part
         const fileName = totalRows > maxRowsPerFile 
           ? `${originalName}_mapped_part${fileCount}.csv`
           : `${originalName}_mapped.csv`;
@@ -79,13 +82,13 @@ export const useExcelExport = () => {
         fileCount++;
       }
 
-      // Download the zip file
       await downloadZip(zip, `${originalName}_mapped_files.zip`);
 
       const fileCount_final = Math.ceil(totalRows / maxRowsPerFile);
+      const totalMappings = Object.values(mappings).flat().length;
       toast({
         title: "Export successful",
-        description: `Exported ${totalRows} rows in ${fileCount_final} CSV file(s) with ${Object.keys(mappings).length} column mappings`,
+        description: `Exported ${totalRows} rows in ${fileCount_final} CSV file(s) with ${totalMappings} column mappings`,
       });
       
     } catch (error) {
@@ -98,7 +101,6 @@ export const useExcelExport = () => {
     }
   }, [toast]);
 
-  // Helper function to download zip
   const downloadZip = async (zip: JSZip, fileName: string): Promise<void> => {
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
