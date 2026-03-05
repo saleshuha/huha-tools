@@ -22,17 +22,28 @@ export const ExcelMapper = () => {
   const { toast } = useToast();
   const { exportMappedData } = useExcelExport();
 
-  const removeMapping = useCallback((sourceColumn: string) => {
+  const removeMapping = useCallback((sourceColumn: string, targetColumn?: string) => {
     setMappings(prev => {
       const newMappings = { ...prev };
-      delete newMappings[sourceColumn];
+      if (targetColumn) {
+        // Remove specific target from the array
+        const filtered = (newMappings[sourceColumn] || []).filter(t => t !== targetColumn);
+        if (filtered.length === 0) {
+          delete newMappings[sourceColumn];
+        } else {
+          newMappings[sourceColumn] = filtered;
+        }
+      } else {
+        // Remove all mappings for this source
+        delete newMappings[sourceColumn];
+      }
       return newMappings;
     });
   }, []);
 
   const handleSourceUpload = useCallback((data: ExcelData) => {
     setSourceData(data);
-    setMappings({}); // Reset mappings when new source is uploaded
+    setMappings({});
     toast({
       title: "Source file uploaded",
       description: `${data.headers.length} columns detected in ${data.fileName}`,
@@ -41,7 +52,7 @@ export const ExcelMapper = () => {
 
   const handleTargetUpload = useCallback((data: ExcelData) => {
     setTargetData(data);
-    setMappings({}); // Reset mappings when new target is uploaded
+    setMappings({});
     toast({
       title: "Target file uploaded", 
       description: `${data.headers.length} columns detected in ${data.fileName}`,
@@ -71,10 +82,14 @@ export const ExcelMapper = () => {
   }, [exportMappedData, sourceData, targetData, mappings]);
 
   const createMapping = useCallback((sourceColumn: string, targetColumn: string) => {
-    setMappings(prev => ({
-      ...prev,
-      [sourceColumn]: targetColumn
-    }));
+    setMappings(prev => {
+      const existing = prev[sourceColumn] || [];
+      if (existing.includes(targetColumn)) return prev;
+      return {
+        ...prev,
+        [sourceColumn]: [...existing, targetColumn]
+      };
+    });
     
     toast({
       title: "Mapping created",
@@ -111,7 +126,7 @@ export const ExcelMapper = () => {
     }
   };
 
-  const mappingCount = Object.keys(mappings).length;
+  const mappingCount = Object.values(mappings).flat().length;
   const isReadyToExport = sourceData && targetData && mappingCount > 0;
 
   return (
@@ -137,10 +152,9 @@ export const ExcelMapper = () => {
           mappingCount={mappingCount}
         />
 
-        {/* Initial File Upload Section - for drag-drop or when no files */}
+        {/* Initial File Upload Section */}
         {!sourceData || !targetData ? (
           <div className="grid lg:grid-cols-2 gap-8 mb-8">
-            {/* Source File Upload */}
             <div className="glass-container p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold flex items-center space-x-2">
@@ -148,38 +162,24 @@ export const ExcelMapper = () => {
                   <span>Source File</span>
                 </h2>
                 {sourceData && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSourceData}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Clear
+                  <Button variant="outline" size="sm" onClick={clearSourceData} className="text-destructive hover:text-destructive">
+                    <X className="w-4 h-4 mr-1" /> Clear
                   </Button>
                 )}
               </div>
               {!sourceData ? (
-                <FileUpload
-                  onFileUpload={handleSourceUpload}
-                  title="Upload Source Excel File"
-                  description="Select the Excel file containing your source data"
-                  accept=".xlsx,.xls"
-                />
+                <FileUpload onFileUpload={handleSourceUpload} title="Upload Source Excel File" description="Select the Excel file containing your source data" accept=".xlsx,.xls" />
               ) : (
                 <div className="p-4 border border-border rounded-lg bg-muted/50">
                   <div className="flex items-center space-x-2">
                     <FileSpreadsheet className="w-4 h-4 text-primary" />
                     <span className="font-medium">{sourceData.fileName}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({sourceData.headers.length} columns)
-                    </span>
+                    <span className="text-sm text-muted-foreground">({sourceData.headers.length} columns)</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Target File Upload */}
             <div className="glass-container p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold flex items-center space-x-2">
@@ -187,33 +187,19 @@ export const ExcelMapper = () => {
                   <span>Target File</span>
                 </h2>
                 {targetData && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearTargetData}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Clear
+                  <Button variant="outline" size="sm" onClick={clearTargetData} className="text-destructive hover:text-destructive">
+                    <X className="w-4 h-4 mr-1" /> Clear
                   </Button>
                 )}
               </div>
               {!targetData ? (
-                <FileUpload
-                  onFileUpload={handleTargetUpload}
-                  title="Upload Target Excel File"
-                  description="Select the Excel file with your target column structure"
-                  accept=".xlsx,.xls"
-                  isTarget={true}
-                />
+                <FileUpload onFileUpload={handleTargetUpload} title="Upload Target Excel File" description="Select the Excel file with your target column structure" accept=".xlsx,.xls" isTarget={true} />
               ) : (
                 <div className="p-4 border border-border rounded-lg bg-muted/50">
                   <div className="flex items-center space-x-2">
                     <FileSpreadsheet className="w-4 h-4 text-accent" />
                     <span className="font-medium">{targetData.fileName}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({targetData.headers.length} columns)
-                    </span>
+                    <span className="text-sm text-muted-foreground">({targetData.headers.length} columns)</span>
                   </div>
                 </div>
               )}
@@ -221,64 +207,40 @@ export const ExcelMapper = () => {
           </div>
         ) : (
           <>
-            {/* File Status and Clear Options - always visible when both files uploaded */}
             <div className="grid lg:grid-cols-2 gap-8 mb-6">
-              {/* Source File Status */}
               <div className="glass-container p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <FileSpreadsheet className="w-4 h-4 text-primary" />
                     <div>
                       <span className="font-medium text-sm">Source: {sourceData.fileName}</span>
-                      <div className="text-xs text-muted-foreground">
-                        {sourceData.headers.length} columns
-                      </div>
+                      <div className="text-xs text-muted-foreground">{sourceData.headers.length} columns</div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSourceData}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Change
+                  <Button variant="outline" size="sm" onClick={clearSourceData} className="text-destructive hover:text-destructive">
+                    <X className="w-4 h-4 mr-1" /> Change
                   </Button>
                 </div>
               </div>
 
-              {/* Target File Status */}
               <div className="glass-container p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <FileSpreadsheet className="w-4 h-4 text-accent" />
                     <div>
                       <span className="font-medium text-sm">Target: {targetData.fileName}</span>
-                      <div className="text-xs text-muted-foreground">
-                        {targetData.headers.length} columns
-                      </div>
+                      <div className="text-xs text-muted-foreground">{targetData.headers.length} columns</div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearTargetData}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Change
+                  <Button variant="outline" size="sm" onClick={clearTargetData} className="text-destructive hover:text-destructive">
+                    <X className="w-4 h-4 mr-1" /> Change
                   </Button>
                 </div>
               </div>
             </div>
 
-            {/* Mapping Method Selector - only show after both files are uploaded */}
-            <MappingMethodSelector
-              selectedMethod={mappingMethod}
-              onMethodChange={setMappingMethod}
-            />
+            <MappingMethodSelector selectedMethod={mappingMethod} onMethodChange={setMappingMethod} />
 
-            {/* Reset/Back Button */}
             <div className="flex justify-center mt-6">
               <Button
                 variant="default"
@@ -290,17 +252,14 @@ export const ExcelMapper = () => {
                 }}
                 className="flex items-center gap-2"
               >
-                <RotateCcw className="w-4 h-4" />
-                Start Over
+                <RotateCcw className="w-4 h-4" /> Start Over
               </Button>
             </div>
 
-            {/* Mapping Interface */}
             {renderMappingInterface()}
           </>
         )}
 
-        {/* Export Section */}
         {(sourceData || targetData) && (
           <>
             <Separator className="my-8" />

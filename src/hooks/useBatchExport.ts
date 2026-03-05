@@ -30,10 +30,8 @@ export const useBatchExport = () => {
     }
 
     try {
-      // Process all files and split output based on row limit
       const allMappedRows: string[][] = [];
       
-      // Process each file
       for (const sourceFile of sourceFiles) {
         const mappings = sourceFile.mappings;
         
@@ -41,24 +39,33 @@ export const useBatchExport = () => {
           continue;
         }
 
-        // Process each row of source data
         for (const sourceRow of sourceFile.data.data) {
           const targetRow = new Array(targetData.headers.length).fill('');
           
           // Apply column mappings with optional pretext
-          Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+          // Each source column can map to multiple target columns
+          Object.entries(mappings).forEach(([sourceCol, targetCols]) => {
             const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
-            const targetIndex = targetData.headers.indexOf(targetCol);
-            if (sourceIndex !== -1 && targetIndex !== -1) {
-              let value = sourceRow[sourceIndex];
-              value = value !== undefined ? String(value) : '';
-              
-              // Add pretext if defined
-              if (sourceFile.pretextValues && sourceFile.pretextValues[sourceCol]) {
-                value = sourceFile.pretextValues[sourceCol] + value;
+            if (sourceIndex === -1) return;
+            
+            let value = sourceRow[sourceIndex];
+            value = value !== undefined ? String(value) : '';
+            
+            // Add pretext if defined
+            if (sourceFile.pretextValues && sourceFile.pretextValues[sourceCol]) {
+              value = sourceFile.pretextValues[sourceCol] + value;
+            }
+            
+            for (const targetCol of targetCols) {
+              const targetIndex = targetData.headers.indexOf(targetCol);
+              if (targetIndex !== -1) {
+                // If target cell already has a value (from another source mapping), concatenate
+                if (targetRow[targetIndex] !== '' && targetRow[targetIndex] !== null) {
+                  targetRow[targetIndex] = targetRow[targetIndex] + ', ' + value;
+                } else {
+                  targetRow[targetIndex] = value;
+                }
               }
-              
-              targetRow[targetIndex] = value;
             }
           });
           
@@ -66,7 +73,6 @@ export const useBatchExport = () => {
           const fileDefaultValues = sourceFile.defaultValues || {};
           const allDefaultValues = { ...templateDefaultValues, ...fileDefaultValues };
           
-          // Apply defaults to all empty columns
           targetData.headers.forEach((header, index) => {
             if ((targetRow[index] === '' || targetRow[index] === null || targetRow[index] === undefined) && allDefaultValues[header]) {
               targetRow[index] = allDefaultValues[header];
@@ -86,11 +92,9 @@ export const useBatchExport = () => {
         return;
       }
 
-      // Debug logging
       console.log('Total mapped rows:', allMappedRows.length);
       console.log('Row limit:', rowLimit);
 
-      // Split all mapped rows into batches based on row limit
       const outputBatches: string[][][] = [];
       for (let i = 0; i < allMappedRows.length; i += rowLimit) {
         const batchRows = allMappedRows.slice(i, i + rowLimit);
@@ -101,15 +105,11 @@ export const useBatchExport = () => {
 
       console.log('Total batches created:', outputBatches.length);
 
-      // Process each output batch
       for (let batchIndex = 0; batchIndex < outputBatches.length; batchIndex++) {
         const mappedData = outputBatches[batchIndex];
 
-        if (mappedData.length <= 1) { // Only header, no data
-          continue;
-        }
+        if (mappedData.length <= 1) continue;
 
-        // Create CSV content for this batch
         const csvContent = mappedData.map(row => 
           row.map(field => {
             const fieldStr = String(field);
@@ -120,7 +120,6 @@ export const useBatchExport = () => {
           }).join(',')
         ).join('\n');
 
-        // Create and download zip for this batch
         const zip = new JSZip();
         const batchFileName = outputBatches.length === 1 ? 
           `merged_export.csv` : 

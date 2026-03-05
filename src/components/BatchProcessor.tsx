@@ -261,10 +261,14 @@ export const BatchProcessor = () => {
   }, [sourceFiles.length, toast]);
 
   const createTemplateMapping = useCallback((sourceColumn: string, targetColumn: string) => {
-    setTemplateMappings(prev => ({
-      ...prev,
-      [sourceColumn]: targetColumn
-    }));
+    setTemplateMappings(prev => {
+      const existing = prev[sourceColumn] || [];
+      if (existing.includes(targetColumn)) return prev;
+      return {
+        ...prev,
+        [sourceColumn]: [...existing, targetColumn]
+      };
+    });
     
     toast({
       title: "Template mapping created",
@@ -272,10 +276,19 @@ export const BatchProcessor = () => {
     });
   }, [toast]);
 
-  const removeTemplateMapping = useCallback((sourceColumn: string) => {
+  const removeTemplateMapping = useCallback((sourceColumn: string, targetColumn?: string) => {
     setTemplateMappings(prev => {
       const newMappings = { ...prev };
-      delete newMappings[sourceColumn];
+      if (targetColumn) {
+        const filtered = (newMappings[sourceColumn] || []).filter(t => t !== targetColumn);
+        if (filtered.length === 0) {
+          delete newMappings[sourceColumn];
+        } else {
+          newMappings[sourceColumn] = filtered;
+        }
+      } else {
+        delete newMappings[sourceColumn];
+      }
       return newMappings;
     });
   }, []);

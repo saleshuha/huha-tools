@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight, Plus } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 
 interface DropdownMappingViewProps {
@@ -15,7 +15,7 @@ interface DropdownMappingViewProps {
   defaultValues?: Record<string, string>;
   pretextValues?: Record<string, string>;
   onCreateMapping: (sourceColumn: string, targetColumn: string) => void;
-  onRemoveMapping: (sourceColumn: string) => void;
+  onRemoveMapping: (sourceColumn: string, targetColumn?: string) => void;
   onSetDefaultValue?: (targetColumn: string, value: string) => void;
   onRemoveDefaultValue?: (targetColumn: string) => void;
   onSetPretextValue?: (sourceColumn: string, value: string) => void;
@@ -45,15 +45,16 @@ export const DropdownMappingView: React.FC<DropdownMappingViewProps> = ({
     );
   }
 
-  const mappedTargetColumns = Object.values(mappings);
-  const unmappedTargetColumns = targetData.headers.filter(col => !mappedTargetColumns.includes(col));
+  const allMappedTargets = Object.values(mappings).flat();
+  const unmappedTargetColumns = targetData.headers.filter(col => !allMappedTargets.includes(col));
+  const totalMappingCount = allMappedTargets.length;
 
   return (
     <div className="space-y-6">
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-6 flex items-center space-x-2">
           <span>Column Mappings</span>
-          <Badge variant="secondary">{Object.keys(mappings).length} mapped</Badge>
+          <Badge variant="secondary">{totalMappingCount} mapped</Badge>
           {unmappedTargetColumns.length > 0 && (
             <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">
               {unmappedTargetColumns.length} need defaults
@@ -62,93 +63,117 @@ export const DropdownMappingView: React.FC<DropdownMappingViewProps> = ({
         </h3>
         
         <div className="space-y-4">
-          {sourceData.headers.map((sourceColumn) => (
-            <div key={sourceColumn} className="space-y-3">
-              <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gradient-surface">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium text-primary">{sourceColumn}</Label>
-                </div>
-                
-                <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                
-                <div className="flex-1">
-                  <Select
-                    value={mappings[sourceColumn] || ''}
-                    onValueChange={(value) => {
-                      if (value) {
-                        onCreateMapping(sourceColumn, value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="bg-background border-2 hover:border-primary/50">
-                      <SelectValue placeholder="Select target column" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-2 shadow-lg z-50 max-h-60">
-                      {targetData.headers.map((targetColumn) => (
-                        <SelectItem 
-                          key={targetColumn} 
-                          value={targetColumn}
-                          className="hover:bg-muted focus:bg-muted cursor-pointer"
-                        >
-                          {targetColumn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {mappings[sourceColumn] && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemoveMapping(sourceColumn)}
-                    className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Pretext input for mapped columns */}
-              {mappings[sourceColumn] && (
-                <div className="ml-8 flex items-center space-x-4 p-3 border border-primary/20 rounded-lg bg-primary/5">
-                  <div className="flex-1">
-                    <Label className="text-sm font-medium text-primary">Add Pretext (Optional)</Label>
-                    <p className="text-xs text-muted-foreground mt-1">Text to prepend before the actual data</p>
+          {sourceData.headers.map((sourceColumn) => {
+            const mappedTargets = mappings[sourceColumn] || [];
+            return (
+              <div key={sourceColumn} className="space-y-3">
+                <div className="flex items-start space-x-4 p-4 border rounded-lg bg-gradient-surface">
+                  <div className="flex-1 pt-1">
+                    <Label className="text-sm font-medium text-primary">{sourceColumn}</Label>
                   </div>
                   
-                  <div className="flex-1">
-                    <Input
-                      type="text"
-                      placeholder="e.g., 'Mr. ' or 'SKU-'"
-                      value={pretextValues[sourceColumn] || ''}
-                      onChange={(e) => {
-                        if (onSetPretextValue) {
-                          onSetPretextValue(sourceColumn, e.target.value);
+                  <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-2" />
+                  
+                  <div className="flex-1 space-y-2">
+                    {/* Show mapped targets as badges */}
+                    {mappedTargets.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {mappedTargets.map((target) => (
+                          <Badge key={target} variant="secondary" className="flex items-center gap-1 py-1">
+                            {target}
+                            <button
+                              onClick={() => onRemoveMapping(sourceColumn, target)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Dropdown to add another target */}
+                    <Select
+                      value=""
+                      onValueChange={(value) => {
+                        if (value) {
+                          onCreateMapping(sourceColumn, value);
                         }
                       }}
-                      className="bg-background border-2 hover:border-primary/50 focus:border-primary"
-                    />
+                    >
+                      <SelectTrigger className="bg-background border-2 hover:border-primary/50">
+                        <SelectValue placeholder={mappedTargets.length > 0 ? "Add another target..." : "Select target column"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-2 shadow-lg z-50 max-h-60">
+                        {targetData.headers
+                          .filter(tc => !mappedTargets.includes(tc))
+                          .map((targetColumn) => (
+                            <SelectItem 
+                              key={targetColumn} 
+                              value={targetColumn}
+                              className="hover:bg-muted focus:bg-muted cursor-pointer"
+                            >
+                              {targetColumn}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
-                  {pretextValues[sourceColumn] && (
+                  {mappedTargets.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        if (onRemovePretextValue) {
-                          onRemovePretextValue(sourceColumn);
-                        }
-                      }}
+                      onClick={() => onRemoveMapping(sourceColumn)}
                       className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                      title="Remove all mappings"
                     >
                       <X className="w-4 h-4" />
                     </Button>
                   )}
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Pretext input for mapped columns */}
+                {mappedTargets.length > 0 && (
+                  <div className="ml-8 flex items-center space-x-4 p-3 border border-primary/20 rounded-lg bg-primary/5">
+                    <div className="flex-1">
+                      <Label className="text-sm font-medium text-primary">Add Pretext (Optional)</Label>
+                      <p className="text-xs text-muted-foreground mt-1">Text to prepend before the actual data</p>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <Input
+                        type="text"
+                        placeholder="e.g., 'Mr. ' or 'SKU-'"
+                        value={pretextValues[sourceColumn] || ''}
+                        onChange={(e) => {
+                          if (onSetPretextValue) {
+                            onSetPretextValue(sourceColumn, e.target.value);
+                          }
+                        }}
+                        className="bg-background border-2 hover:border-primary/50 focus:border-primary"
+                      />
+                    </div>
+                    
+                    {pretextValues[sourceColumn] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (onRemovePretextValue) {
+                            onRemovePretextValue(sourceColumn);
+                          }
+                        }}
+                        className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {unmappedTargetColumns.length > 0 && (
