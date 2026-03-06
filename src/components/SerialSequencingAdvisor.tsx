@@ -168,6 +168,17 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const expandAll = () => setExpandedCategories(new Set(plan.map(p => p.category)));
   const collapseAll = () => setExpandedCategories(new Set());
 
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const currentOrder = categoryOrder ?? plan.map(p => p.category);
+    const newOrder = [...currentOrder];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+    setCategoryOrder(newOrder);
+  };
+
+  const resetOrder = () => setCategoryOrder(null);
+
   // Save plan to serial_range_directory
   const savePlan = useCallback(async () => {
     setSaving(true);
