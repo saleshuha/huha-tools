@@ -53,6 +53,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
+  const [growthGapPercent, setGrowthGapPercent] = useState(20);
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
 
