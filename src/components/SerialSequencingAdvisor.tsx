@@ -145,23 +145,33 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     return sorted;
   }, [categorizedItems, bucketSize, growthGapPercent]);
 
-  // Category-based bucket grouping
+  // Category-based bucket grouping with sort mode
   const categoryBuckets = useMemo((): CategoryBucket[] => {
     const buckets: CategoryBucket[] = [];
     categorySummary.forEach(cat => {
       const items = categorizedItems
         .filter(i => i.category === cat.category)
-        .sort((a, b) => (parseInt(a.serialNumber, 10) || 0) - (parseInt(b.serialNumber, 10) || 0));
+        .sort((a, b) => {
+          if (sortMode === 'brand') {
+            const brandCmp = a.brand.localeCompare(b.brand);
+            if (brandCmp !== 0) return brandCmp;
+          }
+          return (parseInt(a.serialNumber, 10) || 0) - (parseInt(b.serialNumber, 10) || 0);
+        });
       const totalBuckets = Math.ceil(items.length / bucketSize);
       for (let i = 0; i < items.length; i += bucketSize) {
         const bucketIndex = Math.floor(i / bucketSize);
+        // Determine brands in this chunk for label
+        const chunk = items.slice(i, i + bucketSize);
+        const chunkBrands = [...new Set(chunk.map(it => it.brand))];
         buckets.push({
           category: cat.category,
           color: cat.color,
           bucketIndex,
           totalBuckets,
-          items: items.slice(i, i + bucketSize),
+          items: chunk,
           key: `${cat.category}-${bucketIndex}`,
+          brands: chunkBrands,
         });
       }
     });
