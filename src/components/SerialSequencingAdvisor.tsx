@@ -436,6 +436,28 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                     Serial range: <span className="font-mono font-semibold">00001</span> – <span className="font-mono font-semibold">{String(activeItems.length).padStart(5, '0')}</span>
                   </div>
                 </div>
+
+                {/* Existing Range Directory */}
+                {existingRanges.length > 0 && (
+                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Package className="w-4 h-4 text-primary" />
+                      Active Range Directory
+                      <Badge variant="outline" className="text-xs">{existingRanges.length} categories</Badge>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {existingRanges.map(r => (
+                        <div key={r.category} className="text-xs p-2 bg-background rounded border">
+                          <div className="font-medium truncate">{r.category}</div>
+                          <div className="text-muted-foreground font-mono">
+                            {String(r.range_start).padStart(5, '0')}–{String(r.range_end).padStart(5, '0')}
+                            <span className="ml-1">({r.items_used} used)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
