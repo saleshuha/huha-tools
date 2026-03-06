@@ -319,7 +319,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         icon={Shuffle}
         variant="purple"
         tooltip="Intelligent serial number sequencing by product category"
-        onClick={() => { setIsOpen(true); setStep(1); }}
+        onClick={() => { setIsOpen(true); setStep(1); loadRangeDirectory(); }}
       />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
