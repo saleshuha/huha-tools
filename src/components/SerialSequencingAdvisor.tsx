@@ -53,6 +53,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
+  const [growthGapPercent, setGrowthGapPercent] = useState(20);
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
 
@@ -253,6 +254,18 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                   max={100}
                 />
               </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-sm whitespace-nowrap">Growth Gap:</Label>
+                <Input
+                  type="number"
+                  value={growthGapPercent}
+                  onChange={e => setGrowthGapPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  className="w-16 h-8"
+                  min={0}
+                  max={100}
+                />
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -293,6 +306,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                         <TableHead>Category</TableHead>
                         <TableHead className="text-right">Items</TableHead>
                         <TableHead className="text-right">Buckets</TableHead>
+                        <TableHead className="text-right">Reserved</TableHead>
                         <TableHead>Top Brands</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -306,6 +320,9 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums">{cat.count}</TableCell>
                           <TableCell className="text-right tabular-nums">{cat.bucketsNeeded}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {Math.ceil(cat.count * (growthGapPercent / 100))}
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {Object.entries(cat.brands)
