@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { 
-  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3, Plus
+  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3, Plus,
+  ArrowUp, ArrowDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EnhancedActionButton } from './inventory/EnhancedActionButton';
@@ -51,6 +52,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   // Custom gap overrides: category → absolute number of extra slots
   const [customCategoryGaps, setCustomCategoryGaps] = useState<Record<string, number>>({});
+  // Custom category ordering: null = default (by count desc)
+  const [categoryOrder, setCategoryOrder] = useState<string[] | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -85,7 +88,17 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       categories.push({ category, color: val.color, totalItems, brands });
     });
 
-    categories.sort((a, b) => b.totalItems - a.totalItems);
+    // Apply custom order if set, otherwise sort by count descending
+    if (categoryOrder) {
+      const orderMap = new Map(categoryOrder.map((c, i) => [c, i]));
+      categories.sort((a, b) => {
+        const oa = orderMap.get(a.category) ?? 9999;
+        const ob = orderMap.get(b.category) ?? 9999;
+        return oa - ob;
+      });
+    } else {
+      categories.sort((a, b) => b.totalItems - a.totalItems);
+    }
 
     let cursor = 1;
     const result: CategoryPlan[] = [];
@@ -128,7 +141,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
 
     return result;
-  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent, customCategoryGaps]);
+  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent, customCategoryGaps, categoryOrder]);
 
   const totalSerials = plan.length > 0 ? plan[plan.length - 1].rangeEnd : 0;
 
@@ -154,6 +167,17 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
   const expandAll = () => setExpandedCategories(new Set(plan.map(p => p.category)));
   const collapseAll = () => setExpandedCategories(new Set());
+
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const currentOrder = categoryOrder ?? plan.map(p => p.category);
+    const newOrder = [...currentOrder];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+    setCategoryOrder(newOrder);
+  };
+
+  const resetOrder = () => setCategoryOrder(null);
 
   // Save plan to serial_range_directory
   const savePlan = useCallback(async () => {
@@ -241,6 +265,9 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
               <div className="flex items-center gap-2 ml-auto">
+                {categoryOrder && (
+                  <Button variant="ghost" size="sm" onClick={resetOrder} className="text-xs h-7 text-amber-600 dark:text-amber-400">Reset Order</Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={expandAll} className="text-xs h-7">Expand All</Button>
                 <Button variant="ghost" size="sm" onClick={collapseAll} className="text-xs h-7">Collapse All</Button>
               </div>
@@ -264,7 +291,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
             {/* Plan Preview */}
             <ScrollArea className="flex-1 h-[55vh]">
               <div className="space-y-1 pr-3">
-                {plan.map(cat => {
+                {plan.map((cat, catIndex) => {
                   const isExpanded = expandedCategories.has(cat.category);
                   return (
                     <div key={cat.category} className="rounded-lg border border-border overflow-hidden">
@@ -295,6 +322,22 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                         >
                           +{cat.categoryGap} {cat.hasCustomGap ? '★' : 'cat gap'}
                         </Badge>
+                        <div className="flex items-center gap-0.5 ml-1" onClick={e => e.stopPropagation()}>
+                          <button
+                            disabled={catIndex === 0}
+                            onClick={(e) => { e.stopPropagation(); moveCategory(catIndex, 'up'); }}
+                            className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                          <button
+                            disabled={catIndex === plan.length - 1}
+                            onClick={(e) => { e.stopPropagation(); moveCategory(catIndex, 'down'); }}
+                            className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       </button>
 
                       {/* Brand Rows + Custom Gap Control */}
