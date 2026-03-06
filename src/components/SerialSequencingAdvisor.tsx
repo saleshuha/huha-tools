@@ -449,6 +449,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           <TableCell className="text-right font-semibold tabular-nums">
                             {cat.count}
                           </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {cat.bucketsNeeded * bucketSize - cat.count > 0 
+                              ? `+${cat.bucketsNeeded * bucketSize - cat.count}` 
+                              : '—'}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {cat.bucketsNeeded}
                           </TableCell>
