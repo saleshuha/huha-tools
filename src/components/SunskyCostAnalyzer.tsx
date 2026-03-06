@@ -338,6 +338,83 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
     onComplete?.();
   };
 
+  // Retry only not_found / error items via API
+  const retryNotFound = async () => {
+    const retryItems = analyzedItems.filter(i => i.status === 'not_found' || i.status === 'error');
+    if (retryItems.length === 0) {
+      toast({ title: 'Nothing to retry', description: 'No failed items to re-scan.' });
+      return;
+    }
+
+    cancelRef.current = false;
+    pauseRef.current = false;
+    setScanState('scanning');
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Reset retry items to pending
+    const updatedItems = analyzedItems.map(i =>
+      (i.status === 'not_found' || i.status === 'error')
+        ? { ...i, status: 'pending' as const, errorMessage: undefined, sunskyCost: null, sunskyTitle: null, totalCost: null }
+        : i
+    );
+    setAnalyzedItems([...updatedItems]);
+
+    const alreadyFound = updatedItems.filter(i => i.status === 'found' || i.status === 'cached').length;
+    let found = alreadyFound;
+    let notFound = 0;
+    let retryDone = 0;
+
+    for (const item of updatedItems) {
+      if (item.status !== 'pending') continue;
+      if (cancelRef.current) break;
+      if (pauseRef.current) await waitWhilePaused();
+      if (cancelRef.current) break;
+
+      try {
+        const result = await callSunskyAPI('getProductDetails', { itemNo: item.sku });
+        if (result?.result === 'success' && result?.data) {
+          const price = extractPrice(result.data);
+          const title = extractTitle(result.data);
+          if (price !== null) {
+            item.sunskyCost = price;
+            item.sunskyTitle = title;
+            item.totalCost = item.quantity > 0 ? price * item.quantity : 0;
+            item.status = 'found';
+            item.source = 'api';
+            found++;
+            await cacheCost(user.id, item.sku, price, title);
+          } else {
+            item.status = 'not_found';
+            item.errorMessage = 'No price in response';
+            notFound++;
+          }
+        } else {
+          item.status = 'not_found';
+          item.errorMessage = result?.message || 'Product not found';
+          notFound++;
+        }
+      } catch (err: any) {
+        item.status = 'error';
+        item.errorMessage = err.message;
+        notFound++;
+      }
+
+      retryDone++;
+      setAnalyzedItems([...updatedItems]);
+      setProgress({ current: alreadyFound + retryDone, total: updatedItems.length, found, notFound, cached: progress.cached });
+
+      if (!cancelRef.current) await new Promise(r => setTimeout(r, 400));
+    }
+
+    setScanState('complete');
+    toast({
+      title: cancelRef.current ? 'Retry Stopped' : 'Retry Complete',
+      description: `Recovered ${found - alreadyFound} of ${retryItems.length} previously failed items.`
+    });
+  };
+
   const handlePause = () => {
     pauseRef.current = true;
     setScanState('paused');
