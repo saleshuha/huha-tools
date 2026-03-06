@@ -1,42 +1,52 @@
 
 
-## Root Cause: Pagination Duplicates Due to Non-Unique Sort Column
+## Bulk Push Local Inventory to Shopify (with Images)
 
-The PO orders query in `usePOOrdersQuery.ts` fetches data in pages of 1000, sorted by `created_at DESC`. However, many PO items share the exact same `created_at` timestamp (e.g., all 350 items in PO `2WRLKB2R` have timestamp `2026-02-26 21:00:49.299388`). 
+### What We'll Build
 
-PostgreSQL does not guarantee a stable row order for ties, so between page 1 (`range(0, 999)`) and page 2 (`range(1000, 1999)`), the same row can appear on both pages while another row appears on neither. This results in:
-- **413 items** loaded for PO `2WRLKB2R` instead of the actual 350 (63 duplicates)
-- Some items like B0DSS8QRHB potentially **missing entirely** from the loaded dataset
-- Inconsistent counts across the UI (`350 items` from DB metrics vs `19/413` from frontend count)
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-### Fix
+### How It Works
 
-**File: `src/hooks/usePOOrdersQuery.ts`**
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-Add a secondary sort column (`id`) to guarantee deterministic ordering across pages:
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-```typescript
-.order('created_at', { ascending: false })
-.order('id', { ascending: true })   // ← tiebreaker for stable pagination
+### Data Flow
+
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-Additionally, add client-side deduplication as a safety net after all pages are fetched:
-
-```typescript
-// Deduplicate by id in case of any remaining edge cases
-const seen = new Set();
-allOrders = allOrders.filter(order => {
-  if (seen.has(order.id)) return false;
-  seen.add(order.id);
-  return true;
-});
-```
-
-### Files to Change
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/usePOOrdersQuery.ts` | Add `.order('id')` tiebreaker + client-side dedup |
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
 
-This single fix will resolve the missing item issue and the count mismatches throughout the Labels tab.
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
