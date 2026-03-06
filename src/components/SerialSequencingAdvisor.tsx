@@ -265,6 +265,9 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
               <div className="flex items-center gap-2 ml-auto">
+                {categoryOrder && (
+                  <Button variant="ghost" size="sm" onClick={resetOrder} className="text-xs h-7 text-amber-600 dark:text-amber-400">Reset Order</Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={expandAll} className="text-xs h-7">Expand All</Button>
                 <Button variant="ghost" size="sm" onClick={collapseAll} className="text-xs h-7">Collapse All</Button>
               </div>
