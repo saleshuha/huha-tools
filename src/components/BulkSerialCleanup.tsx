@@ -59,6 +59,9 @@ export function BulkSerialCleanup({ inventory, onComplete }: BulkSerialCleanupPr
 
     for (const item of selectedItems) {
       try {
+        // Parse the primary serial number to check if it falls in a category range
+        const serialNum = parseInt(item.serialNumber || '0', 10);
+        
         // Clear primary serial number
         const { error } = await (supabase as any)
           .from('asin_inventory')
@@ -69,6 +72,33 @@ export function BulkSerialCleanup({ inventory, onComplete }: BulkSerialCleanupPr
           .eq('id', item.id);
 
         if (error) throw error;
+
+        // Decrement items_used in serial_range_directory if serial falls within a range
+        if (serialNum > 0) {
+          await (supabase as any)
+            .from('serial_range_directory')
+            .update({ items_used: (supabase as any).rpc ? undefined : undefined })
+            .then(async () => {
+              // Use raw SQL via RPC not available, so query the range first then update
+              const { data: rangeData } = await (supabase as any)
+                .from('serial_range_directory')
+                .select('id, items_used')
+                .lte('range_start', serialNum)
+                .gte('range_end', serialNum)
+                .maybeSingle();
+
+              if (rangeData && rangeData.items_used > 0) {
+                await (supabase as any)
+                  .from('serial_range_directory')
+                  .update({ 
+                    items_used: rangeData.items_used - 1, 
+                    updated_at: new Date().toISOString() 
+                  })
+                  .eq('id', rangeData.id);
+              }
+            });
+        }
+
         successCount++;
       } catch (err) {
         console.error('Failed to clear serial for', item.asin, err);
