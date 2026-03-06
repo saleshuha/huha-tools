@@ -814,6 +814,62 @@ export function AsinInventory() {
       description: `Exported all ${dataToExport.length} items from inventory (filters ignored)`
     });
   };
+
+  const exportFullInventory = () => {
+    const inStockItems = fullInventory.filter(item => item.status === 'in-stock');
+    if (inStockItems.length === 0) {
+      toast({ title: "No Data", description: "No in-stock items to export", variant: "destructive" });
+      return;
+    }
+
+    const headers = [
+      'ID', 'ASIN', 'Serial Number', 'Additional Serial Numbers', 'SKU', 'Title',
+      'Status', 'Quantity', 'Date Added', 'Date Sold', 'Notes',
+      'Restock Date', 'Restock Quantity', 'Last Restock Date',
+      'Eligible for Restock', 'Manual Restock Override', 'Is Active',
+      'First Stock Added At'
+    ];
+
+    const csvRows = inStockItems.map(item => [
+      item.id,
+      item.asin,
+      item.serialNumber || '',
+      (item.additionalSerialNumbers || []).join('; '),
+      item.sku || '',
+      item.title || '',
+      item.status,
+      item.quantity.toString(),
+      item.dateAdded || '',
+      item.dateSold || '',
+      item.notes || '',
+      item.restockDate || '',
+      item.restockQuantity?.toString() || '',
+      item.lastRestockDate || '',
+      item.eligible_for_restock?.toString() || '',
+      item.manual_restock_override?.toString() || '',
+      item.isActive?.toString() || '',
+      item.first_stock_added_at || ''
+    ]);
+
+    const csvContent = [headers, ...csvRows]
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `asin-inventory-full-export-${new Date().toISOString().split('T')[0]}.csv`;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+
+    toast({
+      title: "Full Export Complete",
+      description: `Exported ${inStockItems.length} in-stock items with all columns`
+    });
+  };
   const emailInventory = async () => {
     try {
       const {
