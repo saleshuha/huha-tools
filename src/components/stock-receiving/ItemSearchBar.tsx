@@ -892,7 +892,26 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                               {result.searched_term}
                             </span>
                             {liveData?.asin && liveData.asin !== result.searched_term && (
-                              <span className="text-[11px] text-muted-foreground">• {liveData.asin}</span>
+                              <>
+                                <span className="text-[11px] text-muted-foreground">• {liveData.asin}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(liveData.asin!);
+                                    setCopiedAsin(liveData.asin!);
+                                    setTimeout(() => setCopiedAsin(null), 1500);
+                                  }}
+                                  className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                                  title="Copy ASIN"
+                                >
+                                  {copiedAsin === liveData.asin ? (
+                                    <Check className="w-3 h-3 text-green-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-muted-foreground" />
+                                  )}
+                                </button>
+                              </>
                             )}
                           </div>
 
