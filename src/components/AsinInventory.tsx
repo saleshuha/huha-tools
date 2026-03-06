@@ -2162,6 +2162,8 @@ export function AsinInventory() {
                                   performanceData={perfData ? {
                                     total_units_sold_lifetime: perfData.total_units_sold_lifetime,
                                     total_units_restocked: perfData.total_units_restocked,
+                                    po_units_sold: perfData.po_units_sold ?? 0,
+                                    b2b_units_sold: perfData.b2b_units_sold ?? 0,
                                     days_in_inventory: perfData.days_in_inventory,
                                     avg_days_to_sellout: perfData.avg_days_to_sellout,
                                     sales_velocity_7d: perfData.sales_velocity_7d,
