@@ -1,0 +1,1 @@
+ALTER TABLE serial_range_directory ADD COLUMN IF NOT EXISTS brand text DEFAULT 'All';

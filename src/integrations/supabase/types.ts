@@ -3851,6 +3851,7 @@ export type Database = {
       }
       serial_range_directory: {
         Row: {
+          brand: string | null
           category: string
           created_at: string
           id: string
@@ -3861,6 +3862,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          brand?: string | null
           category: string
           created_at?: string
           id?: string
@@ -3871,6 +3873,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          brand?: string | null
           category?: string
           created_at?: string
           id?: string
