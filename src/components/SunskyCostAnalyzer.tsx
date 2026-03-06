@@ -36,10 +36,75 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0, found: 0, notFound: 0, cached: 0 });
+  const [isLoadingCached, setIsLoadingCached] = useState(false);
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
   const resumeResolverRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
+
+  // Load cached data when dialog opens
+  const loadCachedData = useCallback(async () => {
+    if (skuItems.length === 0) return;
+    setIsLoadingCached(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const skuCodes = skuItems.map(i => i.sku || '').filter(Boolean);
+      const cachedCosts = new Map<string, { cost: number | null; title: string | null }>();
+
+      for (let i = 0; i < skuCodes.length; i += 200) {
+        const batch = skuCodes.slice(i, i + 200);
+        const { data: cached } = await supabase
+          .from('sunsky_product_costs' as any)
+          .select('sku_code, cost, title')
+          .eq('user_id', user.id)
+          .in('sku_code', batch);
+        if (cached) {
+          (cached as any[]).forEach((s: any) => cachedCosts.set(s.sku_code, { cost: s.cost, title: s.title }));
+        }
+      }
+
+      if (cachedCosts.size > 0) {
+        const items: AnalyzedItem[] = skuItems.map(item => {
+          const cached = cachedCosts.get(item.sku || '');
+          const cost = cached?.cost ? Number(cached.cost) : null;
+          return {
+            id: item.id,
+            asin: item.asin,
+            sku: item.sku || '',
+            title: item.title || item.asin,
+            quantity: item.quantity,
+            sunskyCost: cost,
+            sunskyTitle: cached?.title || null,
+            totalCost: cost !== null && item.quantity > 0 ? cost * item.quantity : null,
+            status: cost !== null ? 'cached' as const : 'not_found' as const,
+            source: cost !== null ? 'cache' as const : undefined,
+          };
+        });
+
+        const foundCount = items.filter(i => i.status === 'cached').length;
+        const notFoundCount = items.filter(i => i.status === 'not_found').length;
+
+        setAnalyzedItems(items);
+        setProgress({ current: items.length, total: items.length, found: foundCount, notFound: notFoundCount, cached: foundCount });
+        setScanState('complete');
+      }
+    } catch (e) {
+      console.warn('Failed to load cached costs:', e);
+    } finally {
+      setIsLoadingCached(false);
+    }
+  }, [inventory]);
+
+  const handleOpenChange = (open: boolean) => {
+    if (isRunning) return;
+    setIsOpen(open);
+    if (open && scanState === 'idle' && analyzedItems.length === 0) {
+      // Auto-load cached data on open
+      setTimeout(() => loadCachedData(), 100);
+    }
+  };
 
   // All items with SKUs (regardless of stock)
   const skuItems = useMemo(() => {
