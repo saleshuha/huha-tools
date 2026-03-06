@@ -112,7 +112,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
 
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [activeItems, bucketSize]);
+  }, [activeItems, bucketSize, growthGapPercent]);
 
   const totalBuckets = useMemo(() => 
     categorySummary.reduce((sum, c) => sum + c.bucketsNeeded, 0),
