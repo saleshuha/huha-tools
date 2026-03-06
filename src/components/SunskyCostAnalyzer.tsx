@@ -519,16 +519,25 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
           </ScrollArea>
         )}
 
-        {/* Empty state */}
+        {/* Empty state / Loading cached */}
         {scanState === 'idle' && (
           <div className="text-center py-8 space-y-3">
-            <Package className="w-12 h-12 mx-auto text-muted-foreground/50" />
-            <div>
-              <p className="font-medium">{skuItems.length} items with SKUs ({instockSkuItems.length} in-stock)</p>
-              <p className="text-sm text-muted-foreground">
-                Fetches costs for all SKU items, caches results, and calculates total cost for in-stock units.
-              </p>
-            </div>
+            {isLoadingCached ? (
+              <>
+                <Loader2 className="w-12 h-12 mx-auto text-muted-foreground/50 animate-spin" />
+                <p className="text-sm text-muted-foreground">Loading cached cost data...</p>
+              </>
+            ) : (
+              <>
+                <Package className="w-12 h-12 mx-auto text-muted-foreground/50" />
+                <div>
+                  <p className="font-medium">{skuItems.length} items with SKUs ({instockSkuItems.length} in-stock)</p>
+                  <p className="text-sm text-muted-foreground">
+                    Fetches costs for all SKU items, caches results, and calculates total cost for in-stock units.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
