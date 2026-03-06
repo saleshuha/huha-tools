@@ -320,6 +320,9 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums">{cat.count}</TableCell>
                           <TableCell className="text-right tabular-nums">{cat.bucketsNeeded}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {Math.ceil(cat.count * (growthGapPercent / 100))}
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {Object.entries(cat.brands)
