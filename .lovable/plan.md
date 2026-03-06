@@ -1,52 +1,60 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+# Plan: Category-Aware Serial Assignment System (Future-Forward, No Relabeling)
 
-### What We'll Build
+## What This Solves
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+Your existing 2,066 items keep their current serial numbers (00001–02066) untouched. Going forward, the system becomes **category-aware** — when you auto-assign a serial (either from the inventory page or stock receiving), it will place the new item into the correct category's serial range instead of just filling the next global gap.
 
-### How It Works
+## How It Works
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+### 1. New Database Table: `serial_range_directory`
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+Stores which serial number ranges belong to which category. Built automatically when you run the Serial Advisor.
 
-### Data Flow
+| Column | Purpose |
+|--------|---------|
+| `user_id` | Owner |
+| `category` | e.g., "Screen Protector", "TPU / Carbon Fiber Case" |
+| `range_start` | First serial in this category's block (integer) |
+| `range_end` | Last serial (includes reserved gap slots) |
+| `items_used` | How many slots are currently occupied |
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+### 2. Update Serial Advisor to Save Range Directory
 
-### Files to Modify
+When the advisor applies sequencing (Step 3), it also saves the category-to-range mapping. Each category gets extra reserved slots (rounded up to next bucket of 25) for future growth. This is a one-time setup — after applying, the directory exists and auto-assign uses it.
+
+### 3. Category-Aware `get_next_serial_number` RPC
+
+Updated RPC accepts an optional `p_item_title` parameter:
+- If title is provided → detect category → find that category's range → assign next unused serial **within that range**
+- If title is NULL or no range directory exists → fall back to current global gap-filling logic (backward compatible)
+- If a category's range is full → extend at the end (append new range block)
+
+### 4. Update Auto-Assign Buttons
+
+**In Stock Inventory button** (`AsinInventory.tsx`): Already has the item's title available. Pass it to `getNextAvailableSerial(title)`.
+
+**Stock Receiving button** (`QuantityConfirmDialog.tsx`): Already has `item.title` from the scanned/selected product. Pass it to the RPC.
+
+Both buttons work exactly the same as before from the user's perspective — click and get a serial — but now the serial lands in the right category range.
+
+## Files to Change
 
 | File | Change |
 |------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+| **New SQL migration** | Create `serial_range_directory` table with RLS; update `get_next_serial_number` RPC to accept optional `p_item_title` and do category-aware lookup |
+| **`src/components/SerialSequencingAdvisor.tsx`** | After applying sequencing, save category ranges to `serial_range_directory`; show a "Range Directory" summary in Step 1 if ranges already exist |
+| **`src/hooks/useAsinInventory.ts`** | Update `getNextAvailableSerial` to accept optional `title` param and pass it to RPC |
+| **`src/components/AsinInventory.tsx`** | Pass item title when calling auto-assign serial |
+| **`src/components/stock-receiving/QuantityConfirmDialog.tsx`** | Pass item title to the RPC call |
+| **`src/components/SerialNumberEditor.tsx`** | Accept optional title prop for category-aware auto-assign |
+| **`src/components/MultiSerialNumberEditor.tsx`** | Same — accept optional title prop |
 
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+## Key Design Decisions
+
+- **Backward compatible**: The RPC without a title works exactly as before (global gap-fill)
+- **Category detection reuses** the existing `detectCategory()` engine from the Serial Advisor — same rules, same keywords, moved to a shared utility
+- **No relabeling**: Existing serials stay. The range directory is built around current assignments
+- **Overflow handling**: When a category range fills up, the system allocates a new block at the end of the global counter and updates the directory
 
