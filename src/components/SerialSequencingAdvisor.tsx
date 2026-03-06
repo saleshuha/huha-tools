@@ -105,9 +105,10 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       entry.brands[brand] = (entry.brands[brand] || 0) + 1;
     });
 
-    // Calculate buckets needed
+    // Calculate buckets needed (including growth gap)
     map.forEach(entry => {
-      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
+      const totalWithGap = Math.ceil(entry.count * (1 + growthGapPercent / 100));
+      entry.bucketsNeeded = Math.ceil(totalWithGap / bucketSize);
     });
 
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
