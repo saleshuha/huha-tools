@@ -6469,12 +6469,10 @@ export type Database = {
           total: number
         }[]
       }
-      get_next_serial_number:
-        | { Args: { p_user_id: string }; Returns: string }
-        | {
-            Args: { p_item_title?: string; p_user_id: string }
-            Returns: string
-          }
+      get_next_serial_number: {
+        Args: { p_item_title?: string; p_user_id: string }
+        Returns: string
+      }
       get_next_serial_numbers_batch: {
         Args: { p_count: number; p_user_id: string }
         Returns: string[]
