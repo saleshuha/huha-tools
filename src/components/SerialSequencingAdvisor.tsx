@@ -57,6 +57,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [bucketSize, setBucketSize] = useState(25);
+  const [growthGapPercent, setGrowthGapPercent] = useState(20); // % extra slots per category for future items
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [isApplying, setIsApplying] = useState(false);
   const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0 });
@@ -104,13 +105,14 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       entry.brands[brand] = (entry.brands[brand] || 0) + 1;
     });
 
-    // Calculate buckets needed
+    // Calculate buckets needed (including growth gap)
     map.forEach(entry => {
-      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
+      const totalWithGap = Math.ceil(entry.count * (1 + growthGapPercent / 100));
+      entry.bucketsNeeded = Math.ceil(totalWithGap / bucketSize);
     });
 
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [activeItems, bucketSize]);
+  }, [activeItems, bucketSize, growthGapPercent]);
 
   const totalBuckets = useMemo(() => 
     categorySummary.reduce((sum, c) => sum + c.bucketsNeeded, 0),
@@ -138,14 +140,36 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       return (a.title || '').localeCompare(b.title || '');
     });
 
-    // Assign serial numbers
+    // Group by category to calculate gap sizes
+    const categoryGroups = new Map<string, typeof items>();
+    items.forEach(item => {
+      if (!categoryGroups.has(item.category)) {
+        categoryGroups.set(item.category, []);
+      }
+      categoryGroups.get(item.category)!.push(item);
+    });
+
+    // Assign serial numbers with growth gaps between categories
     let serialCounter = 1;
-    return items.map(item => {
+    const result: SequencedItem[] = [];
+    let lastCategory = '';
+
+    for (const item of items) {
+      // When category changes, jump to next bucket boundary + gap
+      if (lastCategory && item.category !== lastCategory) {
+        const prevCategoryItems = categoryGroups.get(lastCategory)!;
+        const gapSlots = Math.max(1, Math.ceil(prevCategoryItems.length * (growthGapPercent / 100)));
+        // Round up serialCounter to include the gap (align to bucket boundary)
+        const endOfPrevBlock = serialCounter + gapSlots - 1;
+        serialCounter = Math.ceil(endOfPrevBlock / bucketSize) * bucketSize + 1;
+      }
+      lastCategory = item.category;
+
       const isLocked = lockedSerials.has(item.id);
       const suggestedSerial = String(serialCounter).padStart(5, '0');
       serialCounter++;
 
-      return {
+      result.push({
         id: item.id,
         asin: item.asin,
         title: item.title || 'Untitled',
@@ -157,9 +181,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         bucket: Math.ceil(serialCounter / bucketSize),
         isLocked,
         changed: !isLocked && item.serialNumber !== suggestedSerial,
-      };
-    });
-  }, [step, activeItems, lockedSerials, bucketSize]);
+      });
+    }
+
+    return result;
+  }, [step, activeItems, lockedSerials, bucketSize, growthGapPercent]);
 
   // Bucket grouping for preview
   const bucketGroups = useMemo(() => {
@@ -374,16 +400,30 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                       {activeItems.length} active items detected across {categorySummary.length} categories
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm">Bucket Size:</Label>
-                    <Input
-                      type="number"
-                      value={bucketSize}
-                      onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
-                      className="w-20 h-8"
-                      min={1}
-                      max={100}
-                    />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm whitespace-nowrap">Bucket:</Label>
+                      <Input
+                        type="number"
+                        value={bucketSize}
+                        onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
+                        className="w-16 h-8"
+                        min={1}
+                        max={100}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm whitespace-nowrap">Growth Gap:</Label>
+                      <Input
+                        type="number"
+                        value={growthGapPercent}
+                        onChange={e => setGrowthGapPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 h-8"
+                        min={0}
+                        max={100}
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
                   </div>
                 </div>
 
@@ -393,6 +433,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                       <TableRow>
                         <TableHead>Category</TableHead>
                         <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Reserved</TableHead>
                         <TableHead className="text-right">Buckets</TableHead>
                         <TableHead>Top Brands</TableHead>
                       </TableRow>
@@ -407,6 +448,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums">
                             {cat.count}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {cat.bucketsNeeded * bucketSize - cat.count > 0 
+                              ? `+${cat.bucketsNeeded * bucketSize - cat.count}` 
+                              : '—'}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {cat.bucketsNeeded}
@@ -431,9 +477,10 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
                   <div className="text-sm">
-                    <span className="font-semibold">{totalBuckets}</span> total buckets needed
+                    <span className="font-semibold">{totalBuckets}</span> total buckets
                     <span className="mx-2 text-muted-foreground">•</span>
-                    Serial range: <span className="font-mono font-semibold">00001</span> – <span className="font-mono font-semibold">{String(activeItems.length).padStart(5, '0')}</span>
+                    <span className="font-semibold">{totalBuckets * bucketSize}</span> total slots
+                    <span className="text-muted-foreground"> ({totalBuckets * bucketSize - activeItems.length} reserved for growth)</span>
                   </div>
                 </div>
 
