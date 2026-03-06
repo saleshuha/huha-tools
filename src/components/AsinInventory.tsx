@@ -225,7 +225,7 @@ export function AsinInventory() {
   }, [fullInventory, fullInventoryLoading]);
   
   // Get next available serial number (queries database directly)
-  const getNextSerialNumber = async () => {
+  const getNextSerialNumber = async (itemTitle?: string) => {
     // Don't suggest a number if full inventory is still loading
     if (fullInventoryLoading) {
       toast({
@@ -236,9 +236,8 @@ export function AsinInventory() {
       throw new Error('Inventory still loading');
     }
     
-    // Query database directly for fresh data — title param is not available here (called generically)
-    // For the inventory table auto-assign, the title is passed via getNextSerial prop on MultiSerialNumberEditor
-    const nextSerial = await fullInventoryHook.getNextAvailableSerial();
+    // Query database directly for fresh data with optional title for category-aware assignment
+    const nextSerial = await fullInventoryHook.getNextAvailableSerial(itemTitle);
     
     if (!nextSerial) {
       toast({
