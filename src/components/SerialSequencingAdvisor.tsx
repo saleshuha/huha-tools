@@ -207,6 +207,56 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         setApplyProgress(prev => ({ ...prev, current: Math.min(i + chunkSize, toUpdate.length) }));
       }
 
+      // Save category range directory for future category-aware serial assignment
+      try {
+        const categoryRanges = new Map<string, { start: number; end: number; count: number }>();
+        
+        // Build ranges from all sequenced items (not just changed ones)
+        sequencedItems.forEach(item => {
+          const serialNum = parseInt(item.suggestedSerial, 10);
+          const existing = categoryRanges.get(item.category);
+          if (!existing) {
+            categoryRanges.set(item.category, { start: serialNum, end: serialNum, count: 1 });
+          } else {
+            existing.start = Math.min(existing.start, serialNum);
+            existing.end = Math.max(existing.end, serialNum);
+            existing.count++;
+          }
+        });
+
+        // Round range_end up to next bucket boundary for growth room
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Delete old ranges first, then insert new ones
+          await (supabase as any)
+            .from('serial_range_directory')
+            .delete()
+            .eq('user_id', user.id);
+
+          const rangeInserts = Array.from(categoryRanges.entries()).map(([category, range]) => {
+            // Add reserved slots: round end up to next bucket boundary
+            const reservedEnd = Math.ceil(range.end / bucketSize) * bucketSize;
+            return {
+              user_id: user.id,
+              category,
+              range_start: range.start,
+              range_end: reservedEnd,
+              items_used: range.count,
+            };
+          });
+
+          if (rangeInserts.length > 0) {
+            await (supabase as any)
+              .from('serial_range_directory')
+              .insert(rangeInserts);
+          }
+          
+          console.log(`📂 Saved ${rangeInserts.length} category ranges to serial_range_directory`);
+        }
+      } catch (rangeError) {
+        console.error('Failed to save range directory (non-critical):', rangeError);
+      }
+
       toast({
         title: 'Sequencing Complete',
         description: `Successfully reassigned ${toUpdate.length} serial numbers.`,
