@@ -641,6 +641,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   );
                 })}
