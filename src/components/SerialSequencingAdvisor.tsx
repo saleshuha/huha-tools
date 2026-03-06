@@ -65,6 +65,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [growthGapPercent, setGrowthGapPercent] = useState(20);
   const [sortMode, setSortMode] = useState<'serial' | 'brand'>('brand');
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
@@ -454,12 +455,12 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                   const catTotalCount = categorizedItems.filter(i => i.category === category).length;
 
                   return (
-                    <div key={category} className="space-y-1.5">
-                      {/* Category Section Header */}
-                      <div className="flex items-center gap-2 px-1">
+                    <div key={category} className="border border-border rounded-lg overflow-hidden">
+                      {/* Category Section Header - clickable to collapse */}
+                      <div className="flex items-center bg-muted/30">
                         <button
-                          onClick={() => toggleCategoryLock(category)}
-                          className="p-1 hover:bg-muted rounded transition-colors"
+                          onClick={(e) => { e.stopPropagation(); toggleCategoryLock(category); }}
+                          className="p-2.5 hover:bg-muted/50 transition-colors border-r border-border"
                           title={catAllLocked ? `Unlock all ${category}` : `Lock all ${category}`}
                         >
                           {catAllLocked
@@ -467,27 +468,46 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                             : <Square className="w-4 h-4 text-muted-foreground" />
                           }
                         </button>
-                        <Badge variant="outline" className={cn('font-medium', catSummary?.color || '')}>
-                          {category}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {catTotalCount} items · {buckets.length} bucket{buckets.length !== 1 ? 's' : ''}
-                        </span>
-                        {catSummary && (
-                          <span className="text-xs font-mono text-muted-foreground">
-                            Gap: <span className="text-emerald-600 dark:text-emerald-400">+{catSummary.reserved}</span>
-                          </span>
-                        )}
-                        {catLockedCount > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
-                            <Lock className="w-2.5 h-2.5 mr-0.5" />
-                            {catLockedCount}
-                          </Badge>
-                        )}
+                        <button
+                          onClick={() => {
+                            setExpandedCategories(prev => {
+                              const next = new Set(prev);
+                              if (next.has(category)) next.delete(category);
+                              else next.add(category);
+                              return next;
+                            });
+                          }}
+                          className="flex-1 flex items-center justify-between p-2.5 hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className={cn('font-medium', catSummary?.color || '')}>
+                              {category}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {catTotalCount} items · {buckets.length} bucket{buckets.length !== 1 ? 's' : ''}
+                            </span>
+                            {catSummary && (
+                              <span className="text-xs font-mono text-muted-foreground">
+                                Gap: <span className="text-emerald-600 dark:text-emerald-400">+{catSummary.reserved}</span>
+                              </span>
+                            )}
+                            {catLockedCount > 0 && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                <Lock className="w-2.5 h-2.5 mr-0.5" />
+                                {catLockedCount}
+                              </Badge>
+                            )}
+                          </div>
+                          {expandedCategories.has(category)
+                            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                            : <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          }
+                        </button>
                       </div>
 
-                      {/* Buckets within this category */}
-                      <div className="space-y-1">
+                      {/* Buckets within this category (collapsible) */}
+                      {expandedCategories.has(category) && (
+                      <div className="space-y-1 p-1.5">
                         {buckets.map(bucket => {
                           const isExpanded = expandedBuckets.has(bucket.key);
                           const bucketAllLocked = isBucketAllLocked(bucket);
@@ -621,6 +641,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   );
                 })}
