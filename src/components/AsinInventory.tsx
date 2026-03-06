@@ -815,11 +815,11 @@ export function AsinInventory() {
     });
   };
 
-  // Full export with all columns for in-stock items
+  // Full export with all columns for all inventory items
   const exportFullInventory = () => {
-    const inStockItems = fullInventory.filter(item => item.status === 'in-stock');
-    if (inStockItems.length === 0) {
-      toast({ title: "No Data", description: "No in-stock items to export", variant: "destructive" });
+    const allItems = fullInventory;
+    if (allItems.length === 0) {
+      toast({ title: "No Data", description: "No inventory items to export", variant: "destructive" });
       return;
     }
 
