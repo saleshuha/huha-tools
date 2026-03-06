@@ -186,7 +186,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      await (supabase as any).from('serial_range_directory').delete().eq('user_id', user.id);
+      const { error: deleteError } = await (supabase as any).from('serial_range_directory').delete().eq('user_id', user.id);
+      if (deleteError) throw deleteError;
 
       const rows = plan.flatMap(cat =>
         cat.brands.map(b => ({
@@ -200,7 +201,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       );
 
       if (rows.length > 0) {
-        const { error } = await (supabase as any).from('serial_range_directory').insert(rows);
+        const { error } = await (supabase as any).from('serial_range_directory').upsert(rows, { onConflict: 'user_id,category,brand' });
         if (error) throw error;
       }
 
