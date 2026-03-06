@@ -1,52 +1,54 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+## Root Cause
 
-### What We'll Build
+The previous "extend" migration (Step 3 in the function) **relocated** three TPU brand ranges to 4432+:
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+| Brand | Current Range | Capacity | Actually Used |
+|-------|--------------|----------|---------------|
+| Google | 4432–4456 | 25 | 0 |
+| OnePlus | 4457–4481 | 25 | 0 |
+| Nothing | 4482–4506 | 25 | 0 |
 
-### How It Works
+These ranges are empty and shouldn't exist. The function correctly finds the Nothing range at 4482–4506, sees serial 04482 is free, and returns it. The function logic is fine — the **data** is wrong.
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+Meanwhile, the original TPU ranges have actual available capacity:
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+| Brand | Range | Capacity | Used | **Free** |
+|-------|-------|----------|------|----------|
+| OPPO | 470–692 | 223 | 222 | **1** |
+| Other | 693–727 | 35 | 29 | **6** |
+| Samsung | 728–905 | 178 | 165 | **13** |
+| Sony | 906–924 | 19 | 15 | **4** |
+| Vivo | 933–985 | 53 | 39 | **14** |
+| Xiaomi | 986–1138 | 153 | 132 | **21** |
 
-### Data Flow
+Total free slots within existing TPU ranges: **59 slots available**.
 
+## Plan
+
+### 1. Data Repair (SQL data update)
+- **Delete** the 3 broken TPU ranges at 4432+ (Google, OnePlus, Nothing) from `serial_range_directory`
+- **Clear** serial on B0G3Y6FD41 again (set to `''`)
+
+### 2. Update `get_next_serial_number` function (SQL migration)
+- **Remove Step 3** (the "extend with new block" logic that creates relocated ranges)
+- When both Step 1 (exact brand) and Step 2 (same-category gaps) are exhausted, **fall through to the global fallback** instead of creating an extension block
+- This matches the user's preference: "Use global fallback only" when category is truly full
+
+### Flow after fix:
 ```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
+Title: "Nothing Phone 3a Pro ... TPU"
+  → Detect: TPU / Carbon Fiber Case + Nothing
+  → Step 1: Look for Nothing TPU range → NOT FOUND (deleted)
+  → Step 2: Scan ALL TPU ranges for gaps
+    → OPPO has 1 gap, Other has 6, Samsung has 13, Sony 4, Vivo 14, Xiaomi 21
+    → Assign first available gap (e.g., in OPPO range)
+  → Item gets a serial within the TPU category block (25–1138)
 ```
 
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
-
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### Files Changed
+- **1 SQL data update** — delete broken ranges + clear B0G3Y6FD41 serial
+- **1 SQL migration** — updated `get_next_serial_number` function (remove Step 3 extension logic, fall through to global fallback)
+- No frontend code changes
 
