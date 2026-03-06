@@ -29,12 +29,10 @@ export const usePOOrdersQuery = (enabled: boolean = true) => {
       while (hasMore) {
         const { data, error } = await supabase
           .from('po_orders')
-          .select(`
-            *,
-            sunsky_sku:sunsky_skus(*)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
         if (error) throw error;
@@ -47,6 +45,14 @@ export const usePOOrdersQuery = (enabled: boolean = true) => {
           hasMore = false;
         }
       }
+
+      // Deduplicate by id in case of any remaining edge cases
+      const seen = new Set<string>();
+      allOrders = allOrders.filter(order => {
+        if (seen.has(order.id)) return false;
+        seen.add(order.id);
+        return true;
+      });
 
       return allOrders as POOrder[];
     },
