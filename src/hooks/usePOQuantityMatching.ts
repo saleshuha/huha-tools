@@ -133,9 +133,6 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       if (sku.sku_code && sku.thumbnail_url) {
         map.set(sku.sku_code.toLowerCase(), sku.thumbnail_url);
       }
-      if (sku.model_number && sku.thumbnail_url) {
-        map.set(sku.model_number.toLowerCase(), sku.thumbnail_url);
-      }
     });
     return map;
   }, [sunskySkusData]);
