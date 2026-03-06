@@ -1,44 +1,52 @@
 
 
-## Problem
+## Bulk Push Local Inventory to Shopify (with Images)
 
-When you remove a serial number from a 0-stock item (via Bulk Serial Cleanup), the serial becomes an empty "gap." The current `get_next_serial_number` RPC has two issues:
+### What We'll Build
 
-1. **Global gap-filling ignores category ranges** — The fallback logic (lines 149–161 of the RPC) scans serials 1 through N looking for gaps. If it finds a freed serial like `00150` that belongs to the "Screen Protector" range, it will happily assign it to a "Cable & Charger" item. This breaks category grouping.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-2. **Category-aware mode already handles reuse correctly** — When a title is provided and a category range exists, it scans the range for unused serials (lines 91–108). A freed serial within that range *will* be correctly reused by a same-category item. This part works fine.
+### How It Works
 
-3. **`items_used` counter is never decremented** — When serials are removed via Bulk Cleanup, the `items_used` count in `serial_range_directory` stays inflated, making the system think the range is fuller than it actually is.
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-4. **`additional_serial_numbers` not checked** — The RPC only checks `serial_number` column for duplicates, not the `additional_serial_numbers` array. A freed primary serial could collide with one stored as an additional serial.
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-## Plan
+### Data Flow
 
-### 1. Update `get_next_serial_number` RPC — Skip category-reserved gaps
-
-In the fallback gap-filling loop (Strategy 1), before returning a gap serial, check if it falls within any `serial_range_directory` range. If it does, skip it — that slot is reserved for its category.
-
-Also add a check against `additional_serial_numbers` array to prevent collisions.
-
-### 2. Update Bulk Serial Cleanup — Decrement `items_used`
-
-When `BulkSerialCleanup` clears serials from an item, also look up the item's serial in `serial_range_directory` and decrement `items_used` for the matching range. This keeps the directory accurate.
-
-### 3. Add `additional_serial_numbers` collision check to the RPC
-
-In both the category-aware scan and the global gap-fill, also check:
-```sql
-SELECT EXISTS(
-  SELECT 1 FROM asin_inventory
-  WHERE user_id = p_user_id
-  AND v_serial_str = ANY(additional_serial_numbers)
-)
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-## Files to Change
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| **New SQL migration** | Update `get_next_serial_number` to skip gaps inside category ranges in fallback mode; add `additional_serial_numbers` collision check |
-| **`src/components/BulkSerialCleanup.tsx`** | After clearing serials, decrement `items_used` in `serial_range_directory` for the matching range |
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
