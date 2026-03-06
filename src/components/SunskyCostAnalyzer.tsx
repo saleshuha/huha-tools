@@ -656,6 +656,12 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
                   <Search className="w-4 h-4" />
                   Re-Scan
                 </Button>
+                {analyzedItems.some(i => i.status === 'not_found' || i.status === 'error') && (
+                  <Button onClick={retryNotFound} variant="secondary" className="gap-2">
+                    <Play className="w-4 h-4" />
+                    Retry Not Found ({analyzedItems.filter(i => i.status === 'not_found' || i.status === 'error').length})
+                  </Button>
+                )}
                 <Button onClick={exportToCSV} className="gap-2">
                   <Download className="w-4 h-4" />
                   Export CSV
