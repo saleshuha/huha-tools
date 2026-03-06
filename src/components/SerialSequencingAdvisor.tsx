@@ -322,6 +322,22 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                         >
                           +{cat.categoryGap} {cat.hasCustomGap ? '★' : 'cat gap'}
                         </Badge>
+                        <div className="flex items-center gap-0.5 ml-1" onClick={e => e.stopPropagation()}>
+                          <button
+                            disabled={catIndex === 0}
+                            onClick={(e) => { e.stopPropagation(); moveCategory(catIndex, 'up'); }}
+                            className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                          <button
+                            disabled={catIndex === plan.length - 1}
+                            onClick={(e) => { e.stopPropagation(); moveCategory(catIndex, 'down'); }}
+                            className="p-0.5 rounded hover:bg-background disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       </button>
 
                       {/* Brand Rows + Custom Gap Control */}
