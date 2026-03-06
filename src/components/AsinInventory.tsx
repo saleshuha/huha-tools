@@ -225,7 +225,7 @@ export function AsinInventory() {
   }, [fullInventory, fullInventoryLoading]);
   
   // Get next available serial number (queries database directly)
-  const getNextSerialNumber = async () => {
+  const getNextSerialNumber = async (itemTitle?: string) => {
     // Don't suggest a number if full inventory is still loading
     if (fullInventoryLoading) {
       toast({
@@ -236,8 +236,8 @@ export function AsinInventory() {
       throw new Error('Inventory still loading');
     }
     
-    // Query database directly for fresh data
-    const nextSerial = await fullInventoryHook.getNextAvailableSerial();
+    // Query database directly for fresh data with optional title for category-aware assignment
+    const nextSerial = await fullInventoryHook.getNextAvailableSerial(itemTitle);
     
     if (!nextSerial) {
       toast({
@@ -1941,7 +1941,8 @@ export function AsinInventory() {
                                 onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
                                 hasDuplicates={hasDuplicateSerial(item.serialNumber)}
                                 onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
-                                getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
+                                getNextSerial={fullInventoryLoading ? undefined : () => getNextSerialNumber(item.title)}
+                                itemTitle={item.title}
                               />
                             </div>
                           </td>
@@ -2199,7 +2200,8 @@ export function AsinInventory() {
                           onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
                           hasDuplicates={hasDuplicateSerial(item.serialNumber)}
                           onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
-                          getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
+                          getNextSerial={fullInventoryLoading ? undefined : () => getNextSerialNumber(item.title)}
+                          itemTitle={item.title}
                         />
                       </div>
                      <div>
@@ -2402,7 +2404,7 @@ export function AsinInventory() {
                               variant="outline"
                               onClick={async () => {
                                 try {
-                                  const nextSerial = await getNextSerialNumber();
+                                  const nextSerial = await getNextSerialNumber(item.title);
                                   if (nextSerial) {
                                     await updateSerialNumber(item.id, nextSerial);
                                     // Refresh duplicate list

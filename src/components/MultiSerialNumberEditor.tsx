@@ -13,6 +13,7 @@ interface MultiSerialNumberEditorProps {
   hasDuplicates?: boolean;
   onViewDuplicates?: () => void;
   getNextSerial?: () => Promise<string> | string;
+  itemTitle?: string;
 }
 
 export function MultiSerialNumberEditor({ 
@@ -24,7 +25,8 @@ export function MultiSerialNumberEditor({
   onRemoveAdditional,
   hasDuplicates = false,
   onViewDuplicates,
-  getNextSerial
+  getNextSerial,
+  itemTitle
 }: MultiSerialNumberEditorProps) {
   const [isEditingPrimary, setIsEditingPrimary] = useState(false);
   const [primaryValue, setPrimaryValue] = useState(currentSerialNumber);

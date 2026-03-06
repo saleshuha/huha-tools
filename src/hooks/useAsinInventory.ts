@@ -751,12 +751,16 @@ export function useAsinInventory() {
 
   // Get next available serial number - simplified logic
   // Get next available serial number - ATOMIC database-level generation
-  const getNextAvailableSerial = async (): Promise<string> => {
+  const getNextAvailableSerial = async (itemTitle?: string): Promise<string> => {
     if (!profile) return '';
 
     try {
+      const rpcParams: { p_user_id: string; p_item_title?: string } = { p_user_id: profile.id };
+      if (itemTitle) {
+        rpcParams.p_item_title = itemTitle;
+      }
       const { data, error } = await supabase
-        .rpc('get_next_serial_number', { p_user_id: profile.id });
+        .rpc('get_next_serial_number', rpcParams);
 
       if (error) throw error;
       return data || '';
