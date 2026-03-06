@@ -1030,7 +1030,25 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                           <span className="font-medium text-sm text-foreground truncate">
                             {highlightMatch(identifier || '', searchTerm.trim())}
                           </span>
-                          {result.sku_code && result.sku_code !== identifier && (
+                          {identifier && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(identifier);
+                                setCopiedAsin(identifier);
+                                setTimeout(() => setCopiedAsin(null), 1500);
+                              }}
+                              className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                              title="Copy ASIN"
+                            >
+                              {copiedAsin === identifier ? (
+                                <Check className="w-3 h-3 text-green-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-muted-foreground" />
+                              )}
+                            </button>
+                          )}
                             <span className="text-[11px] text-muted-foreground">• {result.sku_code}</span>
                           )}
                           {result.resolved_barcode && (
