@@ -1,52 +1,55 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+## Problem
 
-### What We'll Build
+Buckets currently group items by **serial number range** (1–25, 26–50, etc.), which results in mixed categories per bucket since items were assigned serials without category grouping. The user wants buckets organized **by category** so locking operates on coherent category blocks. Additionally, the Growth Gap column needs to show actual gap/reserved slot details.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+## Plan
 
-### How It Works
+### 1. Reorganize bucket view to be category-based
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+Replace the serial-range-based bucket grouping with **category-first grouping**:
+- Group `categorizedItems` by category (sorted by count descending)
+- Within each category, sub-group into buckets of `bucketSize`
+- Each bucket header shows: category badge, serial range of items in that bucket, item count
+- Lock/unlock controls operate per category-bucket
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+### 2. Add Growth Gap details to Category Summary table
 
-### Data Flow
+Update the "Reserved" column to show more detail:
+- **Reserved slots**: `Math.ceil(count * growthGapPercent / 100)`
+- **Total range needed**: items + reserved
+- Add a new **"Range"** column showing the ideal serial range (start–end) if categories were laid out sequentially with gaps
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+### 3. Update Category Summary with growth gap range visualization
 
-### Files to Modify
+Add columns:
+| Category | Items | Buckets | Reserved | Total Range | Top Brands |
+
+Where "Total Range" shows the computed start–end serial block including the growth gap buffer.
+
+### Files to Change
 
 | File | Change |
 |------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+| `src/components/SerialSequencingAdvisor.tsx` | Refactor `bucketGroups` memo to group by category first, then into sub-buckets. Update bucket view UI to show category-organized buckets. Add growth gap range columns to category summary. |
 
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### Technical Details
+
+**New `bucketGroups` logic:**
+```typescript
+// Group by category, then chunk into sub-buckets
+const categoryBuckets = categorySummary.map(cat => {
+  const items = categorizedItems.filter(i => i.category === cat.category);
+  const chunks = [];
+  for (let i = 0; i < items.length; i += bucketSize) {
+    chunks.push(items.slice(i, i + bucketSize));
+  }
+  return { category: cat.category, color: cat.color, chunks, reserved: Math.ceil(items.length * growthGapPercent / 100) };
+});
+```
+
+**Bucket header** will show: `[Category Badge] Bucket 1 of 3 — 25 items — 00101–00125`
+
+**Lock controls** remain the same (checkbox per bucket, lock all per category section).
 
