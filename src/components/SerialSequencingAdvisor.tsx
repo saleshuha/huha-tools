@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { 
-  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3, Plus
+  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3, Plus,
+  ArrowUp, ArrowDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EnhancedActionButton } from './inventory/EnhancedActionButton';
