@@ -528,7 +528,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                                   onClick={() => toggleBucketExpand(bucket.key)}
                                   className="flex-1 flex items-center justify-between p-2.5 hover:bg-muted/50 transition-colors text-left"
                                 >
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-xs font-semibold text-primary">
                                       Bucket {bucket.bucketIndex + 1} of {bucket.totalBuckets}
                                     </span>
@@ -538,6 +538,21 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                                     <span className="font-mono text-xs text-muted-foreground">
                                       {firstSerial}–{lastSerial}
                                     </span>
+                                    {sortMode === 'brand' && bucket.brands.length > 0 && (
+                                      <>
+                                        <span className="text-xs text-muted-foreground">·</span>
+                                        <div className="flex gap-1 flex-wrap">
+                                          {bucket.brands.slice(0, 3).map(b => (
+                                            <Badge key={b} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                              {b}
+                                            </Badge>
+                                          ))}
+                                          {bucket.brands.length > 3 && (
+                                            <span className="text-[10px] text-muted-foreground">+{bucket.brands.length - 3}</span>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {lockedInBucket > 0 && (
