@@ -1,0 +1,2 @@
+ALTER TABLE public.serial_range_directory DROP CONSTRAINT IF EXISTS serial_range_directory_user_id_category_key;
+ALTER TABLE public.serial_range_directory ADD CONSTRAINT serial_range_directory_user_id_category_brand_key UNIQUE (user_id, category, brand);
