@@ -477,9 +477,10 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
                   <div className="text-sm">
-                    <span className="font-semibold">{totalBuckets}</span> total buckets needed
+                    <span className="font-semibold">{totalBuckets}</span> total buckets
                     <span className="mx-2 text-muted-foreground">•</span>
-                    Serial range: <span className="font-mono font-semibold">00001</span> – <span className="font-mono font-semibold">{String(activeItems.length).padStart(5, '0')}</span>
+                    <span className="font-semibold">{totalBuckets * bucketSize}</span> total slots
+                    <span className="text-muted-foreground"> ({totalBuckets * bucketSize - activeItems.length} reserved for growth)</span>
                   </div>
                 </div>
 
