@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
-import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package, ChevronDown } from 'lucide-react';
+import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package, ChevronDown, Copy, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,6 +194,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const [searchTypeFilter, setSearchTypeFilter] = useState('All');
     const [searchChips, setSearchChips] = useState<SearchChip[]>([]);
     const [autoChipEnabled, setAutoChipEnabled] = useState(true);
+    const [copiedAsin, setCopiedAsin] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const lastInputTime = useRef(0);
@@ -1029,6 +1030,25 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                           <span className="font-medium text-sm text-foreground truncate">
                             {highlightMatch(identifier || '', searchTerm.trim())}
                           </span>
+                          {identifier && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(identifier);
+                                setCopiedAsin(identifier);
+                                setTimeout(() => setCopiedAsin(null), 1500);
+                              }}
+                              className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                              title="Copy ASIN"
+                            >
+                              {copiedAsin === identifier ? (
+                                <Check className="w-3 h-3 text-green-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-muted-foreground" />
+                              )}
+                            </button>
+                          )}
                           {result.sku_code && result.sku_code !== identifier && (
                             <span className="text-[11px] text-muted-foreground">• {result.sku_code}</span>
                           )}
