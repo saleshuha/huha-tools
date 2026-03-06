@@ -254,6 +254,18 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                   max={100}
                 />
               </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-sm whitespace-nowrap">Growth Gap:</Label>
+                <Input
+                  type="number"
+                  value={growthGapPercent}
+                  onChange={e => setGrowthGapPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  className="w-16 h-8"
+                  min={0}
+                  max={100}
+                />
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
