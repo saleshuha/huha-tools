@@ -25,7 +25,8 @@ export function MultiSerialNumberEditor({
   onRemoveAdditional,
   hasDuplicates = false,
   onViewDuplicates,
-  getNextSerial
+  getNextSerial,
+  itemTitle
 }: MultiSerialNumberEditorProps) {
   const [isEditingPrimary, setIsEditingPrimary] = useState(false);
   const [primaryValue, setPrimaryValue] = useState(currentSerialNumber);

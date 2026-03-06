@@ -19,7 +19,8 @@ export function SerialNumberEditor({
   onDelete,
   onViewDuplicates,
   hasDuplicates = false,
-  getNextSerial 
+  getNextSerial,
+  itemTitle
 }: SerialNumberEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [serialValue, setSerialValue] = useState(currentSerialNumber);
