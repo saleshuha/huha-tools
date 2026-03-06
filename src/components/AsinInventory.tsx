@@ -2404,7 +2404,7 @@ export function AsinInventory() {
                               variant="outline"
                               onClick={async () => {
                                 try {
-                                  const nextSerial = await getNextSerialNumber();
+                                  const nextSerial = await getNextSerialNumber(item.title);
                                   if (nextSerial) {
                                     await updateSerialNumber(item.id, nextSerial);
                                     // Refresh duplicate list
