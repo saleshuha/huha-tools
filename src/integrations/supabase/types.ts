@@ -6348,6 +6348,7 @@ export type Database = {
         Returns: {
           asin: string
           avg_days_to_sellout: number
+          b2b_units_sold: number
           current_quantity: number
           days_in_inventory: number
           first_sale_date: string
@@ -6356,6 +6357,7 @@ export type Database = {
           last_sale_date: string
           performance_category: string
           performance_score: number
+          po_units_sold: number
           sales_velocity_30d: number
           sales_velocity_7d: number
           sales_velocity_90d: number
