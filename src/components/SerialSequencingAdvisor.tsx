@@ -49,6 +49,7 @@ interface CategoryBucket {
   totalBuckets: number;
   items: CategorizedItem[];
   key: string;
+  brands: string[];
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<string>>(new Set());
   const [growthGapPercent, setGrowthGapPercent] = useState(20);
+  const [sortMode, setSortMode] = useState<'serial' | 'brand'>('brand');
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
 
@@ -144,28 +146,38 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     return sorted;
   }, [categorizedItems, bucketSize, growthGapPercent]);
 
-  // Category-based bucket grouping
+  // Category-based bucket grouping with sort mode
   const categoryBuckets = useMemo((): CategoryBucket[] => {
     const buckets: CategoryBucket[] = [];
     categorySummary.forEach(cat => {
       const items = categorizedItems
         .filter(i => i.category === cat.category)
-        .sort((a, b) => (parseInt(a.serialNumber, 10) || 0) - (parseInt(b.serialNumber, 10) || 0));
+        .sort((a, b) => {
+          if (sortMode === 'brand') {
+            const brandCmp = a.brand.localeCompare(b.brand);
+            if (brandCmp !== 0) return brandCmp;
+          }
+          return (parseInt(a.serialNumber, 10) || 0) - (parseInt(b.serialNumber, 10) || 0);
+        });
       const totalBuckets = Math.ceil(items.length / bucketSize);
       for (let i = 0; i < items.length; i += bucketSize) {
         const bucketIndex = Math.floor(i / bucketSize);
+        // Determine brands in this chunk for label
+        const chunk = items.slice(i, i + bucketSize);
+        const chunkBrands = [...new Set(chunk.map(it => it.brand))];
         buckets.push({
           category: cat.category,
           color: cat.color,
           bucketIndex,
           totalBuckets,
-          items: items.slice(i, i + bucketSize),
+          items: chunk,
           key: `${cat.category}-${bucketIndex}`,
+          brands: chunkBrands,
         });
       }
     });
     return buckets;
-  }, [categorySummary, categorizedItems, bucketSize]);
+  }, [categorySummary, categorizedItems, bucketSize, sortMode]);
 
   // Filtered items for search
   const filteredItemIds = useMemo(() => {
@@ -313,6 +325,15 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                 />
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
+              <Button
+                variant={sortMode === 'brand' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortMode(prev => prev === 'serial' ? 'brand' : 'serial')}
+                className="gap-1.5 text-xs"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                {sortMode === 'brand' ? 'Brand Sort' : 'Serial Sort'}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -507,7 +528,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                                   onClick={() => toggleBucketExpand(bucket.key)}
                                   className="flex-1 flex items-center justify-between p-2.5 hover:bg-muted/50 transition-colors text-left"
                                 >
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-xs font-semibold text-primary">
                                       Bucket {bucket.bucketIndex + 1} of {bucket.totalBuckets}
                                     </span>
@@ -517,6 +538,21 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                                     <span className="font-mono text-xs text-muted-foreground">
                                       {firstSerial}–{lastSerial}
                                     </span>
+                                    {sortMode === 'brand' && bucket.brands.length > 0 && (
+                                      <>
+                                        <span className="text-xs text-muted-foreground">·</span>
+                                        <div className="flex gap-1 flex-wrap">
+                                          {bucket.brands.slice(0, 3).map(b => (
+                                            <Badge key={b} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                              {b}
+                                            </Badge>
+                                          ))}
+                                          {bucket.brands.length > 3 && (
+                                            <span className="text-[10px] text-muted-foreground">+{bucket.brands.length - 3}</span>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {lockedInBucket > 0 && (
