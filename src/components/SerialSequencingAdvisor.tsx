@@ -62,7 +62,24 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0 });
   const [searchPreview, setSearchPreview] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
+  const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
+
+  // Load existing range directory on open
+  const loadRangeDirectory = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await (supabase as any)
+        .from('serial_range_directory')
+        .select('category, range_start, range_end, items_used')
+        .eq('user_id', user.id)
+        .order('range_start', { ascending: true });
+      setExistingRanges(data || []);
+    } catch (e) {
+      console.error('Failed to load range directory:', e);
+    }
+  }, []);
 
   // Filter to active items with quantity > 0
   const activeItems = useMemo(() => 
