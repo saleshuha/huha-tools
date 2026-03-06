@@ -241,7 +241,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
             </div>
 
             {/* Plan Preview */}
-            <ScrollArea className="flex-1 max-h-[55vh]">
+            <ScrollArea className="flex-1 h-[55vh]">
               <div className="space-y-1 pr-3">
                 {plan.map(cat => {
                   const isExpanded = expandedCategories.has(cat.category);
