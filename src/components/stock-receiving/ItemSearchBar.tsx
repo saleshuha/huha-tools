@@ -1049,6 +1049,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                               )}
                             </button>
                           )}
+                          {result.sku_code && result.sku_code !== identifier && (
                             <span className="text-[11px] text-muted-foreground">• {result.sku_code}</span>
                           )}
                           {result.resolved_barcode && (
