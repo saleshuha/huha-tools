@@ -116,7 +116,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
 
       const { data, error } = await supabase
         .from('sunsky_skus')
-        .select('sku_code, model_number, thumbnail_url')
+        .select('sku_code, thumbnail_url')
         .eq('user_id', session.session.user.id)
         .not('thumbnail_url', 'is', null);
 
