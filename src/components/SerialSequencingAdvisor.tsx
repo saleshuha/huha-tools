@@ -433,6 +433,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                       <TableRow>
                         <TableHead>Category</TableHead>
                         <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Reserved</TableHead>
                         <TableHead className="text-right">Buckets</TableHead>
                         <TableHead>Top Brands</TableHead>
                       </TableRow>
