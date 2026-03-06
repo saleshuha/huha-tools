@@ -299,8 +299,12 @@ export function QuantityConfirmDialog({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !processing) {
-      e.preventDefault();
-      handleSubmit(true);
+      const target = e.target as HTMLElement;
+      // Only auto-submit when focused on quantity or serial input fields
+      if (target.id === 'quantity' || target.id === 'serial') {
+        e.preventDefault();
+        handleSubmit(true);
+      }
     }
   };
 

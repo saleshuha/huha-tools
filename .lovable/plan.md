@@ -1,35 +1,52 @@
 
 
-## Issue: Dialog closes but still triggers stock receiving
+## Bulk Push Local Inventory to Shopify (with Images)
 
-### Root Cause
+### What We'll Build
 
-The `QuantityConfirmDialog` has an `onKeyDown={handleKeyDown}` handler on the entire `DialogContent` (line 315) that calls `handleSubmit(true)` on any Enter keypress. When a user interacts with the dialog (e.g., clicking the X button or pressing Escape), if focus is anywhere inside the dialog and an Enter key event bubbles up, it triggers an unintended submission.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-Additionally, the `onOpenChange` prop passes `onClose` directly. Radix Dialog fires `onOpenChange(false)` when clicking the overlay or pressing Escape — this correctly closes without submitting. However, the Enter key issue means the dialog can submit before the user intends to.
+### How It Works
 
-The core problem: **The Enter key handler on `DialogContent` auto-submits without any explicit user confirmation action** (clicking "Receive" or "Receive & Print"). Any accidental Enter keypress triggers receiving.
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-### Fix
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-**File: `src/components/stock-receiving/QuantityConfirmDialog.tsx`**
+### Data Flow
 
-1. **Restrict the Enter key handler** to only fire when the focused element is the quantity input field, not any arbitrary element in the dialog (like the close button, PO badge links, switches, etc.):
-
-```typescript
-const handleKeyDown = (e: React.KeyboardEvent) => {
-  if (e.key === 'Enter' && !processing) {
-    // Only auto-submit when focused on the quantity input
-    const target = e.target as HTMLElement;
-    if (target.id === 'quantity' || target.id === 'serial') {
-      e.preventDefault();
-      handleSubmit(true);
-    }
-  }
-};
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-2. **Prevent Escape key from accidentally triggering submit** — ensure the `onKeyDown` doesn't interfere with dialog close behavior by stopping propagation only for handled keys.
+### Files to Modify
 
-This is a single-file change that prevents unintended receiving when closing the dialog.
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
