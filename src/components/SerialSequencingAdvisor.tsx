@@ -400,16 +400,30 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                       {activeItems.length} active items detected across {categorySummary.length} categories
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm">Bucket Size:</Label>
-                    <Input
-                      type="number"
-                      value={bucketSize}
-                      onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
-                      className="w-20 h-8"
-                      min={1}
-                      max={100}
-                    />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm whitespace-nowrap">Bucket:</Label>
+                      <Input
+                        type="number"
+                        value={bucketSize}
+                        onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
+                        className="w-16 h-8"
+                        min={1}
+                        max={100}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm whitespace-nowrap">Growth Gap:</Label>
+                      <Input
+                        type="number"
+                        value={growthGapPercent}
+                        onChange={e => setGrowthGapPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                        className="w-16 h-8"
+                        min={0}
+                        max={100}
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
                   </div>
                 </div>
 
