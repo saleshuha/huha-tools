@@ -177,7 +177,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       }
     });
     return buckets;
-  }, [categorySummary, categorizedItems, bucketSize]);
+  }, [categorySummary, categorizedItems, bucketSize, sortMode]);
 
   // Filtered items for search
   const filteredItemIds = useMemo(() => {
