@@ -815,6 +815,7 @@ export function AsinInventory() {
     });
   };
 
+  // Full export with all columns for in-stock items
   const exportFullInventory = () => {
     const inStockItems = fullInventory.filter(item => item.status === 'in-stock');
     if (inStockItems.length === 0) {
