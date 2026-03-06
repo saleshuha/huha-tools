@@ -831,7 +831,7 @@ export function AsinInventory() {
       'First Stock Added At'
     ];
 
-    const csvRows = inStockItems.map(item => [
+    const csvRows = allItems.map(item => [
       item.id,
       item.asin,
       item.serialNumber || '',
