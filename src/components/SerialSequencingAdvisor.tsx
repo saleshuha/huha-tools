@@ -201,7 +201,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       );
 
       if (rows.length > 0) {
-        const { error } = await (supabase as any).from('serial_range_directory').upsert(rows, { onConflict: 'user_id,category,brand' });
+        const { error } = await (supabase as any).from('serial_range_directory').insert(rows);
         if (error) throw error;
       }
 
