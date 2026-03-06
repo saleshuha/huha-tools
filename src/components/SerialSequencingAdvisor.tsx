@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { 
-  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3
+  Layers, Save, ChevronDown, ChevronRight, Loader2, Shuffle, BarChart3, Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EnhancedActionButton } from './inventory/EnhancedActionButton';
@@ -33,7 +33,8 @@ interface CategoryPlan {
   brands: BrandBlock[];
   categoryGap: number;
   rangeStart: number;
-  rangeEnd: number; // includes category gap
+  rangeEnd: number;
+  hasCustomGap: boolean;
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -48,6 +49,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [categoryGapPercent, setCategoryGapPercent] = useState(20);
   const [brandGapPercent, setBrandGapPercent] = useState(10);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  // Custom gap overrides: category → absolute number of extra slots
+  const [customCategoryGaps, setCustomCategoryGaps] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -72,7 +75,6 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
   // Compute the full range plan
   const plan = useMemo((): CategoryPlan[] => {
-    // Build category list sorted by total count descending
     const categories: { category: string; color: string; totalItems: number; brands: { brand: string; count: number }[] }[] = [];
 
     categoryBrandCounts.forEach((val, category) => {
@@ -85,7 +87,6 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
     categories.sort((a, b) => b.totalItems - a.totalItems);
 
-    // Sequential range assignment
     let cursor = 1;
     const result: CategoryPlan[] = [];
 
@@ -105,7 +106,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         cursor += b.count + gap;
       });
 
-      const categoryGap = Math.ceil(cat.totalItems * categoryGapPercent / 100);
+      // Use custom gap if set, otherwise use percentage-based default
+      const hasCustomGap = cat.category in customCategoryGaps;
+      const categoryGap = hasCustomGap
+        ? customCategoryGaps[cat.category]
+        : Math.ceil(cat.totalItems * categoryGapPercent / 100);
       const catEnd = cursor + categoryGap - 1;
 
       result.push({
@@ -116,13 +121,14 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         categoryGap,
         rangeStart: catStart,
         rangeEnd: catEnd,
+        hasCustomGap,
       });
 
       cursor = catEnd + 1;
     });
 
     return result;
-  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent]);
+  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent, customCategoryGaps]);
 
   const totalSerials = plan.length > 0 ? plan[plan.length - 1].rangeEnd : 0;
 
@@ -130,6 +136,18 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     setExpandedCategories(prev => {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category); else next.add(category);
+      return next;
+    });
+  };
+
+  const setCustomGap = (category: string, value: number) => {
+    setCustomCategoryGaps(prev => ({ ...prev, [category]: Math.max(0, value) }));
+  };
+
+  const removeCustomGap = (category: string) => {
+    setCustomCategoryGaps(prev => {
+      const next = { ...prev };
+      delete next[category];
       return next;
     });
   };
@@ -144,17 +162,15 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Delete existing ranges
       await (supabase as any).from('serial_range_directory').delete().eq('user_id', user.id);
 
-      // Insert new ranges (one per brand per category)
       const rows = plan.flatMap(cat =>
         cat.brands.map(b => ({
           user_id: user.id,
           category: cat.category,
           brand: b.brand,
           range_start: b.rangeStart,
-          range_end: b.rangeEnd + b.gap, // include gap in reserved range
+          range_end: b.rangeEnd + b.gap,
           items_used: b.count,
         }))
       );
@@ -238,6 +254,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                 <BarChart3 className="w-3 h-3 mr-1" />
                 {pad(1)}–{pad(totalSerials)} total range
               </Badge>
+              {Object.keys(customCategoryGaps).length > 0 && (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                  {Object.keys(customCategoryGaps).length} custom gaps
+                </Badge>
+              )}
             </div>
 
             {/* Plan Preview */}
@@ -263,12 +284,20 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                         <span className="text-xs text-muted-foreground ml-auto tabular-nums font-mono">
                           {pad(cat.rangeStart)}–{pad(cat.rangeEnd)}
                         </span>
-                        <Badge variant="outline" className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                          +{cat.categoryGap} cat gap
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs border-emerald-500/30",
+                            cat.hasCustomGap
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          )}
+                        >
+                          +{cat.categoryGap} {cat.hasCustomGap ? '★' : 'cat gap'}
                         </Badge>
                       </button>
 
-                      {/* Brand Rows */}
+                      {/* Brand Rows + Custom Gap Control */}
                       {isExpanded && (
                         <div className="divide-y divide-border/50">
                           {cat.brands.map(b => (
@@ -286,11 +315,44 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                               </span>
                             </div>
                           ))}
-                          {/* Category gap footer */}
-                          <div className="flex items-center gap-3 px-4 py-1.5 pl-10 text-xs text-muted-foreground bg-muted/20">
-                            <span className="italic">
+
+                          {/* Category gap footer with custom gap control */}
+                          <div className="flex items-center gap-3 px-4 py-2 pl-10 text-xs text-muted-foreground bg-muted/20">
+                            <span className="italic flex-1">
                               Category gap: +{cat.categoryGap} reserved → range ends at {pad(cat.rangeEnd)}
                             </span>
+                            <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                              {cat.hasCustomGap ? (
+                                <>
+                                  <Label className="text-xs whitespace-nowrap text-amber-600 dark:text-amber-400">Custom:</Label>
+                                  <Input
+                                    type="number"
+                                    value={customCategoryGaps[cat.category]}
+                                    onChange={e => setCustomGap(cat.category, parseInt(e.target.value) || 0)}
+                                    className="w-20 h-6 text-xs"
+                                    min={0}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-destructive"
+                                    onClick={() => removeCustomGap(cat.category)}
+                                  >
+                                    Reset
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs gap-1"
+                                  onClick={() => setCustomGap(cat.category, cat.categoryGap)}
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Custom Gap
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
