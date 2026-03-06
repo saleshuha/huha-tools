@@ -1941,7 +1941,8 @@ export function AsinInventory() {
                                 onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
                                 hasDuplicates={hasDuplicateSerial(item.serialNumber)}
                                 onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
-                                getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
+                                getNextSerial={fullInventoryLoading ? undefined : () => getNextSerialNumber(item.title)}
+                                itemTitle={item.title}
                               />
                             </div>
                           </td>
