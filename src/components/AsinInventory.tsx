@@ -868,7 +868,7 @@ export function AsinInventory() {
 
     toast({
       title: "Full Export Complete",
-      description: `Exported ${inStockItems.length} in-stock items with all columns`
+      description: `Exported ${allItems.length} inventory items with all columns`
     });
   };
   const emailInventory = async () => {
