@@ -42,6 +42,18 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
   const resumeResolverRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
 
+  // All items with SKUs (regardless of stock)
+  const skuItems = useMemo(() => {
+    return inventory.filter(item => item.sku && item.sku.trim() !== '');
+  }, [inventory]);
+
+  // In-stock items with SKUs
+  const instockSkuItems = useMemo(() => {
+    return skuItems.filter(item => item.quantity > 0);
+  }, [skuItems]);
+
+  const isRunning = scanState === 'scanning' || scanState === 'paused';
+
   // Load cached data when dialog opens
   const loadCachedData = useCallback(async () => {
     if (skuItems.length === 0) return;
@@ -95,26 +107,15 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
     } finally {
       setIsLoadingCached(false);
     }
-  }, [inventory]);
+  }, [skuItems]);
 
   const handleOpenChange = (open: boolean) => {
     if (isRunning) return;
     setIsOpen(open);
     if (open && scanState === 'idle' && analyzedItems.length === 0) {
-      // Auto-load cached data on open
       setTimeout(() => loadCachedData(), 100);
     }
   };
-
-  // All items with SKUs (regardless of stock)
-  const skuItems = useMemo(() => {
-    return inventory.filter(item => item.sku && item.sku.trim() !== '');
-  }, [inventory]);
-
-  // In-stock items with SKUs
-  const instockSkuItems = useMemo(() => {
-    return skuItems.filter(item => item.quantity > 0);
-  }, [skuItems]);
 
   const callSunskyAPI = useCallback(async (action: string, data: any): Promise<any> => {
     const { data: { session } } = await supabase.auth.getSession();
