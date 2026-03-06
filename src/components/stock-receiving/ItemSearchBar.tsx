@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
-import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package, ChevronDown } from 'lucide-react';
+import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package, ChevronDown, Copy, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
