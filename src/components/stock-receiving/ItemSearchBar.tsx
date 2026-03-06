@@ -194,6 +194,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const [searchTypeFilter, setSearchTypeFilter] = useState('All');
     const [searchChips, setSearchChips] = useState<SearchChip[]>([]);
     const [autoChipEnabled, setAutoChipEnabled] = useState(true);
+    const [copiedAsin, setCopiedAsin] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const lastInputTime = useRef(0);
