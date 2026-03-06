@@ -141,7 +141,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
 
     return result;
-  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent, customCategoryGaps]);
+  }, [categoryBrandCounts, categoryGapPercent, brandGapPercent, customCategoryGaps, categoryOrder]);
 
   const totalSerials = plan.length > 0 ? plan[plan.length - 1].rangeEnd : 0;
 
