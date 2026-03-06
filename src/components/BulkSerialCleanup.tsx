@@ -75,28 +75,22 @@ export function BulkSerialCleanup({ inventory, onComplete }: BulkSerialCleanupPr
 
         // Decrement items_used in serial_range_directory if serial falls within a range
         if (serialNum > 0) {
-          await (supabase as any)
+          const { data: rangeData } = await (supabase as any)
             .from('serial_range_directory')
-            .update({ items_used: (supabase as any).rpc ? undefined : undefined })
-            .then(async () => {
-              // Use raw SQL via RPC not available, so query the range first then update
-              const { data: rangeData } = await (supabase as any)
-                .from('serial_range_directory')
-                .select('id, items_used')
-                .lte('range_start', serialNum)
-                .gte('range_end', serialNum)
-                .maybeSingle();
+            .select('id, items_used')
+            .lte('range_start', serialNum)
+            .gte('range_end', serialNum)
+            .maybeSingle();
 
-              if (rangeData && rangeData.items_used > 0) {
-                await (supabase as any)
-                  .from('serial_range_directory')
-                  .update({ 
-                    items_used: rangeData.items_used - 1, 
-                    updated_at: new Date().toISOString() 
-                  })
-                  .eq('id', rangeData.id);
-              }
-            });
+          if (rangeData && rangeData.items_used > 0) {
+            await (supabase as any)
+              .from('serial_range_directory')
+              .update({ 
+                items_used: rangeData.items_used - 1, 
+                updated_at: new Date().toISOString() 
+              })
+              .eq('id', rangeData.id);
+          }
         }
 
         successCount++;
