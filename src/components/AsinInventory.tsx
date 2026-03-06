@@ -236,7 +236,8 @@ export function AsinInventory() {
       throw new Error('Inventory still loading');
     }
     
-    // Query database directly for fresh data
+    // Query database directly for fresh data — title param is not available here (called generically)
+    // For the inventory table auto-assign, the title is passed via getNextSerial prop on MultiSerialNumberEditor
     const nextSerial = await fullInventoryHook.getNextAvailableSerial();
     
     if (!nextSerial) {

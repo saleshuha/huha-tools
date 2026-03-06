@@ -85,7 +85,11 @@ export function QuantityConfirmDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
       
-      const { data, error } = await supabase.rpc('get_next_serial_number', { p_user_id: user.id });
+      const rpcParams: { p_user_id: string; p_item_title?: string } = { p_user_id: user.id };
+      if (item?.title) {
+        rpcParams.p_item_title = item.title;
+      }
+      const { data, error } = await supabase.rpc('get_next_serial_number', rpcParams);
       if (error) throw error;
       
       if (data) {
