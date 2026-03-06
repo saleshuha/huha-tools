@@ -57,6 +57,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [bucketSize, setBucketSize] = useState(25);
+  const [growthGapPercent, setGrowthGapPercent] = useState(20); // % extra slots per category for future items
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [isApplying, setIsApplying] = useState(false);
   const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0 });
