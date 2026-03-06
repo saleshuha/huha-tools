@@ -140,14 +140,36 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       return (a.title || '').localeCompare(b.title || '');
     });
 
-    // Assign serial numbers
+    // Group by category to calculate gap sizes
+    const categoryGroups = new Map<string, typeof items>();
+    items.forEach(item => {
+      if (!categoryGroups.has(item.category)) {
+        categoryGroups.set(item.category, []);
+      }
+      categoryGroups.get(item.category)!.push(item);
+    });
+
+    // Assign serial numbers with growth gaps between categories
     let serialCounter = 1;
-    return items.map(item => {
+    const result: SequencedItem[] = [];
+    let lastCategory = '';
+
+    for (const item of items) {
+      // When category changes, jump to next bucket boundary + gap
+      if (lastCategory && item.category !== lastCategory) {
+        const prevCategoryItems = categoryGroups.get(lastCategory)!;
+        const gapSlots = Math.max(1, Math.ceil(prevCategoryItems.length * (growthGapPercent / 100)));
+        // Round up serialCounter to include the gap (align to bucket boundary)
+        const endOfPrevBlock = serialCounter + gapSlots - 1;
+        serialCounter = Math.ceil(endOfPrevBlock / bucketSize) * bucketSize + 1;
+      }
+      lastCategory = item.category;
+
       const isLocked = lockedSerials.has(item.id);
       const suggestedSerial = String(serialCounter).padStart(5, '0');
       serialCounter++;
 
-      return {
+      result.push({
         id: item.id,
         asin: item.asin,
         title: item.title || 'Untitled',
@@ -159,9 +181,11 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         bucket: Math.ceil(serialCounter / bucketSize),
         isLocked,
         changed: !isLocked && item.serialNumber !== suggestedSerial,
-      };
-    });
-  }, [step, activeItems, lockedSerials, bucketSize]);
+      });
+    }
+
+    return result;
+  }, [step, activeItems, lockedSerials, bucketSize, growthGapPercent]);
 
   // Bucket grouping for preview
   const bucketGroups = useMemo(() => {
