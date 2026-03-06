@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
@@ -13,29 +12,24 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { 
-  Layers, ArrowRight, CheckCircle, Loader2, AlertTriangle, 
-  Package, Search, Lock, Unlock, ChevronDown, ChevronUp,
-  BarChart3, Shuffle, Eye, Zap
+  Layers, Package, Search, Lock, Unlock, ChevronDown, ChevronUp,
+  BarChart3, Shuffle, CheckSquare, Square
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EnhancedActionButton } from './inventory/EnhancedActionButton';
-
 import { CATEGORY_RULES, detectCategory, detectBrand } from '@/utils/categoryDetection';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface SequencedItem {
+interface CategorizedItem {
   id: string;
   asin: string;
   title: string;
-  currentSerial: string;
-  suggestedSerial: string;
+  serialNumber: string;
   category: string;
   categoryColor: string;
   brand: string;
   bucket: number;
-  isLocked: boolean;
-  changed: boolean;
 }
 
 interface CategorySummary {
@@ -55,13 +49,9 @@ interface SerialSequencingAdvisorProps {
 
 export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequencingAdvisorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [bucketSize, setBucketSize] = useState(25);
-  const [growthGapPercent, setGrowthGapPercent] = useState(20); // % extra slots per category for future items
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
-  const [isApplying, setIsApplying] = useState(false);
-  const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0 });
-  const [searchPreview, setSearchPreview] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
@@ -88,237 +78,78 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     [inventory]
   );
 
-  // ─── Step 1: Analysis ───────────────────────────────────────────────────────
+  // Categorized items sorted by serial number, grouped into buckets
+  const categorizedItems = useMemo((): CategorizedItem[] => {
+    return activeItems
+      .map(item => {
+        const { category, color } = detectCategory(item.title);
+        const brand = detectBrand(item.title);
+        const serialNum = parseInt(item.serialNumber, 10) || 0;
+        return {
+          id: item.id,
+          asin: item.asin,
+          title: item.title || 'Untitled',
+          serialNumber: item.serialNumber,
+          category,
+          categoryColor: color,
+          brand,
+          bucket: Math.ceil(serialNum / bucketSize) || 1,
+        };
+      })
+      .sort((a, b) => {
+        const sa = parseInt(a.serialNumber, 10) || 0;
+        const sb = parseInt(b.serialNumber, 10) || 0;
+        return sa - sb;
+      });
+  }, [activeItems, bucketSize]);
 
+  // Category summary
   const categorySummary = useMemo((): CategorySummary[] => {
     const map = new Map<string, CategorySummary>();
-    
-    activeItems.forEach(item => {
-      const { category, color } = detectCategory(item.title);
-      const brand = detectBrand(item.title);
-      
-      if (!map.has(category)) {
-        map.set(category, { category, color, count: 0, bucketsNeeded: 0, brands: {} });
+    categorizedItems.forEach(item => {
+      if (!map.has(item.category)) {
+        map.set(item.category, { category: item.category, color: item.categoryColor, count: 0, bucketsNeeded: 0, brands: {} });
       }
-      const entry = map.get(category)!;
+      const entry = map.get(item.category)!;
       entry.count++;
-      entry.brands[brand] = (entry.brands[brand] || 0) + 1;
+      entry.brands[item.brand] = (entry.brands[item.brand] || 0) + 1;
     });
-
-    // Calculate buckets needed (including growth gap)
     map.forEach(entry => {
-      const totalWithGap = Math.ceil(entry.count * (1 + growthGapPercent / 100));
-      entry.bucketsNeeded = Math.ceil(totalWithGap / bucketSize);
+      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
     });
-
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [activeItems, bucketSize, growthGapPercent]);
+  }, [categorizedItems, bucketSize]);
 
-  const totalBuckets = useMemo(() => 
-    categorySummary.reduce((sum, c) => sum + c.bucketsNeeded, 0),
-    [categorySummary]
-  );
-
-  // ─── Step 2: Generate Sequenced Items ─────────────────────────────────────
-
-  const sequencedItems = useMemo((): SequencedItem[] => {
-    if (step < 2) return [];
-
-    // Categorize and sort
-    const items = activeItems.map(item => {
-      const { category, color } = detectCategory(item.title);
-      const brand = detectBrand(item.title);
-      return { ...item, category, categoryColor: color, brand };
-    });
-
-    // Sort: Category → Brand → Title
-    items.sort((a, b) => {
-      const catCmp = a.category.localeCompare(b.category);
-      if (catCmp !== 0) return catCmp;
-      const brandCmp = a.brand.localeCompare(b.brand);
-      if (brandCmp !== 0) return brandCmp;
-      return (a.title || '').localeCompare(b.title || '');
-    });
-
-    // Group by category to calculate gap sizes
-    const categoryGroups = new Map<string, typeof items>();
-    items.forEach(item => {
-      if (!categoryGroups.has(item.category)) {
-        categoryGroups.set(item.category, []);
-      }
-      categoryGroups.get(item.category)!.push(item);
-    });
-
-    // Assign serial numbers with growth gaps between categories
-    let serialCounter = 1;
-    const result: SequencedItem[] = [];
-    let lastCategory = '';
-
-    for (const item of items) {
-      // When category changes, jump to next bucket boundary + gap
-      if (lastCategory && item.category !== lastCategory) {
-        const prevCategoryItems = categoryGroups.get(lastCategory)!;
-        const gapSlots = Math.max(1, Math.ceil(prevCategoryItems.length * (growthGapPercent / 100)));
-        // Round up serialCounter to include the gap (align to bucket boundary)
-        const endOfPrevBlock = serialCounter + gapSlots - 1;
-        serialCounter = Math.ceil(endOfPrevBlock / bucketSize) * bucketSize + 1;
-      }
-      lastCategory = item.category;
-
-      const isLocked = lockedSerials.has(item.id);
-      const suggestedSerial = String(serialCounter).padStart(5, '0');
-      serialCounter++;
-
-      result.push({
-        id: item.id,
-        asin: item.asin,
-        title: item.title || 'Untitled',
-        currentSerial: item.serialNumber,
-        suggestedSerial: isLocked ? item.serialNumber : suggestedSerial,
-        category: item.category,
-        categoryColor: item.categoryColor,
-        brand: item.brand,
-        bucket: Math.ceil(serialCounter / bucketSize),
-        isLocked,
-        changed: !isLocked && item.serialNumber !== suggestedSerial,
-      });
-    }
-
-    return result;
-  }, [step, activeItems, lockedSerials, bucketSize, growthGapPercent]);
-
-  // Bucket grouping for preview
+  // Bucket grouping
   const bucketGroups = useMemo(() => {
-    const groups = new Map<number, { items: SequencedItem[]; categories: Set<string> }>();
-    sequencedItems.forEach(item => {
-      const bucketNum = Math.ceil(parseInt(item.suggestedSerial) / bucketSize);
-      if (!groups.has(bucketNum)) {
-        groups.set(bucketNum, { items: [], categories: new Set() });
+    const groups = new Map<number, { items: CategorizedItem[]; categories: Set<string> }>();
+    categorizedItems.forEach(item => {
+      if (!groups.has(item.bucket)) {
+        groups.set(item.bucket, { items: [], categories: new Set() });
       }
-      const g = groups.get(bucketNum)!;
+      const g = groups.get(item.bucket)!;
       g.items.push(item);
       g.categories.add(item.category);
     });
     return groups;
-  }, [sequencedItems, bucketSize]);
+  }, [categorizedItems]);
 
   // Filtered items for search
-  const filteredSequencedItems = useMemo(() => {
-    if (!searchPreview) return sequencedItems;
-    const lower = searchPreview.toLowerCase();
-    return sequencedItems.filter(item =>
+  const filteredItems = useMemo(() => {
+    if (!searchQuery) return categorizedItems;
+    const lower = searchQuery.toLowerCase();
+    return categorizedItems.filter(item =>
       item.title.toLowerCase().includes(lower) ||
       item.asin.toLowerCase().includes(lower) ||
-      item.currentSerial.includes(searchPreview) ||
-      item.suggestedSerial.includes(searchPreview) ||
+      item.serialNumber.includes(searchQuery) ||
       item.category.toLowerCase().includes(lower) ||
       item.brand.toLowerCase().includes(lower)
     );
-  }, [sequencedItems, searchPreview]);
+  }, [categorizedItems, searchQuery]);
 
-  const changedCount = useMemo(() => 
-    sequencedItems.filter(i => i.changed).length, 
-    [sequencedItems]
-  );
+  const filteredItemIds = useMemo(() => new Set(filteredItems.map(i => i.id)), [filteredItems]);
 
-  // ─── Step 3: Apply ─────────────────────────────────────────────────────────
-
-  const handleApply = useCallback(async () => {
-    const toUpdate = sequencedItems.filter(i => i.changed);
-    if (toUpdate.length === 0) {
-      toast({ title: 'No changes', description: 'All serial numbers are already optimal.' });
-      return;
-    }
-
-    setIsApplying(true);
-    setApplyProgress({ current: 0, total: toUpdate.length });
-
-    try {
-      // Batch updates in chunks of 50
-      const chunkSize = 50;
-      for (let i = 0; i < toUpdate.length; i += chunkSize) {
-        const chunk = toUpdate.slice(i, i + chunkSize);
-        
-        const promises = chunk.map(item =>
-          supabase
-            .from('asin_inventory')
-            .update({ serial_number: item.suggestedSerial } as any)
-            .eq('id', item.id as any)
-        );
-
-        await Promise.all(promises);
-        setApplyProgress(prev => ({ ...prev, current: Math.min(i + chunkSize, toUpdate.length) }));
-      }
-
-      // Save category range directory for future category-aware serial assignment
-      try {
-        const categoryRanges = new Map<string, { start: number; end: number; count: number }>();
-        
-        // Build ranges from all sequenced items (not just changed ones)
-        sequencedItems.forEach(item => {
-          const serialNum = parseInt(item.suggestedSerial, 10);
-          const existing = categoryRanges.get(item.category);
-          if (!existing) {
-            categoryRanges.set(item.category, { start: serialNum, end: serialNum, count: 1 });
-          } else {
-            existing.start = Math.min(existing.start, serialNum);
-            existing.end = Math.max(existing.end, serialNum);
-            existing.count++;
-          }
-        });
-
-        // Round range_end up to next bucket boundary for growth room
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Delete old ranges first, then insert new ones
-          await (supabase as any)
-            .from('serial_range_directory')
-            .delete()
-            .eq('user_id', user.id);
-
-          const rangeInserts = Array.from(categoryRanges.entries()).map(([category, range]) => {
-            // Add reserved slots: round end up to next bucket boundary
-            const reservedEnd = Math.ceil(range.end / bucketSize) * bucketSize;
-            return {
-              user_id: user.id,
-              category,
-              range_start: range.start,
-              range_end: reservedEnd,
-              items_used: range.count,
-            };
-          });
-
-          if (rangeInserts.length > 0) {
-            await (supabase as any)
-              .from('serial_range_directory')
-              .insert(rangeInserts);
-          }
-          
-          console.log(`📂 Saved ${rangeInserts.length} category ranges to serial_range_directory`);
-        }
-      } catch (rangeError) {
-        console.error('Failed to save range directory (non-critical):', rangeError);
-      }
-
-      toast({
-        title: 'Sequencing Complete',
-        description: `Successfully reassigned ${toUpdate.length} serial numbers.`,
-      });
-
-      onComplete();
-      setStep(1);
-      setIsOpen(false);
-    } catch (error) {
-      console.error('Failed to apply sequencing:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to apply some serial number changes. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsApplying(false);
-    }
-  }, [sequencedItems, onComplete, toast]);
+  // ─── Lock Helpers ─────────────────────────────────────────────────────────
 
   const toggleLock = (id: string) => {
     setLockedSerials(prev => {
@@ -329,7 +160,28 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
   };
 
-  const toggleBucket = (bucket: number) => {
+  const toggleBucketLock = (bucketNum: number) => {
+    const group = bucketGroups.get(bucketNum);
+    if (!group) return;
+    const bucketIds = group.items.map(i => i.id);
+    const allLocked = bucketIds.every(id => lockedSerials.has(id));
+    setLockedSerials(prev => {
+      const next = new Set(prev);
+      bucketIds.forEach(id => {
+        if (allLocked) next.delete(id);
+        else next.add(id);
+      });
+      return next;
+    });
+  };
+
+  const toggleAllLock = () => {
+    const allIds = categorizedItems.map(i => i.id);
+    const allLocked = allIds.every(id => lockedSerials.has(id));
+    setLockedSerials(allLocked ? new Set() : new Set(allIds));
+  };
+
+  const toggleBucketExpand = (bucket: number) => {
     setExpandedBuckets(prev => {
       const next = new Set(prev);
       if (next.has(bucket)) next.delete(bucket);
@@ -338,14 +190,30 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
   };
 
+  const isBucketAllLocked = (bucketNum: number) => {
+    const group = bucketGroups.get(bucketNum);
+    if (!group) return false;
+    return group.items.every(i => lockedSerials.has(i.id));
+  };
+
+  const isBucketPartiallyLocked = (bucketNum: number) => {
+    const group = bucketGroups.get(bucketNum);
+    if (!group) return false;
+    const some = group.items.some(i => lockedSerials.has(i.id));
+    const all = group.items.every(i => lockedSerials.has(i.id));
+    return some && !all;
+  };
+
+  const allLocked = categorizedItems.length > 0 && categorizedItems.every(i => lockedSerials.has(i.id));
+
   return (
     <>
       <EnhancedActionButton
         label="Serial Advisor"
         icon={Shuffle}
         variant="purple"
-        tooltip="Intelligent serial number sequencing by product category"
-        onClick={() => { setIsOpen(true); setStep(1); loadRangeDirectory(); }}
+        tooltip="View serial number organization and lock items"
+        onClick={() => { setIsOpen(true); loadRangeDirectory(); }}
       />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -353,87 +221,77 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Layers className="w-5 h-5 text-primary" />
-              Serial Number Sequencing Advisor
+              Serial Number Advisor
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Group similar products into sequential buckets of {bucketSize} for organized physical storage
+              View item categories in buckets of {bucketSize} and lock serials to exclude from auto-assignment
             </p>
           </DialogHeader>
 
-          {/* Step Indicator */}
-          <div className="flex items-center gap-2 py-2">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
-                  step >= s 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted text-muted-foreground'
-                )}>
-                  {step > s ? <CheckCircle className="w-4 h-4" /> : s}
-                </div>
-                <span className={cn(
-                  'text-sm font-medium hidden sm:inline',
-                  step >= s ? 'text-foreground' : 'text-muted-foreground'
-                )}>
-                  {s === 1 ? 'Analyze' : s === 2 ? 'Preview' : 'Apply'}
-                </span>
-                {s < 3 && <ArrowRight className="w-4 h-4 text-muted-foreground" />}
-              </div>
-            ))}
-          </div>
-
           <Separator />
 
-          {/* Step Content */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {/* ─── STEP 1: ANALYZE ─── */}
-            {step === 1 && (
-              <div className="space-y-4 py-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      Category Analysis
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {activeItems.length} active items detected across {categorySummary.length} categories
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Label className="text-sm whitespace-nowrap">Bucket:</Label>
-                      <Input
-                        type="number"
-                        value={bucketSize}
-                        onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
-                        className="w-16 h-8"
-                        min={1}
-                        max={100}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Label className="text-sm whitespace-nowrap">Growth Gap:</Label>
-                      <Input
-                        type="number"
-                        value={growthGapPercent}
-                        onChange={e => setGrowthGapPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                        className="w-16 h-8"
-                        min={0}
-                        max={100}
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                    </div>
-                  </div>
-                </div>
+          <div className="flex-1 min-h-0 overflow-hidden space-y-3 py-2">
+            {/* Controls Row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by title, ASIN, serial, category..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-sm whitespace-nowrap">Bucket size:</Label>
+                <Input
+                  type="number"
+                  value={bucketSize}
+                  onChange={e => setBucketSize(Math.max(1, parseInt(e.target.value) || 25))}
+                  className="w-16 h-8"
+                  min={1}
+                  max={100}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAllLock}
+                className="gap-1.5"
+              >
+                {allLocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                {allLocked ? 'Unlock All' : 'Lock All'}
+              </Button>
+            </div>
 
-                <ScrollArea className="h-[45vh]">
+            {/* Stats Bar */}
+            <div className="flex items-center gap-3 flex-wrap text-sm">
+              <Badge variant="outline">
+                {activeItems.length} items
+              </Badge>
+              <Badge variant="outline">
+                {categorySummary.length} categories
+              </Badge>
+              <Badge variant="outline" className={cn(lockedSerials.size > 0 && 'bg-amber-500/10 text-amber-600 border-amber-500/30')}>
+                <Lock className="w-3 h-3 mr-1" />
+                {lockedSerials.size} locked
+              </Badge>
+            </div>
+
+            {/* Category Summary (collapsible) */}
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-medium flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                <BarChart3 className="w-4 h-4" />
+                Category Summary
+                <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="mt-2">
+                <ScrollArea className="max-h-[25vh]">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Category</TableHead>
                         <TableHead className="text-right">Items</TableHead>
-                        <TableHead className="text-right">Reserved</TableHead>
                         <TableHead className="text-right">Buckets</TableHead>
                         <TableHead>Top Brands</TableHead>
                       </TableRow>
@@ -446,17 +304,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                               {cat.category}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-semibold tabular-nums">
-                            {cat.count}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">
-                            {cat.bucketsNeeded * bucketSize - cat.count > 0 
-                              ? `+${cat.bucketsNeeded * bucketSize - cat.count}` 
-                              : '—'}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {cat.bucketsNeeded}
-                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{cat.count}</TableCell>
+                          <TableCell className="text-right tabular-nums">{cat.bucketsNeeded}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {Object.entries(cat.brands)
@@ -474,271 +323,182 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                     </TableBody>
                   </Table>
                 </ScrollArea>
-
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                  <div className="text-sm">
-                    <span className="font-semibold">{totalBuckets}</span> total buckets
-                    <span className="mx-2 text-muted-foreground">•</span>
-                    <span className="font-semibold">{totalBuckets * bucketSize}</span> total slots
-                    <span className="text-muted-foreground"> ({totalBuckets * bucketSize - activeItems.length} reserved for growth)</span>
-                  </div>
-                </div>
-
-                {/* Existing Range Directory */}
-                {existingRanges.length > 0 && (
-                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <Package className="w-4 h-4 text-primary" />
-                      Active Range Directory
-                      <Badge variant="outline" className="text-xs">{existingRanges.length} categories</Badge>
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                      {existingRanges.map(r => (
-                        <div key={r.category} className="text-xs p-2 bg-background rounded border">
-                          <div className="font-medium truncate">{r.category}</div>
-                          <div className="text-muted-foreground font-mono">
-                            {String(r.range_start).padStart(5, '0')}–{String(r.range_end).padStart(5, '0')}
-                            <span className="ml-1">({r.items_used} used)</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
+            </details>
+
+            {/* Existing Range Directory */}
+            {existingRanges.length > 0 && (
+              <details className="group">
+                <summary className="cursor-pointer text-sm font-medium flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                  <Package className="w-4 h-4" />
+                  Active Range Directory
+                  <Badge variant="outline" className="text-xs">{existingRanges.length} categories</Badge>
+                  <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {existingRanges.map(r => (
+                    <div key={r.category} className="text-xs p-2 bg-muted/50 rounded border border-border">
+                      <div className="font-medium truncate">{r.category}</div>
+                      <div className="text-muted-foreground font-mono">
+                        {String(r.range_start).padStart(5, '0')}–{String(r.range_end).padStart(5, '0')}
+                        <span className="ml-1">({r.items_used} used)</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
 
-            {/* ─── STEP 2: PREVIEW ─── */}
-            {step === 2 && (
-              <div className="space-y-3 py-2 h-full flex flex-col">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by title, ASIN, serial, category..."
-                      value={searchPreview}
-                      onChange={e => setSearchPreview(e.target.value)}
-                      className="pl-8 h-9"
-                    />
-                  </div>
-                  <Badge variant="outline" className="bg-primary/10 text-primary">
-                    {changedCount} changes
-                  </Badge>
-                  <Badge variant="outline">
-                    {lockedSerials.size} locked
-                  </Badge>
-                </div>
+            {/* Bucket View */}
+            <ScrollArea className="flex-1 min-h-0 h-[40vh]">
+              <div className="space-y-2 pr-2">
+                {Array.from(bucketGroups.entries())
+                  .sort(([a], [b]) => a - b)
+                  .map(([bucketNum, group]) => {
+                    const isExpanded = expandedBuckets.has(bucketNum);
+                    const startSerial = String((bucketNum - 1) * bucketSize + 1).padStart(5, '0');
+                    const endSerial = String(bucketNum * bucketSize).padStart(5, '0');
+                    const catLabels = Array.from(group.categories);
+                    const bucketAllLocked = isBucketAllLocked(bucketNum);
+                    const bucketPartial = isBucketPartiallyLocked(bucketNum);
+                    const lockedInBucket = group.items.filter(i => lockedSerials.has(i.id)).length;
 
-                {/* Bucket-based view */}
-                <ScrollArea className="flex-1 min-h-0 h-[45vh]">
-                  <div className="space-y-2 pr-2">
-                    {Array.from(bucketGroups.entries())
-                      .sort(([a], [b]) => a - b)
-                      .map(([bucketNum, group]) => {
-                        const isExpanded = expandedBuckets.has(bucketNum);
-                        const startSerial = String((bucketNum - 1) * bucketSize + 1).padStart(5, '0');
-                        const endSerial = String(Math.min(bucketNum * bucketSize, activeItems.length)).padStart(5, '0');
-                        const catLabels = Array.from(group.categories);
-                        
-                        // Filter items in this bucket by search
-                        const visibleItems = searchPreview
-                          ? group.items.filter(item => filteredSequencedItems.includes(item))
-                          : group.items;
+                    // Filter items in this bucket by search
+                    const visibleItems = searchQuery
+                      ? group.items.filter(item => filteredItemIds.has(item.id))
+                      : group.items;
 
-                        if (searchPreview && visibleItems.length === 0) return null;
+                    if (searchQuery && visibleItems.length === 0) return null;
 
-                        return (
-                          <div key={bucketNum} className="border border-border rounded-lg overflow-hidden">
-                            <button
-                              onClick={() => toggleBucket(bucketNum)}
-                              className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="font-mono text-sm font-bold text-primary">
-                                  Bucket {bucketNum}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {startSerial}–{endSerial}
-                                </span>
-                                <div className="flex gap-1 flex-wrap">
-                                  {catLabels.slice(0, 3).map(cat => {
-                                    const rule = CATEGORY_RULES.find(r => r.category === cat);
-                                    return (
-                                      <Badge key={cat} variant="outline" className={cn('text-[10px] px-1.5 py-0', rule?.color || '')}>
-                                        {cat}
-                                      </Badge>
-                                    );
-                                  })}
-                                  {catLabels.length > 3 && (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                      +{catLabels.length - 3}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">{group.items.length} items</span>
-                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                              </div>
-                            </button>
-                            
-                            {isExpanded && (
-                              <div className="border-t border-border">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="w-10"></TableHead>
-                                      <TableHead className="w-24">Current</TableHead>
-                                      <TableHead className="w-8"></TableHead>
-                                      <TableHead className="w-24">Suggested</TableHead>
-                                      <TableHead>Category</TableHead>
-                                      <TableHead>Brand</TableHead>
-                                      <TableHead>Title</TableHead>
-                                      <TableHead className="w-20">ASIN</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {visibleItems.map(item => (
-                                      <TableRow 
-                                        key={item.id}
-                                        className={cn(
-                                          item.changed && 'bg-primary/5',
-                                          item.isLocked && 'opacity-60'
-                                        )}
-                                      >
-                                        <TableCell>
-                                          <button
-                                            onClick={() => toggleLock(item.id)}
-                                            className="p-1 hover:bg-muted rounded"
-                                            title={item.isLocked ? 'Unlock serial' : 'Lock serial (exclude from resequencing)'}
-                                          >
-                                            {item.isLocked 
-                                              ? <Lock className="w-3.5 h-3.5 text-amber-500" /> 
-                                              : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
-                                            }
-                                          </button>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm tabular-nums">
-                                          {item.currentSerial}
-                                        </TableCell>
-                                        <TableCell>
-                                          {item.changed && <ArrowRight className="w-3.5 h-3.5 text-primary" />}
-                                        </TableCell>
-                                        <TableCell className={cn(
-                                          'font-mono text-sm font-semibold tabular-nums',
-                                          item.changed && 'text-primary'
-                                        )}>
-                                          {item.suggestedSerial}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', item.categoryColor)}>
-                                            {item.category}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-xs text-muted-foreground">
-                                          {item.brand}
-                                        </TableCell>
-                                        <TableCell className="max-w-[200px] truncate text-sm" title={item.title}>
-                                          {item.title}
-                                        </TableCell>
-                                        <TableCell className="font-mono text-xs">
-                                          {item.asin}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                    return (
+                      <div key={bucketNum} className="border border-border rounded-lg overflow-hidden">
+                        <div className="flex items-center">
+                          {/* Bucket lock checkbox */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleBucketLock(bucketNum); }}
+                            className="p-3 hover:bg-muted/50 transition-colors border-r border-border"
+                            title={bucketAllLocked ? 'Unlock entire bucket' : 'Lock entire bucket'}
+                          >
+                            {bucketAllLocked ? (
+                              <CheckSquare className="w-4 h-4 text-amber-500" />
+                            ) : bucketPartial ? (
+                              <CheckSquare className="w-4 h-4 text-amber-500/50" />
+                            ) : (
+                              <Square className="w-4 h-4 text-muted-foreground" />
                             )}
+                          </button>
+
+                          {/* Bucket header */}
+                          <button
+                            onClick={() => toggleBucketExpand(bucketNum)}
+                            className="flex-1 flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-sm font-bold text-primary">
+                                Bucket {bucketNum}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {startSerial}–{endSerial}
+                              </span>
+                              <div className="flex gap-1 flex-wrap">
+                                {catLabels.slice(0, 3).map(cat => {
+                                  const rule = CATEGORY_RULES.find(r => r.category === cat);
+                                  return (
+                                    <Badge key={cat} variant="outline" className={cn('text-[10px] px-1.5 py-0', rule?.color || '')}>
+                                      {cat}
+                                    </Badge>
+                                  );
+                                })}
+                                {catLabels.length > 3 && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                    +{catLabels.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {lockedInBucket > 0 && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                  <Lock className="w-2.5 h-2.5 mr-0.5" />
+                                  {lockedInBucket}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">{group.items.length} items</span>
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </div>
+                          </button>
+                        </div>
+                        
+                        {isExpanded && (
+                          <div className="border-t border-border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-10"></TableHead>
+                                  <TableHead className="w-24">Serial</TableHead>
+                                  <TableHead>Category</TableHead>
+                                  <TableHead>Brand</TableHead>
+                                  <TableHead>Title</TableHead>
+                                  <TableHead className="w-20">ASIN</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {visibleItems.map(item => {
+                                  const isLocked = lockedSerials.has(item.id);
+                                  return (
+                                    <TableRow 
+                                      key={item.id}
+                                      className={cn(isLocked && 'bg-amber-500/5')}
+                                    >
+                                      <TableCell>
+                                        <button
+                                          onClick={() => toggleLock(item.id)}
+                                          className="p-1 hover:bg-muted rounded"
+                                          title={isLocked ? 'Unlock serial' : 'Lock serial'}
+                                        >
+                                          {isLocked 
+                                            ? <Lock className="w-3.5 h-3.5 text-amber-500" /> 
+                                            : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
+                                          }
+                                        </button>
+                                      </TableCell>
+                                      <TableCell className="font-mono text-sm tabular-nums font-semibold">
+                                        {item.serialNumber}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', item.categoryColor)}>
+                                          {item.category}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {item.brand}
+                                      </TableCell>
+                                      <TableCell className="max-w-[250px] truncate text-sm" title={item.title}>
+                                        {item.title}
+                                      </TableCell>
+                                      <TableCell className="font-mono text-xs">
+                                        {item.asin}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
-                        );
-                      })}
-                  </div>
-                </ScrollArea>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
-            )}
-
-            {/* ─── STEP 3: APPLY ─── */}
-            {step === 3 && (
-              <div className="space-y-4 py-4">
-                <div className="p-6 bg-muted/50 rounded-lg border border-border text-center space-y-3">
-                  <Zap className="w-10 h-10 mx-auto text-primary" />
-                  <h3 className="text-lg font-semibold">Ready to Apply</h3>
-                  <p className="text-muted-foreground">
-                    <span className="font-bold text-foreground">{changedCount}</span> items will have their serial numbers reassigned.
-                    <br />
-                    <span className="font-bold text-foreground">{lockedSerials.size}</span> items are locked and will be skipped.
-                  </p>
-                  
-                  {changedCount > 0 && (
-                    <div className="flex items-center gap-2 justify-center text-sm text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>This action will overwrite existing serial numbers. Make sure to review the preview first.</span>
-                    </div>
-                  )}
-                </div>
-
-                {isApplying && (
-                  <div className="space-y-2 p-4 bg-muted/50 rounded-lg border border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 font-medium">
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        Applying changes...
-                      </span>
-                      <span className="font-semibold tabular-nums">
-                        {applyProgress.current} / {applyProgress.total}
-                      </span>
-                    </div>
-                    <Progress
-                      value={(applyProgress.current / applyProgress.total) * 100}
-                      className="h-2"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+            </ScrollArea>
           </div>
 
           <Separator />
 
-          {/* Footer */}
-          <DialogFooter className="flex items-center justify-between sm:justify-between">
-            <div>
-              {step > 1 && (
-                <Button variant="outline" onClick={() => setStep((step - 1) as 1 | 2)} disabled={isApplying}>
-                  Back
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isApplying}>
-                Cancel
-              </Button>
-              {step === 1 && (
-                <Button onClick={() => setStep(2)}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview Sequencing
-                </Button>
-              )}
-              {step === 2 && (
-                <Button onClick={() => setStep(3)} disabled={changedCount === 0}>
-                  Continue to Apply ({changedCount} changes)
-                </Button>
-              )}
-              {step === 3 && (
-                <Button 
-                  onClick={handleApply} 
-                  disabled={isApplying || changedCount === 0}
-                  className="bg-primary"
-                >
-                  {isApplying ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Applying...</>
-                  ) : (
-                    <><CheckCircle className="w-4 h-4 mr-2" />Apply {changedCount} Changes</>
-                  )}
-                </Button>
-              )}
-            </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
