@@ -13,6 +13,7 @@ interface MultiSerialNumberEditorProps {
   hasDuplicates?: boolean;
   onViewDuplicates?: () => void;
   getNextSerial?: () => Promise<string> | string;
+  itemTitle?: string;
 }
 
 export function MultiSerialNumberEditor({ 

@@ -10,6 +10,7 @@ interface SerialNumberEditorProps {
   onViewDuplicates?: () => void;
   hasDuplicates?: boolean;
   getNextSerial?: () => Promise<string> | string; // Allow async
+  itemTitle?: string;
 }
 
 export function SerialNumberEditor({ 
