@@ -242,7 +242,8 @@ export const usePOOrders = () => {
           .select('*')
           .eq('user_id', user.id)
           .range(start, end)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true });
 
         if (poError) {
           console.error('❌ Error fetching PO orders page:', poError);
