@@ -326,6 +326,15 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
               <Button
+                variant={sortMode === 'brand' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortMode(prev => prev === 'serial' ? 'brand' : 'serial')}
+                className="gap-1.5 text-xs"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                {sortMode === 'brand' ? 'Brand Sort' : 'Serial Sort'}
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={toggleAllLock}
