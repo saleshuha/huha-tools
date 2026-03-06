@@ -116,7 +116,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
 
       const { data, error } = await supabase
         .from('sunsky_skus')
-        .select('sku_code, model_number, thumbnail_url')
+        .select('sku_code, thumbnail_url')
         .eq('user_id', session.session.user.id)
         .not('thumbnail_url', 'is', null);
 
@@ -132,9 +132,6 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     sunskySkusData?.forEach(sku => {
       if (sku.sku_code && sku.thumbnail_url) {
         map.set(sku.sku_code.toLowerCase(), sku.thumbnail_url);
-      }
-      if (sku.model_number && sku.thumbnail_url) {
-        map.set(sku.model_number.toLowerCase(), sku.thumbnail_url);
       }
     });
     return map;
