@@ -404,10 +404,9 @@ export function SunskyCostAnalyzer({ inventory, onComplete }: SunskyCostAnalyzer
   const totalCosted = analyzedItems.filter(i => i.status === 'found' || i.status === 'cached').length;
   const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
-  const isRunning = scanState === 'scanning' || scanState === 'paused';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!isRunning) setIsOpen(open); }}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs rounded-lg border-dashed">
           <DollarSign className="w-3.5 h-3.5" />
