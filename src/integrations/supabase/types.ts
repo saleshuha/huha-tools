@@ -3849,6 +3849,39 @@ export type Database = {
         }
         Relationships: []
       }
+      serial_range_directory: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          items_used: number
+          range_end: number
+          range_start: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          items_used?: number
+          range_end: number
+          range_start: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          items_used?: number
+          range_end?: number
+          range_start?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shipped_orders: {
         Row: {
           asin: string
@@ -6433,7 +6466,12 @@ export type Database = {
           total: number
         }[]
       }
-      get_next_serial_number: { Args: { p_user_id: string }; Returns: string }
+      get_next_serial_number:
+        | { Args: { p_user_id: string }; Returns: string }
+        | {
+            Args: { p_item_title?: string; p_user_id: string }
+            Returns: string
+          }
       get_next_serial_numbers_batch: {
         Args: { p_count: number; p_user_id: string }
         Returns: string[]
