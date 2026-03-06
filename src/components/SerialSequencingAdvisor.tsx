@@ -52,6 +52,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   // Custom gap overrides: category → absolute number of extra slots
   const [customCategoryGaps, setCustomCategoryGaps] = useState<Record<string, number>>({});
+  // Custom category ordering: null = default (by count desc)
+  const [categoryOrder, setCategoryOrder] = useState<string[] | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
