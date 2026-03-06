@@ -10,6 +10,8 @@ export interface ComprehensivePerformanceItem {
   current_quantity: number;
   total_units_sold_lifetime: number;
   total_units_restocked: number;
+  po_units_sold: number;
+  b2b_units_sold: number;
   first_stock_date: string | null;
   last_sale_date: string | null;
   first_sale_date: string | null;
