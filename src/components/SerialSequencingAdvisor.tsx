@@ -6,7 +6,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Checkbox } from './ui/checkbox';
 import { Separator } from './ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +28,6 @@ interface CategorizedItem {
   category: string;
   categoryColor: string;
   brand: string;
-  bucket: number;
 }
 
 interface CategorySummary {
@@ -37,7 +35,20 @@ interface CategorySummary {
   color: string;
   count: number;
   bucketsNeeded: number;
+  reserved: number;
+  totalRange: number;
+  rangeStart: number;
+  rangeEnd: number;
   brands: Record<string, number>;
+}
+
+interface CategoryBucket {
+  category: string;
+  color: string;
+  bucketIndex: number;
+  totalBuckets: number;
+  items: CategorizedItem[];
+  key: string;
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -52,7 +63,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
   const [bucketSize, setBucketSize] = useState(25);
   const [lockedSerials, setLockedSerials] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedBuckets, setExpandedBuckets] = useState<Set<number>>(new Set());
+  const [expandedBuckets, setExpandedBuckets] = useState<Set<string>>(new Set());
   const [growthGapPercent, setGrowthGapPercent] = useState(20);
   const [existingRanges, setExistingRanges] = useState<{ category: string; range_start: number; range_end: number; items_used: number }[]>([]);
   const { toast } = useToast();
@@ -79,13 +90,12 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     [inventory]
   );
 
-  // Categorized items sorted by serial number, grouped into buckets
+  // Categorized items sorted by serial number
   const categorizedItems = useMemo((): CategorizedItem[] => {
     return activeItems
       .map(item => {
         const { category, color } = detectCategory(item.title);
         const brand = detectBrand(item.title);
-        const serialNum = parseInt(item.serialNumber, 10) || 0;
         return {
           id: item.id,
           asin: item.asin,
@@ -94,7 +104,6 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
           category,
           categoryColor: color,
           brand,
-          bucket: Math.ceil(serialNum / bucketSize) || 1,
         };
       })
       .sort((a, b) => {
@@ -102,53 +111,78 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
         const sb = parseInt(b.serialNumber, 10) || 0;
         return sa - sb;
       });
-  }, [activeItems, bucketSize]);
+  }, [activeItems]);
 
-  // Category summary
+  // Category summary with growth gap range computation
   const categorySummary = useMemo((): CategorySummary[] => {
     const map = new Map<string, CategorySummary>();
     categorizedItems.forEach(item => {
       if (!map.has(item.category)) {
-        map.set(item.category, { category: item.category, color: item.categoryColor, count: 0, bucketsNeeded: 0, brands: {} });
+        map.set(item.category, { 
+          category: item.category, color: item.categoryColor, count: 0, 
+          bucketsNeeded: 0, reserved: 0, totalRange: 0, rangeStart: 0, rangeEnd: 0, brands: {} 
+        });
       }
       const entry = map.get(item.category)!;
       entry.count++;
       entry.brands[item.brand] = (entry.brands[item.brand] || 0) + 1;
     });
-    map.forEach(entry => {
-      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [categorizedItems, bucketSize]);
 
-  // Bucket grouping
-  const bucketGroups = useMemo(() => {
-    const groups = new Map<number, { items: CategorizedItem[]; categories: Set<string> }>();
-    categorizedItems.forEach(item => {
-      if (!groups.has(item.bucket)) {
-        groups.set(item.bucket, { items: [], categories: new Set() });
-      }
-      const g = groups.get(item.bucket)!;
-      g.items.push(item);
-      g.categories.add(item.category);
+    const sorted = Array.from(map.values()).sort((a, b) => b.count - a.count);
+
+    // Compute sequential ideal ranges with growth gap
+    let cursor = 1;
+    sorted.forEach(entry => {
+      entry.bucketsNeeded = Math.ceil(entry.count / bucketSize);
+      entry.reserved = Math.ceil(entry.count * (growthGapPercent / 100));
+      entry.totalRange = entry.count + entry.reserved;
+      entry.rangeStart = cursor;
+      entry.rangeEnd = cursor + entry.totalRange - 1;
+      cursor = entry.rangeEnd + 1;
     });
-    return groups;
-  }, [categorizedItems]);
+
+    return sorted;
+  }, [categorizedItems, bucketSize, growthGapPercent]);
+
+  // Category-based bucket grouping
+  const categoryBuckets = useMemo((): CategoryBucket[] => {
+    const buckets: CategoryBucket[] = [];
+    categorySummary.forEach(cat => {
+      const items = categorizedItems
+        .filter(i => i.category === cat.category)
+        .sort((a, b) => (parseInt(a.serialNumber, 10) || 0) - (parseInt(b.serialNumber, 10) || 0));
+      const totalBuckets = Math.ceil(items.length / bucketSize);
+      for (let i = 0; i < items.length; i += bucketSize) {
+        const bucketIndex = Math.floor(i / bucketSize);
+        buckets.push({
+          category: cat.category,
+          color: cat.color,
+          bucketIndex,
+          totalBuckets,
+          items: items.slice(i, i + bucketSize),
+          key: `${cat.category}-${bucketIndex}`,
+        });
+      }
+    });
+    return buckets;
+  }, [categorySummary, categorizedItems, bucketSize]);
 
   // Filtered items for search
-  const filteredItems = useMemo(() => {
-    if (!searchQuery) return categorizedItems;
+  const filteredItemIds = useMemo(() => {
+    if (!searchQuery) return null;
     const lower = searchQuery.toLowerCase();
-    return categorizedItems.filter(item =>
-      item.title.toLowerCase().includes(lower) ||
-      item.asin.toLowerCase().includes(lower) ||
-      item.serialNumber.includes(searchQuery) ||
-      item.category.toLowerCase().includes(lower) ||
-      item.brand.toLowerCase().includes(lower)
+    return new Set(
+      categorizedItems
+        .filter(item =>
+          item.title.toLowerCase().includes(lower) ||
+          item.asin.toLowerCase().includes(lower) ||
+          item.serialNumber.includes(searchQuery) ||
+          item.category.toLowerCase().includes(lower) ||
+          item.brand.toLowerCase().includes(lower)
+        )
+        .map(i => i.id)
     );
   }, [categorizedItems, searchQuery]);
-
-  const filteredItemIds = useMemo(() => new Set(filteredItems.map(i => i.id)), [filteredItems]);
 
   // ─── Lock Helpers ─────────────────────────────────────────────────────────
 
@@ -161,17 +195,22 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     });
   };
 
-  const toggleBucketLock = (bucketNum: number) => {
-    const group = bucketGroups.get(bucketNum);
-    if (!group) return;
-    const bucketIds = group.items.map(i => i.id);
-    const allLocked = bucketIds.every(id => lockedSerials.has(id));
+  const toggleCategoryBucketLock = (bucket: CategoryBucket) => {
+    const ids = bucket.items.map(i => i.id);
+    const allLocked = ids.every(id => lockedSerials.has(id));
     setLockedSerials(prev => {
       const next = new Set(prev);
-      bucketIds.forEach(id => {
-        if (allLocked) next.delete(id);
-        else next.add(id);
-      });
+      ids.forEach(id => { if (allLocked) next.delete(id); else next.add(id); });
+      return next;
+    });
+  };
+
+  const toggleCategoryLock = (category: string) => {
+    const ids = categorizedItems.filter(i => i.category === category).map(i => i.id);
+    const allLocked = ids.every(id => lockedSerials.has(id));
+    setLockedSerials(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => { if (allLocked) next.delete(id); else next.add(id); });
       return next;
     });
   };
@@ -182,30 +221,38 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
     setLockedSerials(allLocked ? new Set() : new Set(allIds));
   };
 
-  const toggleBucketExpand = (bucket: number) => {
+  const toggleBucketExpand = (key: string) => {
     setExpandedBuckets(prev => {
       const next = new Set(prev);
-      if (next.has(bucket)) next.delete(bucket);
-      else next.add(bucket);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
 
-  const isBucketAllLocked = (bucketNum: number) => {
-    const group = bucketGroups.get(bucketNum);
-    if (!group) return false;
-    return group.items.every(i => lockedSerials.has(i.id));
-  };
+  const isBucketAllLocked = (bucket: CategoryBucket) =>
+    bucket.items.every(i => lockedSerials.has(i.id));
 
-  const isBucketPartiallyLocked = (bucketNum: number) => {
-    const group = bucketGroups.get(bucketNum);
-    if (!group) return false;
-    const some = group.items.some(i => lockedSerials.has(i.id));
-    const all = group.items.every(i => lockedSerials.has(i.id));
+  const isBucketPartiallyLocked = (bucket: CategoryBucket) => {
+    const some = bucket.items.some(i => lockedSerials.has(i.id));
+    const all = bucket.items.every(i => lockedSerials.has(i.id));
     return some && !all;
   };
 
+  const isCategoryAllLocked = (category: string) =>
+    categorizedItems.filter(i => i.category === category).every(i => lockedSerials.has(i.id));
+
   const allLocked = categorizedItems.length > 0 && categorizedItems.every(i => lockedSerials.has(i.id));
+
+  // Group buckets by category for rendering
+  const bucketsByCategory = useMemo(() => {
+    const map = new Map<string, CategoryBucket[]>();
+    categoryBuckets.forEach(b => {
+      if (!map.has(b.category)) map.set(b.category, []);
+      map.get(b.category)!.push(b);
+    });
+    return map;
+  }, [categoryBuckets]);
 
   return (
     <>
@@ -225,7 +272,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
               Serial Number Advisor
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              View item categories in buckets of {bucketSize} and lock serials to exclude from auto-assignment
+              Items organized by category with growth gap reservations. Lock serials to exclude from auto-assignment.
             </p>
           </DialogHeader>
 
@@ -291,15 +338,15 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
               </Badge>
             </div>
 
-            {/* Category Summary (collapsible) */}
-            <details className="group">
+            {/* Category Summary with Growth Gap details */}
+            <details className="group" open>
               <summary className="cursor-pointer text-sm font-medium flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                 <BarChart3 className="w-4 h-4" />
-                Category Summary
+                Category Summary &amp; Growth Gap
                 <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
               </summary>
               <div className="mt-2">
-                <ScrollArea className="max-h-[25vh]">
+                <ScrollArea className="max-h-[30vh]">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -307,6 +354,8 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                         <TableHead className="text-right">Items</TableHead>
                         <TableHead className="text-right">Buckets</TableHead>
                         <TableHead className="text-right">Reserved</TableHead>
+                        <TableHead className="text-right">Total Range</TableHead>
+                        <TableHead className="text-center">Ideal Range</TableHead>
                         <TableHead>Top Brands</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -320,8 +369,16 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums">{cat.count}</TableCell>
                           <TableCell className="text-right tabular-nums">{cat.bucketsNeeded}</TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">
-                            {Math.ceil(cat.count * (growthGapPercent / 100))}
+                          <TableCell className="text-right tabular-nums">
+                            <span className="text-emerald-600 dark:text-emerald-400">+{cat.reserved}</span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium">
+                            {cat.totalRange}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
+                              {String(cat.rangeStart).padStart(5, '0')}–{String(cat.rangeEnd).padStart(5, '0')}
+                            </span>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
@@ -366,146 +423,171 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
               </details>
             )}
 
-            {/* Bucket View */}
+            {/* Category-Based Bucket View */}
             <ScrollArea className="flex-1 min-h-0 h-[40vh]">
-              <div className="space-y-2 pr-2">
-                {Array.from(bucketGroups.entries())
-                  .sort(([a], [b]) => a - b)
-                  .map(([bucketNum, group]) => {
-                    const isExpanded = expandedBuckets.has(bucketNum);
-                    const startSerial = String((bucketNum - 1) * bucketSize + 1).padStart(5, '0');
-                    const endSerial = String(bucketNum * bucketSize).padStart(5, '0');
-                    const catLabels = Array.from(group.categories);
-                    const bucketAllLocked = isBucketAllLocked(bucketNum);
-                    const bucketPartial = isBucketPartiallyLocked(bucketNum);
-                    const lockedInBucket = group.items.filter(i => lockedSerials.has(i.id)).length;
+              <div className="space-y-4 pr-2">
+                {Array.from(bucketsByCategory.entries()).map(([category, buckets]) => {
+                  const catSummary = categorySummary.find(c => c.category === category);
+                  const catAllLocked = isCategoryAllLocked(category);
+                  const catLockedCount = categorizedItems.filter(i => i.category === category && lockedSerials.has(i.id)).length;
+                  const catTotalCount = categorizedItems.filter(i => i.category === category).length;
 
-                    // Filter items in this bucket by search
-                    const visibleItems = searchQuery
-                      ? group.items.filter(item => filteredItemIds.has(item.id))
-                      : group.items;
-
-                    if (searchQuery && visibleItems.length === 0) return null;
-
-                    return (
-                      <div key={bucketNum} className="border border-border rounded-lg overflow-hidden">
-                        <div className="flex items-center">
-                          {/* Bucket lock checkbox */}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleBucketLock(bucketNum); }}
-                            className="p-3 hover:bg-muted/50 transition-colors border-r border-border"
-                            title={bucketAllLocked ? 'Unlock entire bucket' : 'Lock entire bucket'}
-                          >
-                            {bucketAllLocked ? (
-                              <CheckSquare className="w-4 h-4 text-amber-500" />
-                            ) : bucketPartial ? (
-                              <CheckSquare className="w-4 h-4 text-amber-500/50" />
-                            ) : (
-                              <Square className="w-4 h-4 text-muted-foreground" />
-                            )}
-                          </button>
-
-                          {/* Bucket header */}
-                          <button
-                            onClick={() => toggleBucketExpand(bucketNum)}
-                            className="flex-1 flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-sm font-bold text-primary">
-                                Bucket {bucketNum}
-                              </span>
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {startSerial}–{endSerial}
-                              </span>
-                              <div className="flex gap-1 flex-wrap">
-                                {catLabels.slice(0, 3).map(cat => {
-                                  const rule = CATEGORY_RULES.find(r => r.category === cat);
-                                  return (
-                                    <Badge key={cat} variant="outline" className={cn('text-[10px] px-1.5 py-0', rule?.color || '')}>
-                                      {cat}
-                                    </Badge>
-                                  );
-                                })}
-                                {catLabels.length > 3 && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                    +{catLabels.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {lockedInBucket > 0 && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
-                                  <Lock className="w-2.5 h-2.5 mr-0.5" />
-                                  {lockedInBucket}
-                                </Badge>
-                              )}
-                              <span className="text-xs text-muted-foreground">{group.items.length} items</span>
-                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </div>
-                          </button>
-                        </div>
-                        
-                        {isExpanded && (
-                          <div className="border-t border-border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-10"></TableHead>
-                                  <TableHead className="w-24">Serial</TableHead>
-                                  <TableHead>Category</TableHead>
-                                  <TableHead>Brand</TableHead>
-                                  <TableHead>Title</TableHead>
-                                  <TableHead className="w-20">ASIN</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {visibleItems.map(item => {
-                                  const isLocked = lockedSerials.has(item.id);
-                                  return (
-                                    <TableRow 
-                                      key={item.id}
-                                      className={cn(isLocked && 'bg-amber-500/5')}
-                                    >
-                                      <TableCell>
-                                        <button
-                                          onClick={() => toggleLock(item.id)}
-                                          className="p-1 hover:bg-muted rounded"
-                                          title={isLocked ? 'Unlock serial' : 'Lock serial'}
-                                        >
-                                          {isLocked 
-                                            ? <Lock className="w-3.5 h-3.5 text-amber-500" /> 
-                                            : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
-                                          }
-                                        </button>
-                                      </TableCell>
-                                      <TableCell className="font-mono text-sm tabular-nums font-semibold">
-                                        {item.serialNumber}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', item.categoryColor)}>
-                                          {item.category}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="text-xs text-muted-foreground">
-                                        {item.brand}
-                                      </TableCell>
-                                      <TableCell className="max-w-[250px] truncate text-sm" title={item.title}>
-                                        {item.title}
-                                      </TableCell>
-                                      <TableCell className="font-mono text-xs">
-                                        {item.asin}
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          </div>
+                  return (
+                    <div key={category} className="space-y-1.5">
+                      {/* Category Section Header */}
+                      <div className="flex items-center gap-2 px-1">
+                        <button
+                          onClick={() => toggleCategoryLock(category)}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title={catAllLocked ? `Unlock all ${category}` : `Lock all ${category}`}
+                        >
+                          {catAllLocked
+                            ? <CheckSquare className="w-4 h-4 text-amber-500" />
+                            : <Square className="w-4 h-4 text-muted-foreground" />
+                          }
+                        </button>
+                        <Badge variant="outline" className={cn('font-medium', catSummary?.color || '')}>
+                          {category}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {catTotalCount} items · {buckets.length} bucket{buckets.length !== 1 ? 's' : ''}
+                        </span>
+                        {catSummary && (
+                          <span className="text-xs font-mono text-muted-foreground">
+                            Gap: <span className="text-emerald-600 dark:text-emerald-400">+{catSummary.reserved}</span>
+                          </span>
+                        )}
+                        {catLockedCount > 0 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                            <Lock className="w-2.5 h-2.5 mr-0.5" />
+                            {catLockedCount}
+                          </Badge>
                         )}
                       </div>
-                    );
-                  })}
+
+                      {/* Buckets within this category */}
+                      <div className="space-y-1">
+                        {buckets.map(bucket => {
+                          const isExpanded = expandedBuckets.has(bucket.key);
+                          const bucketAllLocked = isBucketAllLocked(bucket);
+                          const bucketPartial = isBucketPartiallyLocked(bucket);
+                          const lockedInBucket = bucket.items.filter(i => lockedSerials.has(i.id)).length;
+
+                          // Serial range of actual items in this bucket
+                          const firstSerial = bucket.items[0]?.serialNumber || '?';
+                          const lastSerial = bucket.items[bucket.items.length - 1]?.serialNumber || '?';
+
+                          // Filter items in this bucket by search
+                          const visibleItems = filteredItemIds
+                            ? bucket.items.filter(item => filteredItemIds.has(item.id))
+                            : bucket.items;
+
+                          if (filteredItemIds && visibleItems.length === 0) return null;
+
+                          return (
+                            <div key={bucket.key} className="border border-border rounded-lg overflow-hidden ml-4">
+                              <div className="flex items-center">
+                                {/* Bucket lock checkbox */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleCategoryBucketLock(bucket); }}
+                                  className="p-2.5 hover:bg-muted/50 transition-colors border-r border-border"
+                                  title={bucketAllLocked ? 'Unlock bucket' : 'Lock bucket'}
+                                >
+                                  {bucketAllLocked ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-amber-500" />
+                                  ) : bucketPartial ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-amber-500/50" />
+                                  ) : (
+                                    <Square className="w-3.5 h-3.5 text-muted-foreground" />
+                                  )}
+                                </button>
+
+                                {/* Bucket header */}
+                                <button
+                                  onClick={() => toggleBucketExpand(bucket.key)}
+                                  className="flex-1 flex items-center justify-between p-2.5 hover:bg-muted/50 transition-colors text-left"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-primary">
+                                      Bucket {bucket.bucketIndex + 1} of {bucket.totalBuckets}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                    <span className="text-xs text-muted-foreground">{bucket.items.length} items</span>
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                      {firstSerial}–{lastSerial}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {lockedInBucket > 0 && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                        <Lock className="w-2.5 h-2.5 mr-0.5" />
+                                        {lockedInBucket}
+                                      </Badge>
+                                    )}
+                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                  </div>
+                                </button>
+                              </div>
+                              
+                              {isExpanded && (
+                                <div className="border-t border-border">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="w-10"></TableHead>
+                                        <TableHead className="w-24">Serial</TableHead>
+                                        <TableHead>Brand</TableHead>
+                                        <TableHead>Title</TableHead>
+                                        <TableHead className="w-20">ASIN</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {visibleItems.map(item => {
+                                        const isLocked = lockedSerials.has(item.id);
+                                        return (
+                                          <TableRow 
+                                            key={item.id}
+                                            className={cn(isLocked && 'bg-amber-500/5')}
+                                          >
+                                            <TableCell>
+                                              <button
+                                                onClick={() => toggleLock(item.id)}
+                                                className="p-1 hover:bg-muted rounded"
+                                                title={isLocked ? 'Unlock serial' : 'Lock serial'}
+                                              >
+                                                {isLocked 
+                                                  ? <Lock className="w-3.5 h-3.5 text-amber-500" /> 
+                                                  : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />
+                                                }
+                                              </button>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm tabular-nums font-semibold">
+                                              {item.serialNumber}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">
+                                              {item.brand}
+                                            </TableCell>
+                                            <TableCell className="max-w-[250px] truncate text-sm" title={item.title}>
+                                              {item.title}
+                                            </TableCell>
+                                            <TableCell className="font-mono text-xs">
+                                              {item.asin}
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
