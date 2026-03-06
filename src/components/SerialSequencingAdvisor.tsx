@@ -49,6 +49,7 @@ interface CategoryBucket {
   totalBuckets: number;
   items: CategorizedItem[];
   key: string;
+  brands: string[];
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
