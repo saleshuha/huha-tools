@@ -264,8 +264,16 @@ export const usePOOrders = () => {
         }
       }
 
+      // Deduplicate by id to prevent pagination edge cases
+      const seen = new Set<string>();
+      allPOOrders = allPOOrders.filter(order => {
+        if (seen.has(order.id)) return false;
+        seen.add(order.id);
+        return true;
+      });
+
       const poOrdersData = allPOOrders;
-      console.log(`✅ Loaded ALL ${poOrdersData.length} PO orders in ${page} pages`);
+      console.log(`✅ Loaded ALL ${poOrdersData.length} PO orders in ${page} pages (deduped)`);
       setLoadingProgress(70);
       setLoadingStatus('Joining data...');
 
