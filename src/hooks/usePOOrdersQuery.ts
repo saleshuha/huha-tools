@@ -77,10 +77,11 @@ export const prefetchPOOrders = async (queryClient: ReturnType<typeof useQueryCl
 
       const { data } = await supabase
         .from('po_orders')
-        .select('*, sunsky_sku:sunsky_skus(*)')
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(100); // Initial prefetch only first 100
+        .order('id', { ascending: true })
+        .limit(100);
 
       return data || [];
     },
