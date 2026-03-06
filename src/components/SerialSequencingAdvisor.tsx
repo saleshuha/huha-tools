@@ -88,7 +88,17 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       categories.push({ category, color: val.color, totalItems, brands });
     });
 
-    categories.sort((a, b) => b.totalItems - a.totalItems);
+    // Apply custom order if set, otherwise sort by count descending
+    if (categoryOrder) {
+      const orderMap = new Map(categoryOrder.map((c, i) => [c, i]));
+      categories.sort((a, b) => {
+        const oa = orderMap.get(a.category) ?? 9999;
+        const ob = orderMap.get(b.category) ?? 9999;
+        return oa - ob;
+      });
+    } else {
+      categories.sort((a, b) => b.totalItems - a.totalItems);
+    }
 
     let cursor = 1;
     const result: CategoryPlan[] = [];
