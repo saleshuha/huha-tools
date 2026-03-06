@@ -1560,6 +1560,13 @@ export function AsinInventory() {
                     tooltip="Download inventory as CSV file"
                   />
                   <EnhancedActionButton
+                    label="Full Export"
+                    icon={Database}
+                    variant="orange"
+                    onClick={exportFullInventory}
+                    tooltip="Export all in-stock items with every available column"
+                  />
+                  <EnhancedActionButton
                     label="Email Export"
                     icon={Mail}
                     variant="orange"
