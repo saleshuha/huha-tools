@@ -149,6 +149,101 @@ export function DailyOrdersTab() {
 
   // Cost is read-only here — managed via Purchase Links only
 
+  const exportPDF = () => {
+    if (items.length === 0) return;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const dateStr = format(new Date(selectedDate), 'dd MMM yyyy');
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Daily Orders - ${dateStr}`, 14, 18);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 14, 24);
+    doc.setTextColor(0);
+
+    // Table config
+    const cols = [
+      { header: '#', x: 14, w: 10, align: 'center' as const },
+      { header: 'ASIN / SKU', x: 24, w: 35, align: 'left' as const },
+      { header: 'Title', x: 59, w: 95, align: 'left' as const },
+      { header: 'Source', x: 154, w: 25, align: 'center' as const },
+      { header: 'Qty', x: 179, w: 18, align: 'center' as const },
+      { header: 'Unit Cost', x: 197, w: 28, align: 'right' as const },
+      { header: 'Line Total', x: 225, w: 30, align: 'right' as const },
+    ];
+    const rowH = 8;
+    let y = 32;
+
+    // Table header
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, y - 1, pageW - 28, rowH, 'F');
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100);
+    cols.forEach(c => {
+      const tx = c.align === 'right' ? c.x + c.w - 2 : c.align === 'center' ? c.x + c.w / 2 : c.x + 2;
+      doc.text(c.header, tx, y + 4.5, { align: c.align });
+    });
+    y += rowH;
+    doc.setTextColor(0);
+
+    // Rows
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    items.forEach((item, idx) => {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 18;
+      }
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 248, 248);
+        doc.rect(14, y - 1, pageW - 28, rowH, 'F');
+      }
+
+      const source = [item.amazonQty > 0 ? 'AMZ' : '', item.noonQty > 0 ? 'Noon' : ''].filter(Boolean).join(' / ');
+      const lineTotal = (item.totalQty * item.unitCost).toFixed(2);
+      const titleTrunc = item.title.length > 65 ? item.title.substring(0, 62) + '...' : item.title;
+
+      doc.text(String(idx + 1), 14 + 5, y + 4.5, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text(item.asin || '—', 26, y + 3);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(120);
+      doc.text(item.sku || '—', 26, y + 6.5);
+      doc.setTextColor(0);
+      doc.setFontSize(7.5);
+      doc.text(titleTrunc, 61, y + 4.5);
+      doc.text(source, 154 + 12.5, y + 4.5, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(item.totalQty), 179 + 9, y + 4.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(item.unitCost > 0 ? item.unitCost.toFixed(2) : '—', 225, y + 4.5, { align: 'right' });
+      doc.setFont('helvetica', 'bold');
+      doc.text(lineTotal, 255, y + 4.5, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      y += rowH;
+    });
+
+    // Footer totals
+    y += 2;
+    doc.setDrawColor(0, 120, 200);
+    doc.setLineWidth(0.5);
+    doc.line(14, y, pageW - 14, y);
+    y += 5;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total Items: ${items.reduce((s, i) => s + i.totalQty, 0)}`, 14, y);
+    doc.text(`Grand Total: AED ${grandTotal.toFixed(2)}`, pageW - 14, y, { align: 'right' });
+
+    doc.save(`daily-orders-${selectedDate}.pdf`);
+    toast.success('PDF exported successfully');
+  };
+
   return (
     <div className="space-y-5">
       {/* Date Navigation Toolbar */}
