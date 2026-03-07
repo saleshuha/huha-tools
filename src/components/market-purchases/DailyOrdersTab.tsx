@@ -13,6 +13,7 @@ import { useProductImages } from "@/hooks/useProductImages";
 import { GenerateMarketLinkDialog } from "./GenerateMarketLinkDialog";
 import { toast } from "sonner";
 import { format, addDays, subDays } from "date-fns";
+import jsPDF from "jspdf";
 
 interface ConsolidatedItem {
   asin: string;
