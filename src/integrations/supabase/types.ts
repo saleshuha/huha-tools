@@ -1442,6 +1442,74 @@ export type Database = {
         }
         Relationships: []
       }
+      noon_fbpi_orders: {
+        Row: {
+          created_at: string
+          currency_code: string | null
+          fbpi_order_nr: string
+          fetched_at: string | null
+          id: string
+          inventory_status: Json | null
+          items: Json | null
+          mp_code: string | null
+          mp_country_code: string | null
+          mp_order_nr: string | null
+          order_created_at: string | null
+          processed_at: string | null
+          status: string | null
+          store_id: string | null
+          updated_at: string
+          user_id: string
+          warehouse_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency_code?: string | null
+          fbpi_order_nr: string
+          fetched_at?: string | null
+          id?: string
+          inventory_status?: Json | null
+          items?: Json | null
+          mp_code?: string | null
+          mp_country_code?: string | null
+          mp_order_nr?: string | null
+          order_created_at?: string | null
+          processed_at?: string | null
+          status?: string | null
+          store_id?: string | null
+          updated_at?: string
+          user_id: string
+          warehouse_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string | null
+          fbpi_order_nr?: string
+          fetched_at?: string | null
+          id?: string
+          inventory_status?: Json | null
+          items?: Json | null
+          mp_code?: string | null
+          mp_country_code?: string | null
+          mp_order_nr?: string | null
+          order_created_at?: string | null
+          processed_at?: string | null
+          status?: string | null
+          store_id?: string | null
+          updated_at?: string
+          user_id?: string
+          warehouse_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "noon_fbpi_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "noon_stores_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       noon_file_headers: {
         Row: {
           created_at: string
@@ -2268,6 +2336,9 @@ export type Database = {
       }
       noon_stores_config: {
         Row: {
+          api_key_id: string | null
+          api_private_key: string | null
+          api_project_code: string | null
           country: string
           created_at: string
           id: string
@@ -2276,8 +2347,12 @@ export type Database = {
           partner_id: string
           updated_at: string
           user_id: string
+          warehouse_code: string | null
         }
         Insert: {
+          api_key_id?: string | null
+          api_private_key?: string | null
+          api_project_code?: string | null
           country?: string
           created_at?: string
           id?: string
@@ -2286,8 +2361,12 @@ export type Database = {
           partner_id: string
           updated_at?: string
           user_id: string
+          warehouse_code?: string | null
         }
         Update: {
+          api_key_id?: string | null
+          api_private_key?: string | null
+          api_project_code?: string | null
           country?: string
           created_at?: string
           id?: string
@@ -2296,6 +2375,7 @@ export type Database = {
           partner_id?: string
           updated_at?: string
           user_id?: string
+          warehouse_code?: string | null
         }
         Relationships: []
       }
