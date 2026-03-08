@@ -761,7 +761,17 @@ async function locateMatchingPurchaseOrders(
     throw error;
   }
 
-  return pos || [];
+  // Bug fix: Filter out POs that are already fully received
+  const filtered = (pos || []).filter((po: any) => {
+    const remaining = po.quantity - (po.printed_quantity || 0);
+    if (remaining <= 0) {
+      console.log('[SR v3.2] Excluding fully-received PO from matching:', { po_number: po.po_number, quantity: po.quantity, printed_quantity: po.printed_quantity });
+      return false;
+    }
+    return true;
+  });
+
+  return filtered;
 }
 
 /**
