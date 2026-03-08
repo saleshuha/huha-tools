@@ -516,6 +516,16 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                         </div>
                       )}
                       
+                      {/* Printed Quantity */}
+                      {(item.printedQuantity ?? 0) > 0 && (
+                        <div className="print-item-quantity-item print-printed-qty">
+                          <div className="print-item-quantity-label">🖨 PRINTED</div>
+                          <div className="print-item-quantity-main">
+                            {item.printedQuantity}
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Serial numbers */}
                       {item.serialNumber && (
                         <div style={{ fontSize: '9px', color: '#888', marginLeft: 'auto', alignSelf: 'flex-end' }}>
