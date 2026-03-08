@@ -55,7 +55,8 @@ export const aggregatePOItemsByASIN = (orders: POOrder[]): POPrintItem[] => {
         poNumbers: [order.po_number],
         priority: order.priority || 3,
         model_number: order.model_number,
-        sku_code: order.sku_code
+        sku_code: order.sku_code,
+        printedQuantity: order.printed_quantity || 0
       });
     }
   });
