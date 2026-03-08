@@ -47,6 +47,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stockSort, setStockSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const navigate = useNavigate();
