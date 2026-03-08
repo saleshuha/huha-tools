@@ -218,6 +218,36 @@ export function useNoonFBPI() {
     }
   };
 
+  const testWebhook = async (apiKey: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`https://${PROJECT_ID}.supabase.co/functions/v1/noon-fbpi-webhook?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fbpi_order_nr: `TEST-${Date.now()}`,
+          mp_order_nr: 'MP-TEST-001',
+          mp_country_code: 'AE',
+          warehouse_code: 'WH-TEST',
+          currency_code: 'AED',
+          items: [
+            { partner_sku: 'TEST-SKU-001', quantity: 1, title: 'Test Item' }
+          ]
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Webhook test failed');
+      toast({ title: 'Webhook Test Passed', description: 'Test order received successfully. Check the Orders tab.' });
+      await fetchOrders();
+      return true;
+    } catch (e: any) {
+      toast({ title: 'Webhook Test Failed', description: e.message, variant: 'destructive' });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateStoreCredentials = async (
     storeId: string,
     credentials: { api_private_key?: string; api_key_id?: string; api_project_code?: string; warehouse_code?: string }
@@ -258,6 +288,7 @@ export function useNoonFBPI() {
     deleteWebhookKey,
     refreshOrders: fetchOrders,
     refreshStores: fetchStores,
+    testWebhook,
     refreshWebhookKeys: fetchWebhookKeys,
   };
 }

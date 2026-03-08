@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Settings, Key, Copy, Webhook, Trash2, ShieldOff, Plus } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Settings, Key, Copy, Webhook, Trash2, ShieldOff, Plus, Send, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { NoonStoreConfig, WebhookKey } from '@/hooks/useNoonFBPI';
+import type { NoonStoreConfig, WebhookKey, FBPIOrder } from '@/hooks/useNoonFBPI';
+import { format } from 'date-fns';
 
 interface FBPISettingsProps {
   stores: NoonStoreConfig[];
+  orders: FBPIOrder[];
   loading: boolean;
   webhookKeys: WebhookKey[];
   onTestConnection: (storeId: string) => Promise<boolean>;
@@ -18,12 +20,14 @@ interface FBPISettingsProps {
   onGenerateWebhookKey: (storeId?: string) => Promise<boolean>;
   onRevokeWebhookKey: (keyId: string) => Promise<boolean>;
   onDeleteWebhookKey: (keyId: string) => Promise<boolean>;
+  onTestWebhook: (apiKey: string) => Promise<boolean>;
 }
 
 const WEBHOOK_URL = `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/noon-fbpi-webhook`;
 
 export function FBPISettings({
   stores,
+  orders,
   loading,
   webhookKeys,
   onTestConnection,
@@ -31,6 +35,7 @@ export function FBPISettings({
   onGenerateWebhookKey,
   onRevokeWebhookKey,
   onDeleteWebhookKey,
+  onTestWebhook,
 }: FBPISettingsProps) {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [apiKeyId, setApiKeyId] = useState('');
@@ -38,6 +43,7 @@ export function FBPISettings({
   const [apiPrivateKey, setApiPrivateKey] = useState('');
   const [warehouseCode, setWarehouseCode] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [testingWebhook, setTestingWebhook] = useState(false);
   const { toast } = useToast();
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
@@ -91,6 +97,18 @@ export function FBPISettings({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Last Received Indicator */}
+          {orders.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Last order received:</span>
+              <span className="font-medium text-foreground">
+                {format(new Date(orders[0].fetched_at), 'MMM dd, yyyy HH:mm:ss')}
+              </span>
+              <Badge variant="outline" className="text-xs">{orders[0].fbpi_order_nr}</Badge>
+            </div>
+          )}
+
           <div>
             <Label>Webhook URL</Label>
             <div className="flex gap-2 mt-1">
@@ -176,9 +194,31 @@ export function FBPISettings({
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
-                ))}
               </div>
+            ))}
+
+            {webhookKeys.some(k => k.is_active) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const activeKey = webhookKeys.find(k => k.is_active);
+                  if (!activeKey) return;
+                  setTestingWebhook(true);
+                  await onTestWebhook(activeKey.api_key);
+                  setTestingWebhook(false);
+                }}
+                disabled={testingWebhook || loading}
+              >
+                {testingWebhook ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-1" />
+                )}
+                Send Test Webhook
+              </Button>
+            )}
+          </div>
             )}
           </div>
 
