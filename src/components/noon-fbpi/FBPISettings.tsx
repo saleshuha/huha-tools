@@ -43,6 +43,7 @@ export function FBPISettings({
   const [apiPrivateKey, setApiPrivateKey] = useState('');
   const [warehouseCode, setWarehouseCode] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [testingWebhook, setTestingWebhook] = useState(false);
   const { toast } = useToast();
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
