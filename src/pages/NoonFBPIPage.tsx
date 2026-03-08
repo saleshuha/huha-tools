@@ -23,6 +23,7 @@ export default function NoonFBPIPage() {
     generateWebhookKey,
     revokeWebhookKey,
     deleteWebhookKey,
+    testWebhook,
   } = useNoonFBPI();
 
   return (
