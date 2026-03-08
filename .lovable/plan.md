@@ -1,38 +1,52 @@
 
 
-## Problem
+## Bulk Push Local Inventory to Shopify (with Images)
 
-In the `smart-stock-receiving` edge function (lines 449-468), there's an explicit design decision:
+### What We'll Build
 
-```
-// ✅ ALWAYS update inventory with the FULL received quantity
-// PO allocation is for label tracking — inventory must always reflect physical stock
-```
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-This means **every** item received through stock receiving — even when fully allocated to a PO — also gets added to the `asin_inventory` table with `status: 'in-stock'` and quantity incremented. So when you receive 1 unit of B0FT63SFJP against a PO, it:
+### How It Works
 
-1. Marks the PO as printed/received (correct)
-2. **Also** adds +1 to in-stock inventory (the bug you're seeing)
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-## Root Cause
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-The `updateInventoryStock` function (line 834) always runs with the **full received quantity**, not just the leftover after PO allocation. The comment says "inventory must always reflect physical stock" — but this is wrong when the item is being fulfilled for a PO (it's going out, not staying in stock).
-
-## Fix
-
-Modify the edge function so that inventory is only updated with the **remaining quantity** after PO allocation, not the full received quantity.
-
-### Changes
-
-**File: `supabase/functions/smart-stock-receiving/index.ts`**
-
-1. Replace the inventory update block (lines 449-468) to only call `updateInventoryStock` when `remainingQuantity > 0` (i.e., there's leftover after PO allocation).
-2. When all units are allocated to POs, skip the inventory update entirely.
-3. Update the `stock_receiving_items` insert to reflect actual inventory additions (`quantity_added_to_inventory: remainingQuantity` instead of `item.quantity`).
-4. For PO-only fulfillments, still record a `stock_changes` entry with `reference_type: 'po_order'` for audit purposes, but without incrementing inventory quantity.
+### Data Flow
 
 ```text
-Before:  receive 1 → allocate 1 to PO → still add 1 to inventory
-After:   receive 1 → allocate 1 to PO → remaining = 0 → skip inventory update
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
