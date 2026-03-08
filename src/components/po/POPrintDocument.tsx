@@ -13,6 +13,8 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
   ({ items, includeImages, title = 'Purchase Order Items' }, ref) => {
     const itemsWithStock = items.filter(i => (i.inventoryQty ?? 0) > 0).length;
     const itemsWithoutStock = items.length - itemsWithStock;
+    const totalPrintedQty = items.reduce((sum, i) => sum + (i.printedQuantity ?? 0), 0);
+    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
 
     return (
       <div ref={ref} className="print-document">
