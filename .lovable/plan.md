@@ -1,52 +1,26 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+# Fix Webhook & Add Connection Testing
 
-### What We'll Build
+## Problem Found
+I tested the webhook endpoint and found a database error: the `noon_fbpi_orders` table is missing a unique constraint on `fbpi_order_nr`, which the upsert operation requires. I also deployed both edge functions (`noon-fbpi` and `noon-fbpi-webhook`) which were not yet deployed.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+## What Needs to Change
 
-### How It Works
+### 1. Database Migration
+Add a unique constraint on `noon_fbpi_orders.fbpi_order_nr` so the webhook upsert works.
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+### 2. Add "Send Test Webhook" Button to Settings
+Add a button in the webhook section of `FBPISettings.tsx` that sends a test payload to the webhook endpoint using the active API key. This lets you verify the connection is working without needing external tools. The test will:
+- Send a sample FBPI order with test SKUs
+- Show success/failure result inline
+- The test order will appear in the Orders tab confirming end-to-end connectivity
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+### 3. Add Webhook Log / Last Received Indicator
+Show a "Last received" timestamp in the webhook section so you can see at a glance whether orders are coming through.
 
-### Data Flow
-
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
-
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
-
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+## Files to Modify
+- **Migration**: Add unique constraint on `noon_fbpi_orders.fbpi_order_nr`
+- **Edit**: `src/components/noon-fbpi/FBPISettings.tsx` — add "Test Webhook" button and last-received indicator
+- **Edit**: `src/hooks/useNoonFBPI.ts` — add test webhook function
 
