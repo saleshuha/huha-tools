@@ -263,11 +263,11 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
           
           .print-item-info {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
+            flex-direction: column;
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid #eee;
+            gap: 8px;
           }
           
           .print-item-quantity-section {
