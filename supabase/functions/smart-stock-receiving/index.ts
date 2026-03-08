@@ -485,7 +485,7 @@ serve(async (req) => {
             title: item.title,
             quantity_received: item.quantity,
             quantity_allocated_to_pos: item.quantity - remainingQuantity,
-            quantity_added_to_inventory: item.quantity,
+            quantity_added_to_inventory: remainingQuantity,
             matched_pos: allocations.map(a => ({
               po_number: a.po.po_number,
               quantity: a.quantity,
