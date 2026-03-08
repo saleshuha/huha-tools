@@ -211,7 +211,7 @@ export function AppSidebar() {
   }
 
   const isNoonSectionActive = () => {
-    return isActive("/noon-order-processing") || isActive("/noon-order-tracking")
+    return isActive("/noon-order-processing") || isActive("/noon-order-tracking") || isActive("/noon-fbpi")
   }
 
   const isSourceSectionActive = () => {
