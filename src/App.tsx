@@ -343,6 +343,7 @@ const App = () => {
                          <Route path="/market-purchases" element={<MarketPurchases />} />
                          <Route path="/market-purchase/:token" element={<MarketPurchasePublic />} />
                          <Route path="/shopify-sync" element={<ShopifySyncPage />} />
+                         <Route path="/noon-fbpi" element={<NoonFBPIPage />} />
 
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
