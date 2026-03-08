@@ -15,7 +15,7 @@ import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon, ExternalLink } from 'lucide-react';
+import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

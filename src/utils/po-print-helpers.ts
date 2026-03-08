@@ -22,6 +22,9 @@ export interface POPrintItem {
   // Inventory availability
   inventoryQty?: number;           // Current in-stock inventory quantity
   inventoryStatus?: string;        // "in-stock" | "ordered" | etc.
+  
+  // Print tracking
+  printedQuantity?: number;        // How many labels already printed
 }
 
 /**
