@@ -346,7 +346,6 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             background: #f8f9fc;
             padding: 6px 10px;
             border-radius: 6px;
-            text-align: right;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -364,6 +363,7 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             font-size: 11px;
             color: #444;
             font-weight: 600;
+            word-break: break-word;
           }
           
           .print-footer {
