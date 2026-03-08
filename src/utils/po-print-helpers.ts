@@ -39,6 +39,7 @@ export const aggregatePOItemsByASIN = (orders: POOrder[]): POPrintItem[] => {
     if (asinMap.has(asinKey)) {
       const existing = asinMap.get(asinKey)!;
       existing.quantity += order.quantity;
+      existing.printedQuantity = (existing.printedQuantity || 0) + (order.printed_quantity || 0);
       if (!existing.poNumbers.includes(order.po_number)) {
         existing.poNumbers.push(order.po_number);
       }
