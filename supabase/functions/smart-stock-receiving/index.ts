@@ -760,8 +760,13 @@ function computeQuantityAllocation(
   for (const po of matchingPOs) {
     if (remainingQty <= 0) break;
 
-    const neededQty = po.quantity;
-    const allocatedQty = Math.min(remainingQty, neededQty);
+    // Bug fix: subtract already-received quantity to prevent over-fulfillment
+    const remainingNeeded = po.quantity - (po.printed_quantity || 0);
+    if (remainingNeeded <= 0) {
+      console.log('[SR v3.2] Skipping fully-received PO:', { po_number: po.po_number, quantity: po.quantity, printed_quantity: po.printed_quantity });
+      continue;
+    }
+    const allocatedQty = Math.min(remainingQty, remainingNeeded);
 
     allocations.push({
       po: po,
