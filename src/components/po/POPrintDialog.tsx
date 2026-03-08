@@ -507,13 +507,26 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Items to Print ({filteredOrders.length})</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAll}
-                >
-                  {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={stockSort !== 'none' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setStockSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none')}
+                    className="text-xs gap-1 h-7 px-2"
+                    title="Sort by in-stock quantity"
+                  >
+                    📦 Stock
+                    {stockSort === 'desc' ? <ArrowDown className="h-3 w-3" /> : stockSort === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAll}
+                    className="h-7"
+                  >
+                    {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
               </div>
 
               {/* Search Input */}
