@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Package, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,16 @@ export const ImagePreview = ({
 }: ImagePreviewProps) => {
   const [showFullImage, setShowFullImage] = useState(false);
 
+  // Close on Escape
+  useEffect(() => {
+    if (!showFullImage) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowFullImage(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showFullImage]);
+
   const sizeClasses = {
     sm: 'w-12 h-12',
     md: 'w-16 h-16',
@@ -36,24 +47,7 @@ export const ImagePreview = ({
   );
 
   return (
-    <div className="flex items-start gap-3">
-      {/* Expanded preview - shows to the left of thumbnail */}
-      {showFullOnClick && imageUrl && showFullImage && (
-        <div className="relative shrink-0 w-48 h-48 rounded-lg border-2 border-primary/30 bg-background shadow-lg overflow-hidden animate-in fade-in slide-in-from-right-2 duration-200">
-          <img 
-            src={imageUrl} 
-            alt={alt} 
-            className="w-full h-full object-contain p-2" 
-          />
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowFullImage(false); }}
-            className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-muted border border-border transition-colors"
-          >
-            <X className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
-        </div>
-      )}
-
+    <>
       {/* Thumbnail */}
       <div 
         className={cn(
@@ -69,6 +63,32 @@ export const ImagePreview = ({
       >
         {content}
       </div>
-    </div>
+
+      {/* Full-size floating preview — portaled to body, outside search results */}
+      {showFullOnClick && imageUrl && showFullImage && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 animate-in fade-in duration-150"
+          onClick={() => setShowFullImage(false)}
+        >
+          <div 
+            className="relative max-w-[min(90vw,480px)] max-h-[80vh] rounded-xl border-2 border-primary/20 bg-background shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={imageUrl} 
+              alt={alt} 
+              className="w-full h-full object-contain p-3" 
+            />
+            <button
+              onClick={() => setShowFullImage(false)}
+              className="absolute top-2 right-2 p-1 rounded-full bg-background/90 hover:bg-muted border border-border transition-colors"
+            >
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
