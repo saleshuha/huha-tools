@@ -208,7 +208,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     });
     
     return enrichedItems;
-  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin]);
+  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin, stockSort]);
 
   const toggleItem = (index: number) => {
     const newSelected = new Set(selectedItems);
