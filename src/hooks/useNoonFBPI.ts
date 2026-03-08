@@ -34,6 +34,15 @@ export interface NoonStoreConfig {
   warehouse_code: string | null;
 }
 
+export interface WebhookKey {
+  id: string;
+  user_id: string;
+  api_key: string;
+  store_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'vfqqlifvhooefxvvyebm';
 
 async function callEdgeFunction(action: string, payload: any) {
@@ -60,6 +69,7 @@ async function callEdgeFunction(action: string, payload: any) {
 export function useNoonFBPI() {
   const [stores, setStores] = useState<NoonStoreConfig[]>([]);
   const [orders, setOrders] = useState<FBPIOrder[]>([]);
+  const [webhookKeys, setWebhookKeys] = useState<WebhookKey[]>([]);
   const [loading, setLoading] = useState(false);
   const [storesLoading, setStoresLoading] = useState(true);
   const { toast } = useToast();
@@ -92,6 +102,72 @@ export function useNoonFBPI() {
       console.error('Error fetching FBPI orders:', e);
     }
   }, []);
+
+  const fetchWebhookKeys = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('noon_webhook_keys')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setWebhookKeys((data || []) as any);
+    } catch (e) {
+      console.error('Error fetching webhook keys:', e);
+    }
+  }, []);
+
+  const generateWebhookKey = async (storeId?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await (supabase
+        .from('noon_webhook_keys')
+        .insert({ user_id: user.id, store_id: storeId || null } as any) as any);
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Webhook API key generated' });
+      await fetchWebhookKeys();
+      return true;
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const revokeWebhookKey = async (keyId: string) => {
+    try {
+      const { error } = await (supabase
+        .from('noon_webhook_keys')
+        .update({ is_active: false } as any)
+        .eq('id', keyId) as any);
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Webhook API key revoked' });
+      await fetchWebhookKeys();
+      return true;
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const deleteWebhookKey = async (keyId: string) => {
+    try {
+      const { error } = await (supabase
+        .from('noon_webhook_keys')
+        .delete()
+        .eq('id', keyId) as any);
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Webhook API key deleted' });
+      await fetchWebhookKeys();
+      return true;
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      return false;
+    }
+  };
 
   const testConnection = async (storeId: string) => {
     setLoading(true);
@@ -164,18 +240,24 @@ export function useNoonFBPI() {
   useEffect(() => {
     fetchStores();
     fetchOrders();
-  }, [fetchStores, fetchOrders]);
+    fetchWebhookKeys();
+  }, [fetchStores, fetchOrders, fetchWebhookKeys]);
 
   return {
     stores,
     orders,
+    webhookKeys,
     loading,
     storesLoading,
     testConnection,
     fetchOrder,
     updateOrder,
     updateStoreCredentials,
+    generateWebhookKey,
+    revokeWebhookKey,
+    deleteWebhookKey,
     refreshOrders: fetchOrders,
     refreshStores: fetchStores,
+    refreshWebhookKeys: fetchWebhookKeys,
   };
 }

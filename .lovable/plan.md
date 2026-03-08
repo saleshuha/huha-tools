@@ -1,52 +1,52 @@
 
 
-# Noon FBPI Webhook Receiver
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Overview
-Create a public webhook endpoint that Noon (or any integrator) can call to push FBPI orders directly into your system. The endpoint URL can be shared with Noon's integration team to enable automatic order delivery. The Settings tab will display the generated webhook URL and an API key for authentication.
+### What We'll Build
 
-## What We'll Build
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-### 1. New Edge Function: `noon-fbpi-webhook`
-A **public** endpoint (no JWT auth) that accepts incoming order payloads from Noon:
-- `POST` receives order data, validates via a shared API secret (`NOON_WEBHOOK_SECRET`)
-- Stores the order in `noon_fbpi_orders` and runs inventory matching against `asin_inventory`
-- Returns success/failure response to the caller
-- Supports both Noon's native format and a generic JSON format
+### How It Works
 
-### 2. Database: `noon_webhook_keys` table
-Stores per-user webhook API keys so each user gets a unique, revocable key:
-- `id`, `user_id`, `api_key` (unique), `store_id` (nullable FK), `is_active`, `created_at`
-- RLS: users can only see/manage their own keys
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-### 3. Edge Function Logic
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
+
+### Data Flow
+
 ```text
-POST /functions/v1/noon-fbpi-webhook?key=<api_key>
-
-→ Validate api_key from noon_webhook_keys (active, linked to user)
-→ Parse order payload (items, order number, etc.)
-→ Match item SKUs against asin_inventory
-→ Upsert into noon_fbpi_orders with inventory_status
-→ Return { success: true, order_id }
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-Uses a service-role client (since no user JWT) but scopes all queries via the API key's `user_id`.
+### Files to Modify
 
-### 4. UI Updates: Settings Tab
-Add a **Webhook** section to `FBPISettings.tsx`:
-- Display the webhook URL: `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/noon-fbpi-webhook`
-- Generate / regenerate API key button
-- Copy URL + key to clipboard
-- Show active/inactive status
-- Instructions for Noon integration team
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
 
-### 5. Config
-- `supabase/config.toml`: Add `[functions.noon-fbpi-webhook]` with `verify_jwt = false`
-
-## Files to Create/Modify
-- **Create**: `supabase/functions/noon-fbpi-webhook/index.ts`
-- **Modify**: `src/components/noon-fbpi/FBPISettings.tsx` — add webhook URL/key section
-- **Modify**: `src/hooks/useNoonFBPI.ts` — add webhook key management functions
-- **Modify**: `supabase/config.toml` — register new function
-- **Migration**: Create `noon_webhook_keys` table with RLS
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

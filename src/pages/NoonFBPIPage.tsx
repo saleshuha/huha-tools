@@ -19,6 +19,10 @@ export default function NoonFBPIPage() {
     updateOrder,
     updateStoreCredentials,
     refreshOrders,
+    webhookKeys,
+    generateWebhookKey,
+    revokeWebhookKey,
+    deleteWebhookKey,
   } = useNoonFBPI();
 
   return (
@@ -61,8 +65,12 @@ export default function NoonFBPIPage() {
           <FBPISettings
             stores={stores}
             loading={loading}
+            webhookKeys={webhookKeys}
             onTestConnection={testConnection}
             onUpdateCredentials={updateStoreCredentials}
+            onGenerateWebhookKey={generateWebhookKey}
+            onRevokeWebhookKey={revokeWebhookKey}
+            onDeleteWebhookKey={deleteWebhookKey}
           />
         </TabsContent>
 
