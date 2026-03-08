@@ -288,6 +288,7 @@ export function useNoonFBPI() {
     deleteWebhookKey,
     refreshOrders: fetchOrders,
     refreshStores: fetchStores,
+    testWebhook,
     refreshWebhookKeys: fetchWebhookKeys,
   };
 }

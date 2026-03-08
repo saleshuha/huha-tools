@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Settings, Key, Copy, Webhook, Trash2, ShieldOff, Plus } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Settings, Key, Copy, Webhook, Trash2, ShieldOff, Plus, Send, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { NoonStoreConfig, WebhookKey } from '@/hooks/useNoonFBPI';
+import type { NoonStoreConfig, WebhookKey, FBPIOrder } from '@/hooks/useNoonFBPI';
+import { format } from 'date-fns';
 
 interface FBPISettingsProps {
   stores: NoonStoreConfig[];
+  orders: FBPIOrder[];
   loading: boolean;
   webhookKeys: WebhookKey[];
   onTestConnection: (storeId: string) => Promise<boolean>;
@@ -18,6 +20,7 @@ interface FBPISettingsProps {
   onGenerateWebhookKey: (storeId?: string) => Promise<boolean>;
   onRevokeWebhookKey: (keyId: string) => Promise<boolean>;
   onDeleteWebhookKey: (keyId: string) => Promise<boolean>;
+  onTestWebhook: (apiKey: string) => Promise<boolean>;
 }
 
 const WEBHOOK_URL = `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/noon-fbpi-webhook`;
