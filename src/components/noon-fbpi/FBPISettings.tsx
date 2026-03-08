@@ -97,6 +97,18 @@ export function FBPISettings({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Last Received Indicator */}
+          {orders.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Last order received:</span>
+              <span className="font-medium text-foreground">
+                {format(new Date(orders[0].fetched_at), 'MMM dd, yyyy HH:mm:ss')}
+              </span>
+              <Badge variant="outline" className="text-xs">{orders[0].fbpi_order_nr}</Badge>
+            </div>
+          )}
+
           <div>
             <Label>Webhook URL</Label>
             <div className="flex gap-2 mt-1">
