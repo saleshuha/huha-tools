@@ -767,6 +767,11 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                        )}
                                      </div>
                                    </TableCell>
+                                   <TableCell className="text-center border-r border-gray-300">
+                                     <div className="text-lg font-semibold" style={{ color: (item.printedQuantity ?? 0) > 0 ? '#8b5cf6' : '#999' }}>
+                                       {item.printedQuantity ?? 0}/{item.quantity}
+                                     </div>
+                                   </TableCell>
                                   <TableCell className="border-r border-gray-300">
                                     <div className="text-xs font-bold break-words">
                                       {item.poNumbers}
