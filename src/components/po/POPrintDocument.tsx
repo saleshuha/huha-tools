@@ -318,6 +318,17 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             color: #d97706;
           }
           
+          .print-printed-qty .print-item-quantity-main {
+            color: #8b5cf6;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-printed-qty .print-item-quantity-label {
+            color: #8b5cf6;
+          }
+          
           .print-inventory-qty .print-item-quantity-main {
             color: #2563eb;
             font-size: 26px;
