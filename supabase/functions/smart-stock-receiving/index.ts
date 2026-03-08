@@ -472,6 +472,24 @@ serve(async (req) => {
             totalReceived: item.quantity,
             allocatedToPOs: item.quantity - remainingQuantity
           });
+
+          // Bug fix: Create audit trail for PO-only fulfillments
+          try {
+            const poNumbers = allocations.map(a => a.po.po_number).join(', ');
+            await supabase.from('stock_changes').insert({
+              user_id: user.id,
+              asin: item.asin,
+              sku: item.sku_code,
+              change_type: 'po_fulfillment',
+              change_amount: 0,
+              reference_type: 'po_order',
+              reference_id: allocations[0]?.po?.id || null,
+              notes: `PO fulfillment only (${item.quantity} units → POs: ${poNumbers}). No inventory added.`,
+              country: country
+            });
+          } catch (auditErr) {
+            console.error('[SR v3.2] Audit trail insert failed (non-fatal):', auditErr.message);
+          }
         }
 
         // Record receiving event with proper error handling
@@ -733,7 +751,7 @@ async function locateMatchingPurchaseOrders(
     .from('po_orders')
     .select('*')
     .eq('user_id', userId)
-    .in('status', ['pending', 'placed'])
+    .in('status', ['pending', 'placed', 'shipped'])
     .or(`asin.eq.${item.asin || 'none'},sku_code.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
     .order('priority', { ascending: true })
     .order('expected_delivery', { ascending: true });
@@ -743,7 +761,17 @@ async function locateMatchingPurchaseOrders(
     throw error;
   }
 
-  return pos || [];
+  // Bug fix: Filter out POs that are already fully received
+  const filtered = (pos || []).filter((po: any) => {
+    const remaining = po.quantity - (po.printed_quantity || 0);
+    if (remaining <= 0) {
+      console.log('[SR v3.2] Excluding fully-received PO from matching:', { po_number: po.po_number, quantity: po.quantity, printed_quantity: po.printed_quantity });
+      return false;
+    }
+    return true;
+  });
+
+  return filtered;
 }
 
 /**
@@ -760,8 +788,13 @@ function computeQuantityAllocation(
   for (const po of matchingPOs) {
     if (remainingQty <= 0) break;
 
-    const neededQty = po.quantity;
-    const allocatedQty = Math.min(remainingQty, neededQty);
+    // Bug fix: subtract already-received quantity to prevent over-fulfillment
+    const remainingNeeded = po.quantity - (po.printed_quantity || 0);
+    if (remainingNeeded <= 0) {
+      console.log('[SR v3.2] Skipping fully-received PO:', { po_number: po.po_number, quantity: po.quantity, printed_quantity: po.printed_quantity });
+      continue;
+    }
+    const allocatedQty = Math.min(remainingQty, remainingNeeded);
 
     allocations.push({
       po: po,
