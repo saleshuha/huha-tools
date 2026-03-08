@@ -472,6 +472,24 @@ serve(async (req) => {
             totalReceived: item.quantity,
             allocatedToPOs: item.quantity - remainingQuantity
           });
+
+          // Bug fix: Create audit trail for PO-only fulfillments
+          try {
+            const poNumbers = allocations.map(a => a.po.po_number).join(', ');
+            await supabase.from('stock_changes').insert({
+              user_id: user.id,
+              asin: item.asin,
+              sku: item.sku_code,
+              change_type: 'po_fulfillment',
+              change_amount: 0,
+              reference_type: 'po_order',
+              reference_id: allocations[0]?.po?.id || null,
+              notes: `PO fulfillment only (${item.quantity} units → POs: ${poNumbers}). No inventory added.`,
+              country: country
+            });
+          } catch (auditErr) {
+            console.error('[SR v3.2] Audit trail insert failed (non-fatal):', auditErr.message);
+          }
         }
 
         // Record receiving event with proper error handling
