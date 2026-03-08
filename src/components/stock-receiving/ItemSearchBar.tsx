@@ -1020,7 +1020,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                         imageUrl={result.image_url}
                         alt={result.title || identifier || 'Product'}
                         size="md"
-                        showFullOnClick={false}
+                        showFullOnClick={true}
                       />
 
                       <div className="flex-1 min-w-0">

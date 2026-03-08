@@ -62,7 +62,10 @@ export const ImagePreview = ({
           showFullOnClick && imageUrl && 'cursor-pointer hover:ring-2 hover:ring-primary transition-all',
           className
         )}
-        onClick={() => showFullOnClick && imageUrl && setShowFullImage(!showFullImage)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (showFullOnClick && imageUrl) setShowFullImage(!showFullImage);
+        }}
       >
         {content}
       </div>
