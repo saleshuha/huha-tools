@@ -71,13 +71,13 @@ export const ImagePreview = ({
           onClick={() => setShowFullImage(false)}
         >
           <div 
-            className="relative max-w-[min(90vw,480px)] max-h-[80vh] rounded-xl border-2 border-primary/20 bg-background shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            className="relative w-[320px] h-[320px] rounded-xl border-2 border-primary/20 bg-background shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             <img 
               src={imageUrl} 
               alt={alt} 
-              className="w-full h-full object-contain p-3" 
+              className="max-w-[280px] max-h-[280px] object-contain" 
             />
             <button
               onClick={() => setShowFullImage(false)}
