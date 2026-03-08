@@ -1,84 +1,52 @@
 
 
-# Noon FBPI Orders Integration with In-Stock Inventory
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Overview
-Add a new page/tab for Noon Fulfilled by Partner Integration (FBPI) that connects to the Noon API to fetch orders and cross-references them with your local `asin_inventory` stock.
+### What We'll Build
 
-## Noon FBPI API Summary (from docs)
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-The FBPI flow is **webhook-driven**: Noon pushes orders to your system. You then use these endpoints (all require cookie-based auth via JWT login):
+### How It Works
 
-- **Auth**: `POST /identity/public/v1/api/login` — exchange RS256 JWT (signed with `private_key`, `key_id`, `project_code` from the service account JSON) for a session cookie
-- **Get Order**: `GET /fbpi/v1/fbpi-order/:fbpi_order_nr/get` — fetch full order details
-- **Update Order**: `POST /fbpi/v1/fbpi-order/update` — mark items out of stock before shipment
-- **Create Shipment**: `POST /fbpi/v1/shipment/create` — create shipment with AWB
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-Base URL: `https://noon-api-gateway.noon.partners`
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-## What We'll Build
+### Data Flow
 
-### 1. Database Changes
-- Add API credential columns to `noon_stores_config`: `api_private_key` (encrypted text), `api_key_id`, `api_project_code`, `warehouse_code`
-- Create `noon_fbpi_orders` table to store fetched FBPI orders with inventory match status
-
-### 2. Edge Function: `noon-fbpi`
-Handles all FBPI API interactions:
-- **`authenticate`**: Signs a JWT using the store's `private_key`/`key_id`, calls Noon login endpoint, returns session cookie
-- **`get-order`**: Fetches a specific FBPI order by order number
-- **`check-inventory`**: Cross-references FBPI order item SKUs (`partner_sku`) against `asin_inventory` to show in-stock/out-of-stock status
-- **`update-order`**: Marks out-of-stock items before shipment creation
-
-### 3. New Page: `NoonFBPIPage`
-Added at route `/noon-fbpi` with tabs:
-
-- **Orders** tab: List of FBPI orders with inventory status (in stock / out of stock per SKU). Ability to fetch an order by number. Shows match against `asin_inventory.quantity`.
-- **Settings** tab: Store selection + API credential configuration (private key, key ID, project code, warehouse code). Test connection button.
-- **History** tab: Log of processed orders and actions taken.
-
-### 4. Sidebar Entry
-Add "Noon FBPI Orders" under the existing Noon section in the sidebar.
-
-## Technical Details
-
-### Auth Flow (Edge Function)
 ```text
-Store credentials (DB) → Sign RS256 JWT → POST /identity/public/v1/api/login
-→ Session cookie → Use cookie for subsequent FBPI API calls
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-The `node-forge` package (already installed) will be used in the edge function to sign RS256 JWTs in Deno.
+### Files to Modify
 
-### Inventory Matching Logic
-For each FBPI order item with `partner_sku`:
-1. Query `asin_inventory` where `sku = partner_sku`
-2. Compare `asin_inventory.quantity` against order item count
-3. Flag items as `in_stock`, `low_stock`, or `out_of_stock`
-4. Allow bulk "Update Order" to mark OOS items on Noon's side
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
 
-### Database Schema: `noon_fbpi_orders`
-```text
-id, user_id, store_id (FK noon_stores_config), fbpi_order_nr, mp_order_nr,
-mp_code, mp_country_code, warehouse_code, currency_code, items (JSONB),
-inventory_status (JSONB), status, order_created_at, fetched_at, processed_at
-```
-
-### New columns on `noon_stores_config`
-```text
-api_private_key TEXT (nullable) — RSA private key PEM
-api_key_id TEXT (nullable) — service account key ID
-api_project_code TEXT (nullable) — noon project code
-warehouse_code TEXT (nullable) — FBPI warehouse code
-```
-
-## Files to Create/Modify
-- **Create**: `supabase/functions/noon-fbpi/index.ts`
-- **Create**: `src/pages/NoonFBPIPage.tsx`
-- **Create**: `src/components/noon-fbpi/FBPIOrdersList.tsx`
-- **Create**: `src/components/noon-fbpi/FBPISettings.tsx`
-- **Create**: `src/components/noon-fbpi/FBPIOrderDetail.tsx`
-- **Create**: `src/hooks/useNoonFBPI.ts`
-- **Modify**: `src/App.tsx` — add route
-- **Modify**: `src/components/AppSidebar.tsx` — add sidebar link
-- **Migration**: Add columns to `noon_stores_config`, create `noon_fbpi_orders` table
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

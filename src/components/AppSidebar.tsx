@@ -211,7 +211,7 @@ export function AppSidebar() {
   }
 
   const isNoonSectionActive = () => {
-    return isActive("/noon-order-processing") || isActive("/noon-order-tracking")
+    return isActive("/noon-order-processing") || isActive("/noon-order-tracking") || isActive("/noon-fbpi")
   }
 
   const isSourceSectionActive = () => {
@@ -629,7 +629,7 @@ export function AppSidebar() {
               )}
 
               {/* Noon Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/noon-order-processing') || canAccessRoute('/noon-order-tracking')) && (
+              {!isCollapsed && (canAccessRoute('/noon-order-processing') || canAccessRoute('/noon-order-tracking') || canAccessRoute('/noon-fbpi')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isNoonOpen} onOpenChange={setIsNoonOpen}>
                     <CollapsibleTrigger asChild>
@@ -691,6 +691,27 @@ export function AppSidebar() {
                           <Package className="h-4 w-4 flex-shrink-0 opacity-75" />
                           <span className="font-medium text-xs">
                             Noon Orders Tracking
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>}
+
+                      {/* Noon FBPI Orders */}
+                      {canAccessRoute('/noon-fbpi') && <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/noon-fbpi")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/noon-fbpi" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Package className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            FBPI Orders
                           </span>
                         </NavLink>
                       </SidebarMenuButton>}

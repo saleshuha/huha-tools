@@ -77,6 +77,7 @@ import NoonFinancialStatements from "./pages/NoonFinancialStatements";
 import MarketPurchases from "./pages/MarketPurchases";
 import MarketPurchasePublic from "./pages/MarketPurchasePublic";
 import ShopifySyncPage from "./pages/ShopifySyncPage";
+import NoonFBPIPage from "./pages/NoonFBPIPage";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -342,6 +343,7 @@ const App = () => {
                          <Route path="/market-purchases" element={<MarketPurchases />} />
                          <Route path="/market-purchase/:token" element={<MarketPurchasePublic />} />
                          <Route path="/shopify-sync" element={<ShopifySyncPage />} />
+                         <Route path="/noon-fbpi" element={<NoonFBPIPage />} />
 
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
