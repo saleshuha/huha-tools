@@ -446,25 +446,32 @@ serve(async (req) => {
           }
         }
 
-        // ✅ ALWAYS update inventory with the FULL received quantity
-        // PO allocation is for label tracking — inventory must always reflect physical stock
-        console.log('[SR v3.1] Updating inventory stock:', {
-          asin: item.asin,
-          sku: item.sku_code,
-          quantity: item.quantity,
-          allocatedToPOs: allocations.length,
-          reason: 'Inventory always updated regardless of PO allocation'
-        });
-        
-        try {
-          await updateInventoryStock(supabase, item, item.quantity, user.id);
-          totalAddedToInventory += item.quantity;
-        } catch (invError) {
-          console.error('[SR v3.1] ❌ Inventory update failed (non-fatal):', {
+        // Only update inventory with the REMAINING quantity after PO allocation
+        // Items fully allocated to POs should NOT increase in-stock inventory
+        if (remainingQuantity > 0) {
+          console.log('[SR v3.1] Updating inventory stock (remaining after PO allocation):', {
             asin: item.asin,
-            error: invError.message
+            sku: item.sku_code,
+            totalReceived: item.quantity,
+            allocatedToPOs: item.quantity - remainingQuantity,
+            addingToInventory: remainingQuantity
           });
-          // Don't throw — PO marking was already done, just log the failure
+          
+          try {
+            await updateInventoryStock(supabase, item, remainingQuantity, user.id);
+            totalAddedToInventory += remainingQuantity;
+          } catch (invError) {
+            console.error('[SR v3.1] ❌ Inventory update failed (non-fatal):', {
+              asin: item.asin,
+              error: invError.message
+            });
+          }
+        } else {
+          console.log('[SR v3.1] Skipping inventory update — all units allocated to POs:', {
+            asin: item.asin,
+            totalReceived: item.quantity,
+            allocatedToPOs: item.quantity - remainingQuantity
+          });
         }
 
         // Record receiving event with proper error handling
