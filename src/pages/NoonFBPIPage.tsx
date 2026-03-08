@@ -19,6 +19,10 @@ export default function NoonFBPIPage() {
     updateOrder,
     updateStoreCredentials,
     refreshOrders,
+    webhookKeys,
+    generateWebhookKey,
+    revokeWebhookKey,
+    deleteWebhookKey,
   } = useNoonFBPI();
 
   return (
