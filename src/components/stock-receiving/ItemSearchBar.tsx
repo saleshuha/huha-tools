@@ -877,7 +877,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                             imageUrl={liveData.image_url}
                             alt={liveData.title || liveData.term}
                             size="md"
-                            showFullOnClick={false}
+                            showFullOnClick={true}
                           />
                         ) : (
                           <div className="w-10 h-10 bg-muted/50 rounded-lg flex items-center justify-center shrink-0">
