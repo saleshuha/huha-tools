@@ -418,6 +418,11 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                 ⚠ {itemsWithoutStock} No Stock
               </div>
             )}
+            {totalPrintedQty > 0 && (
+              <div className="print-header-stat total" style={{ background: '#f3e8ff', color: '#7c3aed' }}>
+                🖨 {totalPrintedQty}/{totalQty} Printed
+              </div>
+            )}
           </div>
         </div>
 
