@@ -190,9 +190,16 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           // Inventory availability data
           inventoryQty: matchingOrder?._inventoryQty ?? undefined,
           inventoryStatus: matchingOrder?._inventoryStatus ?? undefined,
+          // Print tracking
+          printedQuantity: matchingOrder?.printed_quantity ?? 0,
         };
       })
-      .sort((a, b) => b.quantity - a.quantity);
+      .sort((a, b) => {
+        // Apply stock sort if active, otherwise default to qty high-to-low
+        if (stockSort === 'desc') return (b.inventoryQty ?? 0) - (a.inventoryQty ?? 0);
+        if (stockSort === 'asc') return (a.inventoryQty ?? 0) - (b.inventoryQty ?? 0);
+        return b.quantity - a.quantity;
+      });
     
     console.log('✅ POPrintDialog - Final printItems:', {
       count: enrichedItems.length,
