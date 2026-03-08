@@ -15,7 +15,7 @@ import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon, ExternalLink } from 'lucide-react';
+import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -47,6 +47,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stockSort, setStockSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const navigate = useNavigate();
@@ -189,9 +190,16 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           // Inventory availability data
           inventoryQty: matchingOrder?._inventoryQty ?? undefined,
           inventoryStatus: matchingOrder?._inventoryStatus ?? undefined,
+          // Print tracking
+          printedQuantity: matchingOrder?.printed_quantity ?? 0,
         };
       })
-      .sort((a, b) => b.quantity - a.quantity);
+      .sort((a, b) => {
+        // Apply stock sort if active, otherwise default to qty high-to-low
+        if (stockSort === 'desc') return (b.inventoryQty ?? 0) - (a.inventoryQty ?? 0);
+        if (stockSort === 'asc') return (a.inventoryQty ?? 0) - (b.inventoryQty ?? 0);
+        return b.quantity - a.quantity;
+      });
     
     console.log('✅ POPrintDialog - Final printItems:', {
       count: enrichedItems.length,
@@ -200,7 +208,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     });
     
     return enrichedItems;
-  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin]);
+  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin, stockSort]);
 
   const toggleItem = (index: number) => {
     const newSelected = new Set(selectedItems);
@@ -499,13 +507,26 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Items to Print ({filteredOrders.length})</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAll}
-                >
-                  {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={stockSort !== 'none' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setStockSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none')}
+                    className="text-xs gap-1 h-7 px-2"
+                    title="Sort by in-stock quantity"
+                  >
+                    📦 Stock
+                    {stockSort === 'desc' ? <ArrowDown className="h-3 w-3" /> : stockSort === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAll}
+                    className="h-7"
+                  >
+                    {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
               </div>
 
               {/* Search Input */}
@@ -549,7 +570,12 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                             <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
                           )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Qty: {order.quantity} | PO: {order.po_number}
+                            {(order.printed_quantity ?? 0) > 0 && (
+                              <span className="ml-1 text-primary">| 🖨 {order.printed_quantity}/{order.quantity}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -663,6 +689,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                 {includeImages && <TableHead className="w-32 font-bold text-black border-r border-gray-300">Image</TableHead>}
                                 <TableHead className="font-bold text-black border-r border-gray-300">Product Details</TableHead>
                                 <TableHead className="w-20 font-bold text-black text-center border-r border-gray-300">Qty</TableHead>
+                                <TableHead className="w-20 font-bold text-black text-center border-r border-gray-300">Printed</TableHead>
                                 <TableHead className="w-32 font-bold text-black border-r border-gray-300">PO Number(s)</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -738,6 +765,11 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                            Supplier: {item.supplierQuantity}
                                          </div>
                                        )}
+                                     </div>
+                                   </TableCell>
+                                   <TableCell className="text-center border-r border-gray-300">
+                                     <div className="text-lg font-semibold" style={{ color: (item.printedQuantity ?? 0) > 0 ? '#8b5cf6' : '#999' }}>
+                                       {item.printedQuantity ?? 0}/{item.quantity}
                                      </div>
                                    </TableCell>
                                   <TableCell className="border-r border-gray-300">

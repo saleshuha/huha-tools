@@ -13,6 +13,8 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
   ({ items, includeImages, title = 'Purchase Order Items' }, ref) => {
     const itemsWithStock = items.filter(i => (i.inventoryQty ?? 0) > 0).length;
     const itemsWithoutStock = items.length - itemsWithStock;
+    const totalPrintedQty = items.reduce((sum, i) => sum + (i.printedQuantity ?? 0), 0);
+    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
 
     return (
       <div ref={ref} className="print-document">
@@ -318,6 +320,17 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             color: #d97706;
           }
           
+          .print-printed-qty .print-item-quantity-main {
+            color: #8b5cf6;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-printed-qty .print-item-quantity-label {
+            color: #8b5cf6;
+          }
+          
           .print-inventory-qty .print-item-quantity-main {
             color: #2563eb;
             font-size: 26px;
@@ -403,6 +416,11 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             {itemsWithoutStock > 0 && (
               <div className="print-header-stat no-stock">
                 ⚠ {itemsWithoutStock} No Stock
+              </div>
+            )}
+            {totalPrintedQty > 0 && (
+              <div className="print-header-stat total" style={{ background: '#f3e8ff', color: '#7c3aed' }}>
+                🖨 {totalPrintedQty}/{totalQty} Printed
               </div>
             )}
           </div>
@@ -501,6 +519,16 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                           <div className="print-item-quantity-label">⚠ PENDING</div>
                           <div className="print-item-quantity-main">
                             {item.supplierQuantity || 0}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Printed Quantity */}
+                      {(item.printedQuantity ?? 0) > 0 && (
+                        <div className="print-item-quantity-item print-printed-qty">
+                          <div className="print-item-quantity-label">🖨 PRINTED</div>
+                          <div className="print-item-quantity-main">
+                            {item.printedQuantity}
                           </div>
                         </div>
                       )}

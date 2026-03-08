@@ -22,6 +22,9 @@ export interface POPrintItem {
   // Inventory availability
   inventoryQty?: number;           // Current in-stock inventory quantity
   inventoryStatus?: string;        // "in-stock" | "ordered" | etc.
+  
+  // Print tracking
+  printedQuantity?: number;        // How many labels already printed
 }
 
 /**
@@ -36,6 +39,7 @@ export const aggregatePOItemsByASIN = (orders: POOrder[]): POPrintItem[] => {
     if (asinMap.has(asinKey)) {
       const existing = asinMap.get(asinKey)!;
       existing.quantity += order.quantity;
+      existing.printedQuantity = (existing.printedQuantity || 0) + (order.printed_quantity || 0);
       if (!existing.poNumbers.includes(order.po_number)) {
         existing.poNumbers.push(order.po_number);
       }
@@ -51,7 +55,8 @@ export const aggregatePOItemsByASIN = (orders: POOrder[]): POPrintItem[] => {
         poNumbers: [order.po_number],
         priority: order.priority || 3,
         model_number: order.model_number,
-        sku_code: order.sku_code
+        sku_code: order.sku_code,
+        printedQuantity: order.printed_quantity || 0
       });
     }
   });
@@ -70,7 +75,8 @@ export const convertOrdersToPrintItems = (orders: POOrder[]): POPrintItem[] => {
     poNumbers: [order.po_number],
     priority: order.priority || 3,
     model_number: order.model_number,
-    sku_code: order.sku_code
+    sku_code: order.sku_code,
+    printedQuantity: order.printed_quantity || 0
   }));
 };
 
