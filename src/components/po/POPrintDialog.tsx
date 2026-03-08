@@ -689,6 +689,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                 {includeImages && <TableHead className="w-32 font-bold text-black border-r border-gray-300">Image</TableHead>}
                                 <TableHead className="font-bold text-black border-r border-gray-300">Product Details</TableHead>
                                 <TableHead className="w-20 font-bold text-black text-center border-r border-gray-300">Qty</TableHead>
+                                <TableHead className="w-20 font-bold text-black text-center border-r border-gray-300">Printed</TableHead>
                                 <TableHead className="w-32 font-bold text-black border-r border-gray-300">PO Number(s)</TableHead>
                               </TableRow>
                             </TableHeader>
