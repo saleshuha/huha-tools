@@ -629,7 +629,7 @@ export function AppSidebar() {
               )}
 
               {/* Noon Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/noon-order-processing') || canAccessRoute('/noon-order-tracking')) && (
+              {!isCollapsed && (canAccessRoute('/noon-order-processing') || canAccessRoute('/noon-order-tracking') || canAccessRoute('/noon-fbpi')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isNoonOpen} onOpenChange={setIsNoonOpen}>
                     <CollapsibleTrigger asChild>
