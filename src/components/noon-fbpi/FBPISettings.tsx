@@ -194,9 +194,31 @@ export function FBPISettings({
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
-                ))}
               </div>
+            ))}
+
+            {webhookKeys.some(k => k.is_active) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const activeKey = webhookKeys.find(k => k.is_active);
+                  if (!activeKey) return;
+                  setTestingWebhook(true);
+                  await onTestWebhook(activeKey.api_key);
+                  setTestingWebhook(false);
+                }}
+                disabled={testingWebhook || loading}
+              >
+                {testingWebhook ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-1" />
+                )}
+                Send Test Webhook
+              </Button>
+            )}
+          </div>
             )}
           </div>
 

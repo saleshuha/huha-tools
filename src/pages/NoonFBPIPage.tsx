@@ -64,6 +64,7 @@ export default function NoonFBPIPage() {
         <TabsContent value="settings">
           <FBPISettings
             stores={stores}
+            orders={orders}
             loading={loading}
             webhookKeys={webhookKeys}
             onTestConnection={testConnection}
@@ -71,6 +72,7 @@ export default function NoonFBPIPage() {
             onGenerateWebhookKey={generateWebhookKey}
             onRevokeWebhookKey={revokeWebhookKey}
             onDeleteWebhookKey={deleteWebhookKey}
+            onTestWebhook={testWebhook}
           />
         </TabsContent>
 
