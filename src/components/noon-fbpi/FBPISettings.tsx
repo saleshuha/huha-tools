@@ -27,6 +27,7 @@ const WEBHOOK_URL = `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/noon-
 
 export function FBPISettings({
   stores,
+  orders,
   loading,
   webhookKeys,
   onTestConnection,
@@ -34,6 +35,7 @@ export function FBPISettings({
   onGenerateWebhookKey,
   onRevokeWebhookKey,
   onDeleteWebhookKey,
+  onTestWebhook,
 }: FBPISettingsProps) {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [apiKeyId, setApiKeyId] = useState('');
