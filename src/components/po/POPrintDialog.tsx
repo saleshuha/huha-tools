@@ -570,7 +570,12 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                             <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
                           )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Qty: {order.quantity} | PO: {order.po_number}
+                            {(order.printed_quantity ?? 0) > 0 && (
+                              <span className="ml-1 text-primary">| 🖨 {order.printed_quantity}/{order.quantity}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
