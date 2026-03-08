@@ -484,66 +484,40 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                   </div>
                   
                   <div className="print-item-info">
+                    {/* Quantities Row */}
                     <div className="print-item-quantity-section">
-                      {/* Total Quantity */}
                       <div className="print-item-quantity-item">
                         <div className="print-item-quantity-label">PO QTY</div>
+                        <div className="print-item-quantity-main">{item.quantity}</div>
+                      </div>
+                      
+                      <div className="print-item-quantity-item print-inventory-qty">
+                        <div className="print-item-quantity-label">📦 IN STOCK</div>
+                        <div className="print-item-quantity-main">{item.inventoryQty ?? 0}</div>
+                      </div>
+                      
+                      <div className="print-item-quantity-item print-printed-qty">
+                        <div className="print-item-quantity-label">🖨 PRINTED</div>
+                        <div className="print-item-quantity-main">{item.printedQuantity ?? 0}</div>
+                      </div>
+                      
+                      <div className="print-item-quantity-item print-pending">
+                        <div className="print-item-quantity-label">⚠ PENDING</div>
                         <div className="print-item-quantity-main">
-                          {item.quantity}
+                          {Math.max(0, item.quantity - (item.inventoryQty ?? 0) - (item.printedQuantity ?? 0))}
                         </div>
                       </div>
                       
-                      {/* Inventory Quantity - shown when available */}
-                      {hasInventory && (
-                        <div className="print-item-quantity-item print-inventory-qty">
-                          <div className="print-item-quantity-label">📦 IN STOCK</div>
-                          <div className="print-item-quantity-main">
-                            {item.inventoryQty}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* From Stock - Show if fulfilled */}
-                      {item.fulfilledFromStock && (
-                        <div className="print-item-quantity-item print-from-stock">
-                          <div className="print-item-quantity-label">✓ FROM STOCK</div>
-                          <div className="print-item-quantity-main">
-                            {item.stockQuantity}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Pending */}
-                      {item.fulfilledFromStock && (
-                        <div className="print-item-quantity-item print-pending">
-                          <div className="print-item-quantity-label">⚠ PENDING</div>
-                          <div className="print-item-quantity-main">
-                            {item.supplierQuantity || 0}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Printed Quantity */}
-                      {(item.printedQuantity ?? 0) > 0 && (
-                        <div className="print-item-quantity-item print-printed-qty">
-                          <div className="print-item-quantity-label">🖨 PRINTED</div>
-                          <div className="print-item-quantity-main">
-                            {item.printedQuantity}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Serial numbers */}
                       {item.serialNumber && (
                         <div style={{ fontSize: '9px', color: '#888', marginLeft: 'auto', alignSelf: 'flex-end' }}>
                           SN: {item.serialNumber}
                         </div>
                       )}
                     </div>
+                    
+                    {/* PO Numbers - separate line */}
                     <div className="print-item-po">
-                      <div className="print-item-po-label">
-                        PO{item.poNumbers.length > 1 ? 's' : ''}
-                      </div>
+                      <div className="print-item-po-label">PO{item.poNumbers.length > 1 ? 's' : ''}</div>
                       <div className="print-item-po-value">{formatPONumbers(item.poNumbers)}</div>
                     </div>
                   </div>
