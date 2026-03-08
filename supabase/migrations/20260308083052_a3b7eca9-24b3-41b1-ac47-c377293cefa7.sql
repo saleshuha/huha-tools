@@ -1,0 +1,1 @@
+ALTER TABLE public.noon_fbpi_orders ADD CONSTRAINT unique_fbpi_order_nr UNIQUE (fbpi_order_nr);
