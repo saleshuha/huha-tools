@@ -51,6 +51,8 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [truePrintedTotals, setTruePrintedTotals] = useState<Map<string, number>>(new Map());
+  const [shippedTotals, setShippedTotals] = useState<Map<string, number>>(new Map());
+  const [fbaTotals, setFbaTotals] = useState<Map<string, number>>(new Map());
   const navigate = useNavigate();
   
   const printRef = useRef<HTMLDivElement>(null);
