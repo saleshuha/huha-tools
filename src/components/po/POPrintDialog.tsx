@@ -208,7 +208,8 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           inventoryQty: matchingOrder?._inventoryQty ?? undefined,
           inventoryStatus: matchingOrder?._inventoryStatus ?? undefined,
           // Print tracking
-          printedQuantity: matchingOrder?.printed_quantity ?? 0,
+          // Print tracking - use true DB totals if available, fallback to order data
+          printedQuantity: truePrintedTotals.get(item.asin) ?? matchingOrder?.printed_quantity ?? 0,
         };
       })
       .sort((a, b) => {
