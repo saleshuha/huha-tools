@@ -24,6 +24,10 @@ export interface POPrintItem {
   inventoryQty?: number;           // Current in-stock inventory quantity
   inventoryStatus?: string;        // "in-stock" | "ordered" | etc.
   
+  // External inventory reference
+  shippedQty?: number;             // Total shipped orders quantity for this ASIN
+  fbaQty?: number;                 // FBA inventory quantity for this ASIN
+  
   // Print tracking
   printedQuantity?: number;        // How many labels already printed
 }
