@@ -102,6 +102,22 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     loadTemplate();
   }, [open]);
 
+  // Fetch true printed totals from DB when dialog opens
+  React.useEffect(() => {
+    if (!open || orders.length === 0) return;
+    
+    const asins = [...new Set(orders.map(o => o.asin).filter(Boolean))] as string[];
+    
+    const fetchTotals = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user?.id) return;
+      const totals = await fetchTotalPrintedByASIN(asins, userData.user.id);
+      setTruePrintedTotals(totals);
+    };
+    
+    fetchTotals();
+  }, [open, orders]);
+
   // Debug: Log total orders received
   React.useEffect(() => {
     if (orders.length > 0) {
