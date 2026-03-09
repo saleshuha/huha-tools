@@ -1,35 +1,52 @@
 
 
-# Fix Inaccurate Printed Quantity in PO Print Document
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Problem
-The printed quantity shown in the print document is inaccurate because it only counts `printed_quantity` from the **filtered** PO orders passed to the print dialog. For ASIN B0GDMCT67Z, there are two PO rows (qty 5 printed 5, qty 23 printed 23 = total 28 printed), but only one row's data reaches the aggregation depending on which filters/selections are active.
+### What We'll Build
 
-## Root Cause
-`aggregatePOItemsByASIN()` and `convertOrdersToPrintItems()` only sum `printed_quantity` from the orders array they receive. If the user has a print status filter active (e.g., "not printed"), closed/fully-printed PO rows are excluded before reaching the print dialog — so the aggregated printed count is incomplete.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-## Solution
-When preparing print items in `POPrintDialog`, query the database for the **total** `printed_quantity` per ASIN across **all** PO orders for that user (not just the filtered subset). This ensures the printed count reflects reality regardless of which filters are active.
+### How It Works
 
-### Changes
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-**`src/components/po/POPrintDialog.tsx`** — In the `printItems` useMemo:
-- After aggregating/converting items, fetch total printed quantities per ASIN from `po_orders` using a single query
-- Use a `useEffect` + state pattern to async-fetch the true printed totals when the dialog opens
-- Override each item's `printedQuantity` with the database total
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-**`src/utils/po-print-helpers.ts`** — Add a helper function:
-```typescript
-export const fetchTotalPrintedByASIN = async (asins: string[], userId: string) => {
-  // Query po_orders grouped by ASIN, sum printed_quantity
-  // Returns Map<asin, totalPrinted>
-}
+### Data Flow
+
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-This queries all PO rows for each ASIN (regardless of status/filters) and returns the true total printed count.
+### Files to Modify
 
-**`src/components/po/POPrintDocument.tsx`** — No changes needed; it already displays `item.printedQuantity` which will now be accurate.
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
 
-### PENDING calculation fix
-The PENDING formula `quantity - inventoryQty - printedQuantity` will also become accurate since `printedQuantity` will reflect the true total.
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

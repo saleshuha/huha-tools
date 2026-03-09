@@ -1,5 +1,6 @@
 // Helper functions for PO printing
 import { POOrder } from '@/components/POTracker';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface POPrintItem {
   asin: string;
@@ -87,4 +88,34 @@ export const formatPONumbers = (poNumbers: string[]): string => {
   if (poNumbers.length === 1) return poNumbers[0];
   if (poNumbers.length <= 3) return poNumbers.join(', ');
   return `${poNumbers.slice(0, 2).join(', ')} +${poNumbers.length - 2} more`;
+};
+
+/**
+ * Fetch total printed_quantity per ASIN across ALL PO orders (bypasses filters)
+ */
+export const fetchTotalPrintedByASIN = async (asins: string[], userId: string): Promise<Map<string, number>> => {
+  const result = new Map<string, number>();
+  if (!asins.length || !userId) return result;
+
+  const uniqueAsins = [...new Set(asins.filter(Boolean))];
+  
+  const { data, error } = await supabase
+    .from('po_orders')
+    .select('asin, printed_quantity')
+    .eq('user_id', userId)
+    .in('asin', uniqueAsins);
+
+  if (error) {
+    console.error('Failed to fetch total printed quantities:', error);
+    return result;
+  }
+
+  (data || []).forEach((row: any) => {
+    const asin = row.asin;
+    const qty = row.printed_quantity || 0;
+    result.set(asin, (result.get(asin) || 0) + qty);
+  });
+
+  console.log('📊 fetchTotalPrintedByASIN:', Object.fromEntries(result));
+  return result;
 };
