@@ -342,6 +342,28 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             color: #2563eb;
           }
           
+          .print-shipped-qty .print-item-quantity-main {
+            color: #0891b2;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-shipped-qty .print-item-quantity-label {
+            color: #0891b2;
+          }
+          
+          .print-fba-qty .print-item-quantity-main {
+            color: #c026d3;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-fba-qty .print-item-quantity-label {
+            color: #c026d3;
+          }
+          
           .print-item-po {
             background: #f8f9fc;
             padding: 6px 10px;
