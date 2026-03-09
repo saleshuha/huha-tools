@@ -104,7 +104,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     loadTemplate();
   }, [open]);
 
-  // Fetch true printed totals from DB when dialog opens
+  // Fetch true printed totals, shipped qty, and FBA qty from DB when dialog opens
   React.useEffect(() => {
     if (!open || orders.length === 0) return;
     
@@ -113,8 +113,17 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     const fetchTotals = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user?.id) return;
-      const totals = await fetchTotalPrintedByASIN(asins, userData.user.id);
-      setTruePrintedTotals(totals);
+      const userId = userData.user.id;
+      
+      const [printed, shipped, fba] = await Promise.all([
+        fetchTotalPrintedByASIN(asins, userId),
+        fetchShippedQtyByASIN(asins, userId),
+        fetchFbaQtyByASIN(asins, userId),
+      ]);
+      
+      setTruePrintedTotals(printed);
+      setShippedTotals(shipped);
+      setFbaTotals(fba);
     };
     
     fetchTotals();
