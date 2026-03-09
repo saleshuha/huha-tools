@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { POOrder } from '@/components/POTracker';
-import { POPrintItem, aggregatePOItemsByASIN, convertOrdersToPrintItems, formatPONumbers } from '@/utils/po-print-helpers';
+import { POPrintItem, aggregatePOItemsByASIN, convertOrdersToPrintItems, formatPONumbers, fetchTotalPrintedByASIN } from '@/utils/po-print-helpers';
 import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
