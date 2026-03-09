@@ -50,6 +50,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [stockSort, setStockSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [truePrintedTotals, setTruePrintedTotals] = useState<Map<string, number>>(new Map());
   const navigate = useNavigate();
   
   const printRef = useRef<HTMLDivElement>(null);
