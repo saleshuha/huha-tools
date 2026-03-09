@@ -1,5 +1,6 @@
 // Helper functions for PO printing
 import { POOrder } from '@/components/POTracker';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface POPrintItem {
   asin: string;
