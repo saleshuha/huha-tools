@@ -24,6 +24,10 @@ export interface POPrintItem {
   inventoryQty?: number;           // Current in-stock inventory quantity
   inventoryStatus?: string;        // "in-stock" | "ordered" | etc.
   
+  // External inventory reference
+  shippedQty?: number;             // Total shipped orders quantity for this ASIN
+  fbaQty?: number;                 // FBA inventory quantity for this ASIN
+  
   // Print tracking
   printedQuantity?: number;        // How many labels already printed
 }
@@ -117,5 +121,63 @@ export const fetchTotalPrintedByASIN = async (asins: string[], userId: string): 
   });
 
   console.log('📊 fetchTotalPrintedByASIN:', Object.fromEntries(result));
+  return result;
+};
+
+/**
+ * Fetch shipped orders quantity per ASIN
+ */
+export const fetchShippedQtyByASIN = async (asins: string[], userId: string): Promise<Map<string, number>> => {
+  const result = new Map<string, number>();
+  if (!asins.length || !userId) return result;
+
+  const uniqueAsins = [...new Set(asins.filter(Boolean))];
+
+  const { data, error } = await supabase
+    .from('shipped_orders' as any)
+    .select('asin, quantity')
+    .eq('user_id', userId)
+    .in('asin', uniqueAsins);
+
+  if (error) {
+    console.error('Failed to fetch shipped quantities:', error);
+    return result;
+  }
+
+  (data || []).forEach((row: any) => {
+    const asin = row.asin;
+    const qty = row.quantity || 0;
+    result.set(asin, (result.get(asin) || 0) + qty);
+  });
+
+  return result;
+};
+
+/**
+ * Fetch FBA inventory quantity per ASIN
+ */
+export const fetchFbaQtyByASIN = async (asins: string[], userId: string): Promise<Map<string, number>> => {
+  const result = new Map<string, number>();
+  if (!asins.length || !userId) return result;
+
+  const uniqueAsins = [...new Set(asins.filter(Boolean))];
+
+  const { data, error } = await supabase
+    .from('fba_inventory')
+    .select('asin, quantity')
+    .eq('user_id', userId)
+    .in('asin', uniqueAsins);
+
+  if (error) {
+    console.error('Failed to fetch FBA quantities:', error);
+    return result;
+  }
+
+  (data || []).forEach((row: any) => {
+    const asin = row.asin;
+    const qty = row.quantity || 0;
+    result.set(asin, (result.get(asin) || 0) + qty);
+  });
+
   return result;
 };

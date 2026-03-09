@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { POOrder } from '@/components/POTracker';
-import { POPrintItem, aggregatePOItemsByASIN, convertOrdersToPrintItems, formatPONumbers, fetchTotalPrintedByASIN } from '@/utils/po-print-helpers';
+import { POPrintItem, aggregatePOItemsByASIN, convertOrdersToPrintItems, formatPONumbers, fetchTotalPrintedByASIN, fetchShippedQtyByASIN, fetchFbaQtyByASIN } from '@/utils/po-print-helpers';
 import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
@@ -51,6 +51,8 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [truePrintedTotals, setTruePrintedTotals] = useState<Map<string, number>>(new Map());
+  const [shippedTotals, setShippedTotals] = useState<Map<string, number>>(new Map());
+  const [fbaTotals, setFbaTotals] = useState<Map<string, number>>(new Map());
   const navigate = useNavigate();
   
   const printRef = useRef<HTMLDivElement>(null);
@@ -102,7 +104,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     loadTemplate();
   }, [open]);
 
-  // Fetch true printed totals from DB when dialog opens
+  // Fetch true printed totals, shipped qty, and FBA qty from DB when dialog opens
   React.useEffect(() => {
     if (!open || orders.length === 0) return;
     
@@ -111,8 +113,17 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     const fetchTotals = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user?.id) return;
-      const totals = await fetchTotalPrintedByASIN(asins, userData.user.id);
-      setTruePrintedTotals(totals);
+      const userId = userData.user.id;
+      
+      const [printed, shipped, fba] = await Promise.all([
+        fetchTotalPrintedByASIN(asins, userId),
+        fetchShippedQtyByASIN(asins, userId),
+        fetchFbaQtyByASIN(asins, userId),
+      ]);
+      
+      setTruePrintedTotals(printed);
+      setShippedTotals(shipped);
+      setFbaTotals(fba);
     };
     
     fetchTotals();
@@ -208,8 +219,10 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           inventoryQty: matchingOrder?._inventoryQty ?? undefined,
           inventoryStatus: matchingOrder?._inventoryStatus ?? undefined,
           // Print tracking
-          // Print tracking - use true DB totals if available, fallback to order data
           printedQuantity: truePrintedTotals.get(item.asin) ?? matchingOrder?.printed_quantity ?? 0,
+          // External inventory reference
+          shippedQty: shippedTotals.get(item.asin) ?? 0,
+          fbaQty: fbaTotals.get(item.asin) ?? 0,
         };
       })
       .sort((a, b) => {
@@ -226,7 +239,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     });
     
     return enrichedItems;
-  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin, stockSort, truePrintedTotals]);
+  }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin, stockSort, truePrintedTotals, shippedTotals, fbaTotals]);
 
   const toggleItem = (index: number) => {
     const newSelected = new Set(selectedItems);

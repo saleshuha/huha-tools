@@ -342,6 +342,28 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             color: #2563eb;
           }
           
+          .print-shipped-qty .print-item-quantity-main {
+            color: #0891b2;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-shipped-qty .print-item-quantity-label {
+            color: #0891b2;
+          }
+          
+          .print-fba-qty .print-item-quantity-main {
+            color: #c026d3;
+            font-size: 26px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-fba-qty .print-item-quantity-label {
+            color: #c026d3;
+          }
+          
           .print-item-po {
             background: #f8f9fc;
             padding: 6px 10px;
@@ -486,6 +508,16 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                   <div className="print-item-info">
                     {/* Quantities Row */}
                     <div className="print-item-quantity-section">
+                      <div className="print-item-quantity-item print-shipped-qty">
+                        <div className="print-item-quantity-label">🚚 SHIPPED</div>
+                        <div className="print-item-quantity-main">{item.shippedQty ?? 0}</div>
+                      </div>
+                      
+                      <div className="print-item-quantity-item print-fba-qty">
+                        <div className="print-item-quantity-label">📦 FBA</div>
+                        <div className="print-item-quantity-main">{item.fbaQty ?? 0}</div>
+                      </div>
+                      
                       <div className="print-item-quantity-item">
                         <div className="print-item-quantity-label">PO QTY</div>
                         <div className="print-item-quantity-main">{item.quantity}</div>
