@@ -508,6 +508,16 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                   <div className="print-item-info">
                     {/* Quantities Row */}
                     <div className="print-item-quantity-section">
+                      <div className="print-item-quantity-item print-shipped-qty">
+                        <div className="print-item-quantity-label">🚚 SHIPPED</div>
+                        <div className="print-item-quantity-main">{item.shippedQty ?? 0}</div>
+                      </div>
+                      
+                      <div className="print-item-quantity-item print-fba-qty">
+                        <div className="print-item-quantity-label">📦 FBA</div>
+                        <div className="print-item-quantity-main">{item.fbaQty ?? 0}</div>
+                      </div>
+                      
                       <div className="print-item-quantity-item">
                         <div className="print-item-quantity-label">PO QTY</div>
                         <div className="print-item-quantity-main">{item.quantity}</div>
