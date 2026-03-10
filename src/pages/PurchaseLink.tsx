@@ -31,6 +31,11 @@ interface GroupedOrder {
   poNumbers: string[];
   orderIds: string[];
   status: string;
+  // Inventory metrics (ASIN-level, not summed per order)
+  shipped: number;
+  fba: number;
+  instock: number;
+  printed: number;
 }
 
 export default function PurchaseLink() {
