@@ -283,11 +283,20 @@ serve(async (req) => {
         }
       }
       const updates = allUpdates;
+
+      // Fetch suppliers for the link owner
+      const { data: suppliers } = await supabaseClient
+        .from('suppliers')
+        .select('id, supplier_name')
+        .eq('user_id', link.user_id)
+        .eq('is_active', true)
+        .order('supplier_name');
       
       return new Response(JSON.stringify({ 
         link, 
         poOrders: ordersWithImages, 
-        updates: updates || [] 
+        updates: updates || [],
+        suppliers: suppliers || []
       }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
