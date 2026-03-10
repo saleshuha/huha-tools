@@ -7276,9 +7276,22 @@ export const POTracker = () => {
          </TabsContent>
 
         <TabsContent value="purchase-links" className="space-y-6">
-          <div className="grid gap-6">
+          {/* Section 1: Purchase Links */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Purchase Links</h2>
+            </div>
             <PurchaseLinkManagement />
             <PurchaseUpdatesPanel />
+          </div>
+
+          {/* Section 2: Invoices */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Invoices</h2>
+            </div>
             <PurchaseInvoiceList />
           </div>
         </TabsContent>

@@ -45,8 +45,8 @@ export const buildInvoicePDF = (
   const pageH = 297;
   const margin = 14;
 
-  // ── Header band ──────────────────────────────────────────
-  doc.setFillColor(30, 41, 59); // #1e293b
+  // ── Header band
+  doc.setFillColor(30, 41, 59);
   doc.rect(0, 0, pageW, 38, 'F');
 
   doc.setTextColor(255, 255, 255);
@@ -56,7 +56,7 @@ export const buildInvoicePDF = (
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184); // slate-400
+  doc.setTextColor(148, 163, 184);
   doc.text('HUHA TOOLS', margin, 23);
 
   doc.setFontSize(9);
@@ -69,23 +69,22 @@ export const buildInvoicePDF = (
     doc.text(meta.linkTitle, pageW - margin, 28, { align: 'right' });
   }
 
-  // ── Bill To / Meta info cards ──────────────────────────
+  // ── Bill To / Meta info cards
   const infoY = 44;
   const halfW = (pageW - margin * 2 - 6) / 2;
 
-  // Bill To box
-  doc.setFillColor(248, 250, 252); // #f8fafc
-  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margin, infoY, halfW, 28, 2, 2, 'FD');
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 116, 139); // slate-500
+  doc.setTextColor(100, 116, 139);
   doc.text('BILL TO', margin + 4, infoY + 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42); // #0f172a
+  doc.setTextColor(15, 23, 42);
   doc.text(meta.supplierName || 'N/A', margin + 4, infoY + 13);
 
   if (meta.supplierOrderNumber) {
@@ -94,15 +93,14 @@ export const buildInvoicePDF = (
     doc.text(`Order #: ${meta.supplierOrderNumber}`, margin + 4, infoY + 20);
   }
 
-  // Invoice details box
   const col2X = margin + halfW + 6;
-  doc.setFillColor(239, 246, 255); // #eff6ff
-  doc.setDrawColor(191, 219, 254); // blue-200
+  doc.setFillColor(239, 246, 255);
+  doc.setDrawColor(191, 219, 254);
   doc.roundedRect(col2X, infoY, halfW, 28, 2, 2, 'FD');
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(37, 99, 235); // blue-600
+  doc.setTextColor(37, 99, 235);
   doc.text('INVOICE DETAILS', col2X + 4, infoY + 6);
 
   doc.setFont('helvetica', 'normal');
@@ -114,17 +112,15 @@ export const buildInvoicePDF = (
   doc.setFont('helvetica', 'normal');
   doc.text(`Date:`, col2X + 4, infoY + 19);
   doc.text(meta.date, col2X + 24, infoY + 19);
-  doc.text(`Status:`, col2X + 4, infoY + 25);
-  doc.setTextColor(21, 128, 61); // green-700
-  doc.text('Finalized', col2X + 24, infoY + 25);
+  doc.text(`Currency:`, col2X + 4, infoY + 25);
+  doc.setTextColor(21, 128, 61);
+  doc.text('SAR', col2X + 24, infoY + 25);
 
-  // ── Table ──────────────────────────────────────────────
+  // ── Table
   const tableY = infoY + 34;
-  // Cols: #, ASIN, SKU, Title(truncated), Barcode, PO#, Qty, Unit, Total
   const cols = { num: 14, asin: 22, sku: 47, title: 72, barcode: 108, po: 138, qty: 158, unit: 168, total: 183 };
 
-  // Table header row
-  doc.setFillColor(37, 99, 235); // #2563eb
+  doc.setFillColor(37, 99, 235);
   doc.rect(margin, tableY, pageW - margin * 2, 7, 'F');
 
   doc.setFontSize(6.5);
@@ -140,7 +136,6 @@ export const buildInvoicePDF = (
   doc.text('UNIT', cols.unit, tableY + 5, { align: 'right' });
   doc.text('TOTAL', cols.total, tableY + 5, { align: 'right' });
 
-  // Helper to repeat header on new pages
   const drawTableHeader = (hy: number) => {
     doc.setFillColor(37, 99, 235);
     doc.rect(margin, hy, pageW - margin * 2, 7, 'F');
@@ -158,7 +153,6 @@ export const buildInvoicePDF = (
     doc.text('TOTAL', cols.total, hy + 5, { align: 'right' });
   };
 
-  // Rows
   let y = tableY + 7;
   const subtotal = items.reduce((s, i) => s + i.total_cost, 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
@@ -182,23 +176,22 @@ export const buildInvoicePDF = (
     doc.text(item.asin.substring(0, 10), cols.asin, y + 4);
     doc.text((item.sku_code || '').substring(0, 10), cols.sku, y + 4);
     doc.text((item.title || '').substring(0, 19), cols.title, y + 4);
-    // Barcode in blue
     doc.setTextColor(37, 99, 235);
     doc.text((item.barcode || '—').substring(0, 14), cols.barcode, y + 4);
     doc.setTextColor(100, 116, 139);
-    doc.text(item.po_number.substring(0, 10), cols.po, y + 4);
+    doc.text((item.po_number || '').substring(0, 10), cols.po, y + 4);
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
     doc.text(String(item.quantity), cols.qty, y + 4, { align: 'right' });
     doc.setFont('helvetica', 'normal');
-    doc.text(`$${item.unit_cost.toFixed(2)}`, cols.unit, y + 4, { align: 'right' });
+    doc.text(`${item.unit_cost.toFixed(2)}`, cols.unit, y + 4, { align: 'right' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`$${item.total_cost.toFixed(2)}`, cols.total, y + 4, { align: 'right' });
+    doc.text(`${item.total_cost.toFixed(2)}`, cols.total, y + 4, { align: 'right' });
 
     y += 5.5;
   });
 
-  // ── Totals section ──────────────────────────────────────
+  // ── Totals section
   y += 3;
   doc.setDrawColor(226, 232, 240);
   doc.line(margin, y, pageW - margin, y);
@@ -213,12 +206,11 @@ export const buildInvoicePDF = (
   doc.setTextColor(100, 116, 139);
   doc.text('Subtotal:', totalsX, y + 4);
   doc.setTextColor(15, 23, 42);
-  doc.text(`$${subtotal.toFixed(2)}`, pageW - margin, y + 4, { align: 'right' });
+  doc.text(`${subtotal.toFixed(2)} SAR`, pageW - margin, y + 4, { align: 'right' });
 
   doc.setTextColor(100, 116, 139);
   doc.text(`${items.length} items  |  ${totalQty} units`, totalsX, y + 10);
 
-  // Total divider
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.4);
   doc.line(totalsX - 4, y + 13, pageW - margin, y + 13);
@@ -229,17 +221,17 @@ export const buildInvoicePDF = (
   doc.setTextColor(15, 23, 42);
   doc.text('TOTAL:', totalsX, y + 20);
   doc.setTextColor(37, 99, 235);
-  doc.text(`$${subtotal.toFixed(2)}`, pageW - margin, y + 20, { align: 'right' });
+  doc.text(`${subtotal.toFixed(2)} SAR`, pageW - margin, y + 20, { align: 'right' });
 
-  // ── Notes ───────────────────────────────────────────────
+  // ── Notes
   if (meta.notes) {
     y += 28;
-    doc.setFillColor(255, 251, 235); // amber-50
-    doc.setDrawColor(253, 230, 138); // amber-200
+    doc.setFillColor(255, 251, 235);
+    doc.setDrawColor(253, 230, 138);
     doc.roundedRect(margin, y, pageW - margin * 2, 16, 2, 2, 'FD');
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(146, 64, 14); // amber-800
+    doc.setTextColor(146, 64, 14);
     doc.text('NOTES', margin + 4, y + 6);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 53, 15);
@@ -247,7 +239,7 @@ export const buildInvoicePDF = (
     doc.text(noteLines[0] || '', margin + 4, y + 12);
   }
 
-  // ── Footer band ──────────────────────────────────────────
+  // ── Footer band
   doc.setFillColor(30, 41, 59);
   doc.rect(0, pageH - 14, pageW, 14, 'F');
   doc.setFontSize(7);
@@ -392,7 +384,6 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden gap-0">
-          {/* ── Header band ── */}
           <div className="bg-slate-800 dark:bg-slate-900 px-6 py-4">
             <div className="flex items-start justify-between">
               <div>
@@ -427,7 +418,7 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
               </div>
             ) : (
               <>
-                {/* ── Bill To / Meta two-col ── */}
+                {/* Bill To / Meta two-col */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                     <div className="flex items-center gap-1.5">
@@ -437,21 +428,11 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
                     <div className="space-y-2">
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Supplier Name</Label>
-                        <Input
-                          value={supplierName}
-                          onChange={e => setSupplierName(e.target.value)}
-                          placeholder="Enter supplier name"
-                          className="h-8 text-sm mt-0.5"
-                        />
+                        <Input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Enter supplier name" className="h-8 text-sm mt-0.5" />
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Order Reference #</Label>
-                        <Input
-                          value={supplierOrderNumber}
-                          onChange={e => setSupplierOrderNumber(e.target.value)}
-                          placeholder="Enter order reference"
-                          className="h-8 text-sm mt-0.5"
-                        />
+                        <Input value={supplierOrderNumber} onChange={e => setSupplierOrderNumber(e.target.value)} placeholder="Enter order reference" className="h-8 text-sm mt-0.5" />
                       </div>
                     </div>
                   </div>
@@ -476,63 +457,52 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
                       </div>
                       <div className="flex justify-between items-center pt-1 border-t border-blue-200/50 dark:border-blue-800/30">
                         <span className="text-xs font-semibold">Total</span>
-                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">${subtotal.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{subtotal.toFixed(2)} SAR</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                 {/* ── Items Table ── */}
-                 <div className="rounded-lg border overflow-hidden">
-                   {/* Table header */}
-                   <div className="bg-primary grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2">
-                     {['#', 'ASIN', 'SKU', 'Title', 'Barcode', 'PO#', 'Qty', 'Unit', 'Total'].map((h, i) => (
-                       <span key={h} className={`text-[10px] font-bold text-white tracking-wider uppercase ${i >= 6 ? 'text-right' : ''}`}>{h}</span>
-                     ))}
-                   </div>
-                   <ScrollArea className="max-h-[260px]">
-                     {items.map((item, idx) => (
-                       <div
-                         key={idx}
-                         className={`grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2 text-xs border-b border-border/50 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
-                       >
-                         <span className="text-muted-foreground">{idx + 1}</span>
-                         <span className="font-mono truncate text-[11px]">{item.asin}</span>
-                         <span className="font-mono truncate text-[11px] text-muted-foreground">{item.sku_code || '-'}</span>
-                         <span className="truncate">{item.title}</span>
-                         <span className="font-mono truncate text-[11px] text-blue-600 dark:text-blue-400">{item.barcode || <span className="text-muted-foreground/50">—</span>}</span>
-                         <span className="font-mono truncate text-muted-foreground text-[10px]">{item.po_number}</span>
-                         <span className="text-right">
-                           <Badge variant="secondary" className="text-[10px] h-4 px-1">{item.quantity}</Badge>
-                         </span>
-                         <span className="text-right font-mono text-muted-foreground">${item.unit_cost.toFixed(2)}</span>
-                         <span className="text-right font-mono font-semibold">${item.total_cost.toFixed(2)}</span>
-                       </div>
-                     ))}
-                   </ScrollArea>
-                  {/* Totals footer */}
+                {/* Items Table */}
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="bg-primary grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2">
+                    {['#', 'ASIN', 'SKU', 'Title', 'Barcode', 'PO#', 'Qty', 'Unit', 'Total'].map((h, i) => (
+                      <span key={h} className={`text-[10px] font-bold text-white tracking-wider uppercase ${i >= 6 ? 'text-right' : ''}`}>{h}</span>
+                    ))}
+                  </div>
+                  <ScrollArea className="max-h-[260px]">
+                    {items.map((item, idx) => (
+                      <div key={idx} className={`grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2 text-xs border-b border-border/50 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                        <span className="text-muted-foreground">{idx + 1}</span>
+                        <span className="font-mono truncate text-[11px]">{item.asin}</span>
+                        <span className="font-mono truncate text-[11px] text-muted-foreground">{item.sku_code || '-'}</span>
+                        <span className="truncate">{item.title}</span>
+                        <span className="font-mono truncate text-[11px] text-blue-600 dark:text-blue-400">{item.barcode || <span className="text-muted-foreground/50">—</span>}</span>
+                        <span className="font-mono truncate text-muted-foreground text-[10px]">{item.po_number}</span>
+                        <span className="text-right">
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">{item.quantity}</Badge>
+                        </span>
+                        <span className="text-right font-mono text-muted-foreground">{item.unit_cost.toFixed(2)}</span>
+                        <span className="text-right font-mono font-semibold">{item.total_cost.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </ScrollArea>
                   <div className="bg-muted/50 border-t px-3 py-2.5 flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">{items.length} line items · {totalQty} total units</span>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">Subtotal</span>
-                      <span className="text-base font-bold">${subtotal.toFixed(2)}</span>
+                      <span className="text-base font-bold">{subtotal.toFixed(2)} SAR</span>
                     </div>
                   </div>
                 </div>
 
-                {/* ── Notes ── */}
+                {/* Notes */}
                 <div>
                   <Label className="text-xs text-muted-foreground mb-1.5 block">Notes <span className="text-muted-foreground/50">(optional)</span></Label>
-                  <Textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Add any notes, terms, or special instructions..."
-                    rows={2}
-                    className="text-sm resize-none"
-                  />
+                  <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes, terms, or special instructions..." rows={2} className="text-sm resize-none" />
                 </div>
 
-                {/* ── Actions ── */}
+                {/* Actions */}
                 <div className="flex gap-2 justify-end pt-1">
                   <Button variant="outline" onClick={handleExportPDF} className="gap-1.5">
                     <Download className="h-4 w-4" />
