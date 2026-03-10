@@ -592,31 +592,52 @@ export default function PurchaseLink() {
 
                         {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <Select
-                              value={supplierData || ''}
-                              onValueChange={(val) => updateItemSupplier(group.key, val)}
-                            >
-                              <SelectTrigger className="h-7 text-[11px]">
-                                <SelectValue placeholder="Select supplier" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(data?.suppliers || []).map((s: any) => (
-                                  <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
-                                    {s.supplier_name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              placeholder="Cost (SAR)"
-                              value={itemCosts.get(group.key) || ''}
-                              onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
-                              className="h-7 text-[11px] pl-2 pr-1"
-                            />
+                          <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Select
+                                value={supplierData || ''}
+                                onValueChange={(val) => updateItemSupplier(group.key, val)}
+                              >
+                                <SelectTrigger className="h-7 text-[11px]">
+                                  <SelectValue placeholder="Select supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(data?.suppliers || []).map((s: any) => (
+                                    <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
+                                      {s.supplier_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min="1"
+                                placeholder={`Qty (${group.totalRequired})`}
+                                value={itemQtys.get(group.key) || ''}
+                                onChange={e => setItemQtys(prev => new Map(prev).set(group.key, e.target.value))}
+                                className="h-7 text-[11px] pl-2 pr-1"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5 items-center">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Unit cost (SAR)"
+                                value={itemCosts.get(group.key) || ''}
+                                onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
+                                className="h-7 text-[11px] pl-2 pr-1"
+                              />
+                              {(() => {
+                                const cost = parseFloat(itemCosts.get(group.key) || '0');
+                                const qty = parseInt(itemQtys.get(group.key) || '') || group.totalRequired;
+                                return cost > 0 ? (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Total: {(cost * qty).toFixed(2)} SAR
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                           </div>
                         )}
 
