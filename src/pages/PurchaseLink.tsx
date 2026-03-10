@@ -95,10 +95,15 @@ export default function PurchaseLink() {
           image: order.product_image, title: order.title || '',
           asin: order.asin, skuCode: order.sku_code, modelNumber: order.model_number,
           poNumbers: [], orderIds: [], status: 'pending',
+          shipped: order.metrics?.shipped || 0,
+          fba: order.metrics?.fba || 0,
+          instock: order.metrics?.instock || 0,
+          printed: 0,
         };
       }
       groups[key].orders.push(order);
       groups[key].totalRequired += order.quantity || 0;
+      groups[key].printed += order.printed_quantity || 0;
       groups[key].orderIds.push(order.id);
       if (!groups[key].poNumbers.includes(order.po_number)) groups[key].poNumbers.push(order.po_number);
       if (!groups[key].image && order.product_image) groups[key].image = order.product_image;
