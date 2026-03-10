@@ -1475,12 +1475,9 @@ export function Replenishment() {
         const asinUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
           status: 'in-stock'
         }).eq('id', item.id)) || [];
-        const skuUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
-          status: 'in-stock'
-        }).eq('id', item.id)) || [];
 
         // Execute all updates
-        await Promise.all([...skuUpdates]);
+        await Promise.all([...asinUpdates]);
 
         // Remove from local ordered items state
         const restockedIds = restockedItems.map((item: any) => item.id);
