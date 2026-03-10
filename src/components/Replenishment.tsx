@@ -2641,36 +2641,27 @@ export function Replenishment() {
                   {/* Search Bar */}
                   <ReplenishmentSearchBar value={readyToOrderSearch} onChange={setReadyToOrderSearch} placeholder="Search by ASIN, SKU, serial number, or title..." />
                   
-                  <div className="flex items-center justify-between gap-4">
-                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
-                      {filteredReadyToOrder.length} ready to order
-                    </Badge>
-                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
-                      {outOfStockItems.length} cannot order
-                    </Badge>
-                  </div>
-
                   {/* Bulk Actions for Critical Items */}
-                  {filteredReadyToOrder.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <div className="flex items-center gap-4">
+                  {filteredReadyToOrder.length > 0 && <div className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg border border-border">
+                      <div className="flex items-center gap-3">
                          <div className="flex items-center space-x-2">
-                           <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
-                           <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                             Select All ({pendingItems.length})
+                           <Checkbox id="select-all" checked={selectedItems.size === filteredReadyToOrder.length && filteredReadyToOrder.length > 0} onCheckedChange={handleSelectAll} />
+                           <label htmlFor="select-all" className="text-xs font-medium cursor-pointer">
+                             Select All ({filteredReadyToOrder.length})
                            </label>
                          </div>
-                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
+                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
                              {selectedItems.size} selected
                            </Badge>}
                        </div>
                        <div className="flex items-center gap-2">
-                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-2" variant="secondary">
-                           <Package className="w-4 h-4" />
-                           Order from Sunsky ({selectedItems.size || 'Selected'})
+                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-1.5 h-8 text-xs" variant="secondary">
+                           <Package className="w-3.5 h-3.5" />
+                           Sunsky ({selectedItems.size})
                          </Button>
-                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
-                           <ShoppingCart className="w-4 h-4" />
-                           Mark {selectedItems.size || 'Selected'} as Ordered
+                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-1.5 h-8 text-xs">
+                           <ShoppingCart className="w-3.5 h-3.5" />
+                           Mark Ordered ({selectedItems.size})
                          </Button>
                        </div>
                     </div>}
