@@ -128,7 +128,7 @@ export default function PurchaseLink() {
         return !update?.metadata?.not_available;
       });
       const unitCost = parseFloat(itemCosts.get(groupKey) || '0') || undefined;
-      const supplier = itemSuppliers.get(groupKey);
+      const supplierName = itemSuppliers.get(groupKey);
       for (const order of activeOrders) {
         const qtyForThis = Math.min(remaining, order.quantity);
         remaining = Math.max(0, remaining - order.quantity);
@@ -136,8 +136,7 @@ export default function PurchaseLink() {
           poOrderId: order.id, poNumber: order.po_number, asin: order.asin,
           skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
           purchasedQuantity: qtyForThis,
-          supplierName: supplier?.name || undefined,
-          supplierOrderNumber: supplier?.order || undefined,
+          supplierName: supplierName || undefined,
           unitCost, totalCost: unitCost ? unitCost * qtyForThis : undefined,
         });
       }
