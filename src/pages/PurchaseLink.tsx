@@ -31,6 +31,11 @@ interface GroupedOrder {
   poNumbers: string[];
   orderIds: string[];
   status: string;
+  // Inventory metrics (ASIN-level, not summed per order)
+  shipped: number;
+  fba: number;
+  instock: number;
+  printed: number;
 }
 
 export default function PurchaseLink() {
@@ -90,10 +95,15 @@ export default function PurchaseLink() {
           image: order.product_image, title: order.title || '',
           asin: order.asin, skuCode: order.sku_code, modelNumber: order.model_number,
           poNumbers: [], orderIds: [], status: 'pending',
+          shipped: order.metrics?.shipped || 0,
+          fba: order.metrics?.fba || 0,
+          instock: order.metrics?.instock || 0,
+          printed: 0,
         };
       }
       groups[key].orders.push(order);
       groups[key].totalRequired += order.quantity || 0;
+      groups[key].printed += order.printed_quantity || 0;
       groups[key].orderIds.push(order.id);
       if (!groups[key].poNumbers.includes(order.po_number)) groups[key].poNumbers.push(order.po_number);
       if (!groups[key].image && order.product_image) groups[key].image = order.product_image;
@@ -364,7 +374,7 @@ export default function PurchaseLink() {
   const rowVirtualizer = useVirtualizer({
     count: filteredGroups.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 220,
+    estimateSize: () => 280,
     overscan: 5,
   });
 
@@ -563,7 +573,24 @@ export default function PurchaseLink() {
                           </div>
                         </div>
 
-                        {/* Row 2: Per-item supplier + cost (only for pending/partial) */}
+                        {/* Row 2: Inventory Metrics */}
+                        <div className="grid grid-cols-6 gap-1 text-center">
+                          {[
+                            { label: 'Shipped', value: group.shipped },
+                            { label: 'FBA', value: group.fba },
+                            { label: 'PO Req', value: group.totalRequired },
+                            { label: 'Printed', value: group.printed },
+                            { label: 'InStock', value: group.instock },
+                            { label: 'Pending', value: Math.max(0, group.totalRequired - group.printed - group.instock) },
+                          ].map(m => (
+                            <div key={m.label} className="bg-muted/50 rounded px-1 py-1">
+                              <span className="text-[11px] font-bold block leading-none">{m.value}</span>
+                              <span className="text-[8px] text-muted-foreground leading-none">{m.label}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
                           <div className="grid grid-cols-3 gap-1.5">
                             <div className="relative">
