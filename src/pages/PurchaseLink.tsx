@@ -520,13 +520,13 @@ export default function PurchaseLink() {
                       }}
                       ref={(el) => cardRefs.current[group.key] = el}
                     >
-                      <div className="p-3 space-y-2.5">
+                      <div className="p-4 md:p-3 space-y-3 md:space-y-2.5">
                         {/* Row 1: Image + Title + Status */}
-                        <div className="flex gap-2.5 items-start">
+                        <div className="flex gap-3 md:gap-2.5 items-start">
                           {/* Image */}
                           <Dialog>
                             <DialogTrigger asChild>
-                              <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
+                              <div className="flex-shrink-0 w-16 h-16 md:w-12 md:h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
                                 {group.image?.image_url ? (
                                   <img src={group.image.image_url} alt="" className="w-full h-full object-contain p-0.5" loading="lazy" />
                                 ) : (
