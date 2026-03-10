@@ -2513,10 +2513,12 @@ export function Replenishment() {
       />
 
       {/* Config Selector Row */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">Config</span>
           <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
-            <SelectTrigger className="w-[250px]">
+            <SelectTrigger className="w-[220px] h-8 text-xs">
               <SelectValue placeholder="Select calculation method" />
             </SelectTrigger>
             <SelectContent>
@@ -2536,9 +2538,9 @@ export function Replenishment() {
               setSelectedConfig(null);
               setConfigDialogOpen(true);
             }}
-            className="gap-2"
+            className="gap-1.5 h-8 text-xs"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
             New
           </Button>
           
@@ -2551,16 +2553,18 @@ export function Replenishment() {
                 setConfigToDelete(config);
                 setDeleteDialogOpen(true);
               }}
-              className="gap-2 text-destructive hover:text-destructive"
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>
         
-        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Data
+        <div className="flex-1" />
+        
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </Button>
       </div>
 
