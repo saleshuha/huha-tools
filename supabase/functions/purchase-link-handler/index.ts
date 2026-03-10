@@ -109,34 +109,60 @@ serve(async (req) => {
       // Fetch PO orders - use po_order_ids if available (selective), otherwise all from po_numbers
       let allPoOrders: any[] = [];
       const pageSize = 1000;
-      let offset = 0;
-      let hasMore = true;
       
       const useSelectiveIds = link.po_order_ids && Array.isArray(link.po_order_ids) && link.po_order_ids.length > 0;
       
-      while (hasMore) {
-        let query = supabaseClient.from('po_orders').select('*');
-        
-        if (useSelectiveIds) {
-          // Selective mode: fetch only specific items by their IDs
-          query = query.in('id', link.po_order_ids);
-        } else {
-          // Full PO mode: fetch all items from the PO numbers
-          query = query.in('po_number', link.po_numbers).eq('user_id', link.user_id);
+      if (useSelectiveIds) {
+        // Selective mode: chunk IDs into batches of 100 to avoid URL length limits
+        const idChunkSize = 100;
+        for (let i = 0; i < link.po_order_ids.length; i += idChunkSize) {
+          const idChunk = link.po_order_ids.slice(i, i + idChunkSize);
+          let offset = 0;
+          let hasMore = true;
+          while (hasMore) {
+            const { data: batch, error: batchError } = await supabaseClient
+              .from('po_orders')
+              .select('*')
+              .in('id', idChunk)
+              .range(offset, offset + pageSize - 1);
+            
+            if (batchError) {
+              console.error('Error fetching PO orders batch:', batchError);
+              hasMore = false;
+              break;
+            }
+            if (batch && batch.length > 0) {
+              allPoOrders = allPoOrders.concat(batch);
+              offset += pageSize;
+              hasMore = batch.length === pageSize;
+            } else {
+              hasMore = false;
+            }
+          }
         }
-        
-        const { data: batch, error: batchError } = await query.range(offset, offset + pageSize - 1);
-        
-        if (batchError) {
-          console.error('Error fetching PO orders batch:', batchError);
-          break;
-        }
-        if (batch && batch.length > 0) {
-          allPoOrders = allPoOrders.concat(batch);
-          offset += pageSize;
-          hasMore = batch.length === pageSize;
-        } else {
-          hasMore = false;
+      } else {
+        // Full PO mode: fetch all items from the PO numbers
+        let offset = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data: batch, error: batchError } = await supabaseClient
+            .from('po_orders')
+            .select('*')
+            .in('po_number', link.po_numbers)
+            .eq('user_id', link.user_id)
+            .range(offset, offset + pageSize - 1);
+          
+          if (batchError) {
+            console.error('Error fetching PO orders batch:', batchError);
+            break;
+          }
+          if (batch && batch.length > 0) {
+            allPoOrders = allPoOrders.concat(batch);
+            offset += pageSize;
+            hasMore = batch.length === pageSize;
+          } else {
+            hasMore = false;
+          }
         }
       }
       const poOrders = allPoOrders;
