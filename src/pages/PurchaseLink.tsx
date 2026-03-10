@@ -641,14 +641,9 @@ export default function PurchaseLink() {
                           </div>
                         )}
 
-                        {/* Row 3: Actions */}
+                        {/* Row 4: Actions */}
                         {status !== 'not_available' ? (
                           <div className="flex items-center gap-1.5">
-                            {itemCosts.get(group.key) && parseFloat(itemCosts.get(group.key)!) > 0 && (
-                              <span className="text-[10px] text-muted-foreground mr-auto">
-                                Total: {(parseFloat(itemCosts.get(group.key)!) * group.totalRequired).toFixed(2)} SAR
-                              </span>
-                            )}
                             {status === 'purchased' ? (
                               <div className="flex items-center gap-1.5 text-xs font-medium ml-auto" style={{ color: 'hsl(var(--chart-2, 142 71% 45%))' }}>
                                 <CheckCircle2 className="h-4 w-4" />
