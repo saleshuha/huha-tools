@@ -542,21 +542,21 @@ export default function PurchaseLink() {
                           </Dialog>
 
                           {/* Title + Identifiers */}
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <p className="text-xs font-medium leading-snug line-clamp-2">{group.title}</p>
-                            <div className="flex flex-wrap gap-1 items-center">
+                          <div className="flex-1 min-w-0 space-y-1.5 md:space-y-1">
+                            <p className="text-sm md:text-xs font-medium leading-snug line-clamp-2">{group.title}</p>
+                            <div className="flex flex-wrap gap-1.5 md:gap-1 items-center">
                               {group.asin && (
-                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge variant="outline" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {group.asin}
                                 </Badge>
                               )}
                               {group.skuCode && (
-                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge variant="outline" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {group.skuCode}
                                 </Badge>
                               )}
                               {group.poNumbers.map(po => (
-                                <Badge key={po} variant="secondary" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge key={po} variant="secondary" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {po}
                                 </Badge>
                               ))}
@@ -566,15 +566,15 @@ export default function PurchaseLink() {
 
                           {/* Qty badge */}
                           <div className="flex-shrink-0 text-center">
-                            <div className="bg-muted rounded-md px-2 py-1">
-                              <span className="text-sm font-bold">{group.totalRequired}</span>
-                              <p className="text-[9px] text-muted-foreground leading-none">req</p>
+                            <div className="bg-muted rounded-md px-2.5 md:px-2 py-1.5 md:py-1">
+                              <span className="text-base md:text-sm font-bold">{group.totalRequired}</span>
+                              <p className="text-[10px] md:text-[9px] text-muted-foreground leading-none">req</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Row 2: Inventory Metrics */}
-                        <div className="grid grid-cols-6 gap-1 text-center">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 md:gap-1 text-center">
                           {[
                             { label: 'Shipped', value: group.shipped },
                             { label: 'FBA', value: group.fba },
@@ -583,9 +583,9 @@ export default function PurchaseLink() {
                             { label: 'InStock', value: group.instock },
                             { label: 'Pending', value: Math.max(0, group.totalRequired - group.printed - group.instock) },
                           ].map(m => (
-                            <div key={m.label} className="bg-muted/50 rounded px-1 py-1">
-                              <span className="text-[11px] font-bold block leading-none">{m.value}</span>
-                              <span className="text-[8px] text-muted-foreground leading-none">{m.label}</span>
+                            <div key={m.label} className="bg-muted/50 rounded px-1.5 md:px-1 py-1.5 md:py-1">
+                              <span className="text-sm md:text-[11px] font-bold block leading-none">{m.value}</span>
+                              <span className="text-[10px] md:text-[8px] text-muted-foreground leading-none">{m.label}</span>
                             </div>
                           ))}
                         </div>
