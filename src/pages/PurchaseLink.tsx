@@ -7,10 +7,8 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUp, ArrowDown, ScanLine, RotateCcw, ChevronDown, Filter, DollarSign, User } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, ScanLine, RotateCcw, ArrowUpDown, User, Hash } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
 import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
@@ -40,285 +38,180 @@ export default function PurchaseLink() {
   const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
   const { linkBarcode, loading: barcodeLoading } = useProductBarcodes();
   const [data, setData] = useState(hookData);
-  const [skuSearchTerm, setSkuSearchTerm] = useState('');
-  const [titleSearchTerm, setTitleSearchTerm] = useState('');
-  const [debouncedSkuSearch, setDebouncedSkuSearch] = useState('');
-  const [debouncedTitleSearch, setDebouncedTitleSearch] = useState('');
-  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [filterOpen, setFilterOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  
-  // Supplier info state (session-level, applied to all items)
-  const [supplierName, setSupplierName] = useState('');
-  const [supplierOrderNumber, setSupplierOrderNumber] = useState('');
-  const [supplierInfoOpen, setSupplierInfoOpen] = useState(true);
-  
-  // Per-item unit cost state
+
+  // Per-item supplier + cost state
   const [itemCosts, setItemCosts] = useState<Map<string, string>>(new Map());
-  
+  const [itemSuppliers, setItemSuppliers] = useState<Map<string, { name: string; order: string }>>(new Map());
+
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [scanningGroupKey, setScanningGroupKey] = useState<string | null>(null);
 
-  // Debounce search inputs
+  // Debounce unified search
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSkuSearch(skuSearchTerm), 200);
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 200);
     return () => clearTimeout(timer);
-  }, [skuSearchTerm]);
+  }, [searchTerm]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTitleSearch(titleSearchTerm), 200);
-    return () => clearTimeout(timer);
-  }, [titleSearchTerm]);
-
-  // Auto-scroll to top when search changes while focused
   useEffect(() => {
     if (searchFocused && parentRef.current) {
       parentRef.current.scrollTop = 0;
     }
-  }, [debouncedSkuSearch, debouncedTitleSearch, searchFocused]);
+  }, [debouncedSearch, searchFocused]);
 
-  // Sync hook data with local state
   useEffect(() => {
-    if (hookData) {
-      setData(hookData);
-    }
+    if (hookData) setData(hookData);
   }, [hookData]);
 
-  // O(1) updates lookup map
   const updatesMap = useMemo(() => {
     if (!data?.updates) return new Map<string, any>();
     const map = new Map<string, any>();
-    for (const u of data.updates) {
-      map.set(u.po_order_id, u);
-    }
+    for (const u of data.updates) map.set(u.po_order_id, u);
     return map;
   }, [data?.updates]);
 
-  // Group orders by ASIN with pre-computed status
   const groupedOrders = useMemo((): GroupedOrder[] => {
     if (!data?.poOrders) return [];
-    
     const groups: Record<string, GroupedOrder> = {};
-    
     for (const order of data.poOrders) {
       const key = order.asin || order.sku_code || order.id;
-      
       if (!groups[key]) {
         groups[key] = {
-          key,
-          orders: [],
-          totalRequired: 0,
-          totalPurchased: 0,
-          image: order.product_image,
-          title: order.title || '',
-          asin: order.asin,
-          skuCode: order.sku_code,
-          modelNumber: order.model_number,
-          poNumbers: [],
-          orderIds: [],
-          status: 'pending',
+          key, orders: [], totalRequired: 0, totalPurchased: 0,
+          image: order.product_image, title: order.title || '',
+          asin: order.asin, skuCode: order.sku_code, modelNumber: order.model_number,
+          poNumbers: [], orderIds: [], status: 'pending',
         };
       }
-      
       groups[key].orders.push(order);
       groups[key].totalRequired += order.quantity || 0;
       groups[key].orderIds.push(order.id);
-      
-      if (!groups[key].poNumbers.includes(order.po_number)) {
-        groups[key].poNumbers.push(order.po_number);
-      }
-      
-      if (!groups[key].image && order.product_image) {
-        groups[key].image = order.product_image;
-      }
-      
+      if (!groups[key].poNumbers.includes(order.po_number)) groups[key].poNumbers.push(order.po_number);
+      if (!groups[key].image && order.product_image) groups[key].image = order.product_image;
       const update = updatesMap.get(order.id);
       groups[key].totalPurchased += update?.purchased_quantity || 0;
     }
-    
-    // Pre-compute status for each group
     const result = Object.values(groups);
-    for (const group of result) {
-      group.status = computeGroupStatus(group, updatesMap);
-    }
+    for (const group of result) group.status = computeGroupStatus(group, updatesMap);
     return result;
   }, [data?.poOrders, updatesMap]);
 
-  // Save: distribute full required qty across underlying orders
   const handleSaveGroup = async (groupKey: string, overrideQty?: number) => {
     const group = groupedOrders.find(g => g.key === groupKey);
     if (!group || !token || !data) return;
-
     setSavingItems(prev => new Set(prev).add(groupKey));
-
     try {
       const totalQty = overrideQty ?? group.totalRequired;
       let remaining = totalQty;
-
       const activeOrders = group.orders.filter(order => {
         const update = updatesMap.get(order.id);
         return !update?.metadata?.not_available;
       });
-
       const unitCost = parseFloat(itemCosts.get(groupKey) || '0') || undefined;
-
+      const supplier = itemSuppliers.get(groupKey);
       for (const order of activeOrders) {
         const qtyForThis = Math.min(remaining, order.quantity);
         remaining = Math.max(0, remaining - order.quantity);
-
         await savePurchaseUpdate(token, {
-          poOrderId: order.id,
-          poNumber: order.po_number,
-          asin: order.asin,
-          skuCode: order.sku_code,
-          modelNumber: order.model_number,
-          title: order.title,
+          poOrderId: order.id, poNumber: order.po_number, asin: order.asin,
+          skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
           purchasedQuantity: qtyForThis,
-          supplierName: supplierName || undefined,
-          supplierOrderNumber: supplierOrderNumber || undefined,
-          unitCost: unitCost,
-          totalCost: unitCost ? unitCost * qtyForThis : undefined,
+          supplierName: supplier?.name || undefined,
+          supplierOrderNumber: supplier?.order || undefined,
+          unitCost, totalCost: unitCost ? unitCost * qtyForThis : undefined,
         });
       }
-      
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
         let rem = totalQty;
-        
         for (const order of activeOrders) {
           const qtyForThis = Math.min(rem, order.quantity);
           rem = Math.max(0, rem - order.quantity);
-          
           const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
           if (existingIndex >= 0) {
-            updatedUpdates[existingIndex] = {
-              ...updatedUpdates[existingIndex],
-              purchased_quantity: qtyForThis,
-            };
+            updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], purchased_quantity: qtyForThis };
           } else {
-            updatedUpdates.push({
-              po_order_id: order.id,
-              purchased_quantity: qtyForThis,
-              link_id: prevData.link.id,
-              metadata: {},
-            } as any);
+            updatedUpdates.push({ po_order_id: order.id, purchased_quantity: qtyForThis, link_id: prevData.link.id, metadata: {} } as any);
           }
         }
-        
         return { ...prevData, updates: updatedUpdates };
       });
-      
       toast.success('Marked as done', { duration: 1500 });
     } catch (error) {
       toast.error('Failed to save');
-      console.error('Save error:', error);
     } finally {
-      setSavingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(groupKey);
-        return newSet;
-      });
+      setSavingItems(prev => { const s = new Set(prev); s.delete(groupKey); return s; });
     }
   };
 
   const handleMarkNotAvailable = async (groupKey: string) => {
     const group = groupedOrders.find(g => g.key === groupKey);
     if (!group || !token || !data) return;
-
     setSavingItems(prev => new Set(prev).add(groupKey));
-
     try {
       for (const order of group.orders) {
         await savePurchaseUpdate(token, {
-          poOrderId: order.id,
-          poNumber: order.po_number,
-          asin: order.asin,
-          skuCode: order.sku_code,
-          modelNumber: order.model_number,
-          title: order.title,
+          poOrderId: order.id, poNumber: order.po_number, asin: order.asin,
+          skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
           metadata: { not_available: true },
         });
       }
-      
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
         for (const order of group.orders) {
           const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
-          if (existingIndex >= 0) {
-            updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: true } };
-          } else {
-            updatedUpdates.push({ po_order_id: order.id, link_id: prevData.link.id, metadata: { not_available: true } } as any);
-          }
+          if (existingIndex >= 0) updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: true } };
+          else updatedUpdates.push({ po_order_id: order.id, link_id: prevData.link.id, metadata: { not_available: true } } as any);
         }
         return { ...prevData, updates: updatedUpdates };
       });
-      
       toast.success('Marked as not available');
     } catch (error) {
       toast.error('Failed to update');
     } finally {
-      setSavingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(groupKey);
-        return newSet;
-      });
+      setSavingItems(prev => { const s = new Set(prev); s.delete(groupKey); return s; });
     }
   };
 
   const handleUndoNotAvailable = async (groupKey: string) => {
     const group = groupedOrders.find(g => g.key === groupKey);
     if (!group || !token || !data) return;
-
     setSavingItems(prev => new Set(prev).add(groupKey));
-
     try {
       for (const order of group.orders) {
         await savePurchaseUpdate(token, {
-          poOrderId: order.id,
-          poNumber: order.po_number,
-          asin: order.asin,
-          skuCode: order.sku_code,
-          modelNumber: order.model_number,
-          title: order.title,
-          metadata: { not_available: false },
-          purchasedQuantity: 0,
+          poOrderId: order.id, poNumber: order.po_number, asin: order.asin,
+          skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
+          metadata: { not_available: false }, purchasedQuantity: 0,
         });
       }
-      
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
         for (const order of group.orders) {
           const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
           if (existingIndex >= 0) {
-            updatedUpdates[existingIndex] = {
-              ...updatedUpdates[existingIndex],
-              metadata: { not_available: false },
-              purchased_quantity: 0,
-            };
+            updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: false }, purchased_quantity: 0 };
           }
         }
         return { ...prevData, updates: updatedUpdates };
       });
-      
       toast.success('Status reset to pending');
     } catch (error) {
       toast.error('Failed to update');
     } finally {
-      setSavingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(groupKey);
-        return newSet;
-      });
+      setSavingItems(prev => { const s = new Set(prev); s.delete(groupKey); return s; });
     }
   };
 
@@ -327,27 +220,18 @@ export default function PurchaseLink() {
     setScanDialogOpen(true);
   }, []);
 
-  // Barcode scanned => link barcode AND auto-mark as done
   const handleBarcodeScanned = useCallback(async (barcode: string, format: string) => {
     if (!scanningGroupKey || !data) return;
     const group = groupedOrders.find(g => g.key === scanningGroupKey);
     if (!group) return;
     const firstOrder = group.orders[0];
-    
     await linkBarcode({
-      barcode,
-      barcodeType: format,
-      asin: firstOrder.asin || undefined,
-      skuCode: firstOrder.sku_code || undefined,
-      modelNumber: firstOrder.model_number || undefined,
-      title: firstOrder.title || undefined,
-      poOrderId: firstOrder.id,
-      userId: data.link.user_id,
+      barcode, barcodeType: format,
+      asin: firstOrder.asin || undefined, skuCode: firstOrder.sku_code || undefined,
+      modelNumber: firstOrder.model_number || undefined, title: firstOrder.title || undefined,
+      poOrderId: firstOrder.id, userId: data.link.user_id,
     });
-    
-    // Auto-mark as done with full required quantity
     await handleSaveGroup(scanningGroupKey, group.totalRequired);
-    
     setScanDialogOpen(false);
     setScanningGroupKey(null);
   }, [scanningGroupKey, data, groupedOrders, linkBarcode]);
@@ -359,22 +243,16 @@ export default function PurchaseLink() {
     if (!group) return;
     setSelectedItems(prev => {
       const newSet = new Set(prev);
-      if (checked) {
-        group.orderIds.forEach(id => newSet.add(id));
-      } else {
-        group.orderIds.forEach(id => newSet.delete(id));
-      }
+      if (checked) group.orderIds.forEach(id => newSet.add(id));
+      else group.orderIds.forEach(id => newSet.delete(id));
       return newSet;
     });
   };
 
-  const isGroupSelected = (group: GroupedOrder) => {
-    return group.orderIds.some(id => selectedItems.has(id));
-  };
+  const isGroupSelected = (group: GroupedOrder) => group.orderIds.some(id => selectedItems.has(id));
 
   const handleBulkMarkPurchased = async (quantity: number) => {
     if (!token || !data) return;
-    
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -384,7 +262,6 @@ export default function PurchaseLink() {
         purchasedQuantity: quantity,
       });
     });
-    
     await Promise.all(promises);
     setSelectedItems(new Set());
     if (token) await fetchLinkData(token);
@@ -393,7 +270,6 @@ export default function PurchaseLink() {
 
   const handleBulkMarkNotAvailable = async () => {
     if (!token || !data) return;
-    
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
       if (!order) return;
@@ -403,7 +279,6 @@ export default function PurchaseLink() {
         metadata: { not_available: true },
       });
     });
-    
     await Promise.all(promises);
     setSelectedItems(new Set());
     if (token) await fetchLinkData(token);
@@ -413,7 +288,6 @@ export default function PurchaseLink() {
   // Realtime subscription
   useEffect(() => {
     if (!token || !data?.link?.id) return;
-
     const channel = supabase
       .channel('purchase-updates-changes')
       .on('postgres_changes', {
@@ -432,53 +306,40 @@ export default function PurchaseLink() {
           });
           toast.info('Item updated', { duration: 1500 });
         }
-      })
-      .subscribe();
-
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [token, data?.link?.id]);
 
-  const getStatusBorderColor = (status: string) => {
-    switch (status) {
-      case 'purchased': return 'border-l-green-500';
-      case 'partial': return 'border-l-yellow-500';
-      case 'not_available': return 'border-l-red-400';
-      default: return 'border-l-muted-foreground/30';
-    }
-  };
-
-  // Filter and sort: status -> SKU match -> title match (cascading)
+  // Unified filter + search
   const filteredGroups = useMemo(() => {
-    // 1. Status filter first
     let groups = groupedOrders.filter(g => g.status === filterStatus);
-    
-    // 2. SKU/ASIN search: exact substring match (case-insensitive)
-    if (debouncedSkuSearch.trim()) {
-      const term = debouncedSkuSearch.trim().toLowerCase();
-      groups = groups.filter(g => {
+
+    if (debouncedSearch.trim()) {
+      const term = debouncedSearch.trim().toLowerCase();
+      // First try exact substring on SKU/ASIN/PO
+      const exactMatch = groups.filter(g => {
         const asin = (g.asin || '').toLowerCase();
         const sku = (g.skuCode || '').toLowerCase();
         const pos = (g.poNumbers || []).join(' ').toLowerCase();
         return asin.includes(term) || sku.includes(term) || pos.includes(term);
       });
-    }
-    
-    // 3. Title search further narrows within SKU-matched results
-    if (debouncedTitleSearch.trim()) {
-      const titleResults = new Fuse(groups, {
-        keys: ['title'],
-        threshold: 0.4,
-        ignoreLocation: true,
-      }).search(debouncedTitleSearch);
-      groups = titleResults.map(r => r.item);
+
+      if (exactMatch.length > 0) {
+        groups = exactMatch;
+      } else {
+        // Fallback to fuzzy title search
+        const titleResults = new Fuse(groups, {
+          keys: ['title'], threshold: 0.4, ignoreLocation: true,
+        }).search(debouncedSearch);
+        groups = titleResults.map(r => r.item);
+      }
     }
 
     if (sortBy === 'qty-high-low') groups = [...groups].sort((a, b) => b.totalRequired - a.totalRequired);
     else if (sortBy === 'qty-low-high') groups = [...groups].sort((a, b) => a.totalRequired - b.totalRequired);
     return groups;
-  }, [groupedOrders, debouncedSkuSearch, debouncedTitleSearch, filterStatus, sortBy]);
+  }, [groupedOrders, debouncedSearch, filterStatus, sortBy]);
 
-  // Stats based on pre-computed status
   const stats = useMemo(() => {
     const result = { total: groupedOrders.length, purchased: 0, partial: 0, notAvailable: 0, pending: 0 };
     for (const group of groupedOrders) {
@@ -496,32 +357,39 @@ export default function PurchaseLink() {
   }, 0);
 
   const exportData = groupedOrders.map(group => ({
-    poNumber: group.poNumbers.join(', '),
-    asin: group.asin,
-    skuCode: group.skuCode,
-    title: group.title,
-    requiredQty: group.totalRequired,
-    purchasedQty: group.totalPurchased,
-    status: group.status,
+    poNumber: group.poNumbers.join(', '), asin: group.asin, skuCode: group.skuCode,
+    title: group.title, requiredQty: group.totalRequired, purchasedQty: group.totalPurchased, status: group.status,
   }));
 
-  // Virtualizer
   const rowVirtualizer = useVirtualizer({
     count: filteredGroups.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 180,
+    estimateSize: () => 220,
     overscan: 5,
   });
 
-  const filterLabel = filterStatus === 'not_available' ? 'N/A' : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1);
-  const filterCount = filterStatus === 'purchased' ? stats.purchased : filterStatus === 'partial' ? stats.partial : filterStatus === 'not_available' ? stats.notAvailable : stats.pending;
+  const updateItemSupplier = (key: string, field: 'name' | 'order', value: string) => {
+    setItemSuppliers(prev => {
+      const next = new Map(prev);
+      const current = next.get(key) || { name: '', order: '' };
+      next.set(key, { ...current, [field]: value });
+      return next;
+    });
+  };
+
+  const statusFilters = [
+    { key: 'pending' as const, label: 'Pending', count: stats.pending, dotClass: 'bg-muted-foreground' },
+    { key: 'partial' as const, label: 'Partial', count: stats.partial, dotClass: 'bg-yellow-500' },
+    { key: 'purchased' as const, label: 'Done', count: stats.purchased, dotClass: 'bg-green-500' },
+    { key: 'not_available' as const, label: 'N/A', count: stats.notAvailable, dotClass: 'bg-red-400' },
+  ];
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading purchase link...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -543,338 +411,253 @@ export default function PurchaseLink() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4 pb-[300px] md:pb-6">
-        {/* Collapsible Metrics Header */}
-        <Collapsible open={metricsOpen} onOpenChange={setMetricsOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <Package className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-semibold text-sm truncate">{data.link.title || 'Purchase Tracking'}</span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Badge variant="secondary" className="text-xs">
-                  {stats.total > 0 ? Math.round(((stats.purchased + stats.partial * 0.5) / stats.total) * 100) : 0}%
-                </Badge>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${metricsOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2">
-            <PurchaseSummaryHeader
-              title={data.link.title}
-              description={data.link.description}
-              expiresAt={data.link.expires_at}
-              stats={stats}
-              lastUpdated={data.updates[0]?.updated_at}
+      <div className="max-w-2xl mx-auto px-3 py-3 md:px-4 md:py-4 space-y-3 pb-32">
+        {/* Compact Summary Header */}
+        <PurchaseSummaryHeader
+          title={data.link.title}
+          description={data.link.description}
+          expiresAt={data.link.expires_at}
+          stats={stats}
+          lastUpdated={data.updates[0]?.updated_at}
+        />
+
+        {/* Sticky Search + Filters */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm -mx-3 px-3 py-2 space-y-2 border-b border-border/50">
+          {/* Unified Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search SKU, ASIN, PO, or title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="pl-9 h-8 text-xs"
             />
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
 
-        {/* Supplier Info Bar */}
-        <Collapsible open={supplierInfoOpen} onOpenChange={setSupplierInfoOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  {supplierName ? `Supplier: ${supplierName}` : 'Supplier Info'}
+          {/* Status Filters + Sort — always visible, horizontal scroll */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+            {statusFilters.map(({ key, label, count, dotClass }) => (
+              <button
+                key={key}
+                onClick={() => setFilterStatus(key)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                  filterStatus === key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === key ? 'bg-primary-foreground' : dotClass}`} />
+                {label}
+                <span className={`text-[10px] ${filterStatus === key ? 'text-primary-foreground/80' : 'text-muted-foreground/60'}`}>
+                  {count}
                 </span>
-                {supplierName && <Badge variant="secondary" className="text-[10px]">Set</Badge>}
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${supplierInfoOpen ? 'rotate-180' : ''}`} />
+              </button>
+            ))}
+            <div className="w-px h-5 bg-border flex-shrink-0 mx-0.5" />
+            <button
+              onClick={() => setSortBy(sortBy === 'qty-high-low' ? 'qty-low-high' : sortBy === 'qty-low-high' ? null : 'qty-high-low')}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 ${
+                sortBy ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              {sortBy === 'qty-high-low' ? 'Qty ↓' : sortBy === 'qty-low-high' ? 'Qty ↑' : 'Sort'}
             </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2">
-            <Card className="p-4 space-y-3">
-              <p className="text-xs text-muted-foreground">Enter supplier info once — it will be applied to all items you mark as done.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier Name</label>
-                  <Input
-                    value={supplierName}
-                    onChange={e => setSupplierName(e.target.value)}
-                    placeholder="e.g. Sunsky"
-                    className="h-10"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Order Number</label>
-                  <Input
-                    value={supplierOrderNumber}
-                    onChange={e => setSupplierOrderNumber(e.target.value)}
-                    placeholder="e.g. SO-12345"
-                    className="h-10"
-                  />
-                </div>
-              </div>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Sticky Search + Filter Bar */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-2 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none space-y-2">
-          {/* Dual Search - always visible */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by SKU / ASIN / PO..."
-                value={skuSearchTerm}
-                onChange={(e) => setSkuSearchTerm(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="pl-9 h-10"
-              />
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by title..."
-                value={titleSearchTerm}
-                onChange={(e) => setTitleSearchTerm(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="pl-9 h-10"
-              />
+            <div className="ml-auto flex-shrink-0">
+              <ExportButton data={exportData} linkTitle={data.link.title} />
             </div>
           </div>
 
-          {/* Collapsible Filters */}
-          <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
-            <div className="flex items-center gap-2">
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-9 gap-1.5 px-2 text-xs">
-                  <Filter className="h-3.5 w-3.5" />
-                  <span className="font-medium">{filterLabel}</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{filterCount.toLocaleString()}</Badge>
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-                </Button>
-              </CollapsibleTrigger>
-              <div className="flex-1 text-xs text-muted-foreground text-right">
-                {filteredGroups.length.toLocaleString()} items
-              </div>
-              <ExportButton data={exportData} linkTitle={data.link.title} />
-            </div>
-
-            <CollapsibleContent className="pt-2">
-              <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide items-center">
-                {[
-                  { key: 'pending' as const, icon: Circle, label: 'Pending', count: stats.pending },
-                  { key: 'partial' as const, icon: AlertCircle, label: 'Partial', count: stats.partial },
-                  { key: 'purchased' as const, icon: CheckCircle2, label: 'Done', count: stats.purchased },
-                  { key: 'not_available' as const, icon: XCircle, label: 'N/A', count: stats.notAvailable },
-                ].map(({ key, icon: Icon, label, count }) => (
-                  <Button
-                    key={key}
-                    variant={filterStatus === key ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilterStatus(key)}
-                    className="h-9 min-h-[44px] min-w-[44px] flex-shrink-0 text-xs"
-                  >
-                    <Icon className="h-3.5 w-3.5 mr-1" />
-                    {label} ({count.toLocaleString()})
-                  </Button>
-                ))}
-                <div className="w-px h-6 bg-border flex-shrink-0 mx-1" />
-                <Button
-                  variant={sortBy === 'qty-high-low' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSortBy(sortBy === 'qty-high-low' ? null : 'qty-high-low')}
-                  className="h-9 min-h-[44px] text-xs flex-shrink-0"
-                >
-                  <ArrowDown className="h-3 w-3 mr-1" />
-                  Qty↓
-                </Button>
-                <Button
-                  variant={sortBy === 'qty-low-high' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSortBy(sortBy === 'qty-low-high' ? null : 'qty-low-high')}
-                  className="h-9 min-h-[44px] text-xs flex-shrink-0"
-                >
-                  <ArrowUp className="h-3 w-3 mr-1" />
-                  Qty↑
-                </Button>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          {/* Results count */}
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{filteredGroups.length.toLocaleString()} items</span>
+            {selectedItems.size > 0 && (
+              <button onClick={() => setSelectedItems(new Set())} className="text-primary hover:underline">
+                {selectedItems.size} selected — clear
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Virtualized Items List */}
+        {/* Virtualized Items */}
         {filteredGroups.length > 0 ? (
-          <div ref={parentRef} className={`h-[calc(100vh-280px)] overflow-auto ${searchFocused ? 'pb-[50vh]' : ''}`}>
-            <div
-              style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
-            >
+          <div ref={parentRef} className={`h-[calc(100vh-260px)] overflow-auto ${searchFocused ? 'pb-[50vh]' : ''}`}>
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const group = filteredGroups[virtualRow.index];
-                const isSelected = isGroupSelected(group);
                 const isSaving = savingItems.has(group.key);
                 const status = group.status;
-                
+                const supplierData = itemSuppliers.get(group.key);
+
                 return (
                   <div
                     key={group.key}
                     style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
+                      position: 'absolute', top: 0, left: 0, width: '100%',
                       height: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
-                    className="pb-3"
+                    className="pb-2"
                   >
-                    <Card 
-                      className={`overflow-hidden transition-all border-l-4 h-full ${getStatusBorderColor(status)} ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                    <Card className="h-full overflow-hidden border-l-[3px] transition-colors"
+                      style={{
+                        borderLeftColor: status === 'purchased' ? 'hsl(var(--chart-2, 142 71% 45%))' 
+                          : status === 'partial' ? 'hsl(var(--chart-4, 43 96% 56%))' 
+                          : status === 'not_available' ? 'hsl(var(--destructive))' 
+                          : 'hsl(var(--muted-foreground) / 0.3)'
+                      }}
                       ref={(el) => cardRefs.current[group.key] = el}
                     >
-                      <div className="p-3 space-y-2">
-                        {/* Header row: image + info + checkbox */}
-                        <div className="flex gap-3 items-start">
-                          {/* Product Image */}
+                      <div className="p-3 space-y-2.5">
+                        {/* Row 1: Image + Title + Status */}
+                        <div className="flex gap-2.5 items-start">
+                          {/* Image */}
                           <Dialog>
                             <DialogTrigger asChild>
-                              <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
+                              <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
                                 {group.image?.image_url ? (
-                                  <img 
-                                    src={group.image.image_url} 
-                                    alt={group.title || 'Product'}
-                                    className="w-full h-full object-contain p-1"
-                                    loading="lazy"
-                                  />
+                                  <img src={group.image.image_url} alt="" className="w-full h-full object-contain p-0.5" loading="lazy" />
                                 ) : (
-                                  <Image className="h-5 w-5 text-muted-foreground/50" />
+                                  <Image className="h-4 w-4 text-muted-foreground/40" />
                                 )}
                               </div>
                             </DialogTrigger>
                             {group.image?.image_url && (
                               <DialogContent className="max-w-3xl">
-                                <img 
-                                  src={group.image.image_url} 
-                                  alt={group.title || 'Product'}
-                                  className="w-full h-auto"
-                                />
+                                <img src={group.image.image_url} alt={group.title || 'Product'} className="w-full h-auto" />
                               </DialogContent>
                             )}
                           </Dialog>
 
-                          {/* Item Info */}
+                          {/* Title + Identifiers */}
                           <div className="flex-1 min-w-0 space-y-1">
-                            <p className="font-medium text-sm leading-snug line-clamp-2">{group.title}</p>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground max-h-16 overflow-y-auto">
+                            <p className="text-xs font-medium leading-snug line-clamp-2">{group.title}</p>
+                            <div className="flex flex-wrap gap-1 items-center">
+                              {group.asin && (
+                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                  {group.asin}
+                                </Badge>
+                              )}
+                              {group.skuCode && (
+                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                  {group.skuCode}
+                                </Badge>
+                              )}
                               {group.poNumbers.map(po => (
-                                <Badge key={po} variant="outline" className="text-[10px] font-mono px-1.5 py-0 flex-shrink-0">
+                                <Badge key={po} variant="secondary" className="text-[9px] font-mono px-1 py-0 h-4">
                                   {po}
                                 </Badge>
                               ))}
-                              {group.asin && <span className="font-mono flex-shrink-0">ASIN: {group.asin}</span>}
-                              {group.skuCode && <span className="font-mono flex-shrink-0">SKU: {group.skuCode}</span>}
-                              <LinkedBarcodesBadge 
-                                asin={group.asin} 
-                                skuCode={group.skuCode}
-                                poOrderId={group.orderIds[0]}
-                              />
+                              <LinkedBarcodesBadge asin={group.asin} skuCode={group.skuCode} poOrderId={group.orderIds[0]} />
                             </div>
                           </div>
 
-                          {/* Checkbox top-right */}
-                          <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) => handleSelectGroup(group.key, !!checked)}
-                              disabled={status === 'purchased' || status === 'not_available'}
-                              className="h-5 w-5"
-                            />
-                            {status === 'purchased' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                            {status === 'partial' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
-                            {status === 'not_available' && <XCircle className="h-4 w-4 text-red-400" />}
+                          {/* Qty badge */}
+                          <div className="flex-shrink-0 text-center">
+                            <div className="bg-muted rounded-md px-2 py-1">
+                              <span className="text-sm font-bold">{group.totalRequired}</span>
+                              <p className="text-[9px] text-muted-foreground leading-none">req</p>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Unit Cost Input + Actions row */}
-                        {status !== 'not_available' ? (
-                          <div className="space-y-2">
-                            {status !== 'purchased' && (
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="Unit cost"
-                                  value={itemCosts.get(group.key) || ''}
-                                  onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
-                                  className="h-8 w-28 text-xs"
-                                />
-                                {itemCosts.get(group.key) && parseFloat(itemCosts.get(group.key)!) > 0 && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    Total: ${(parseFloat(itemCosts.get(group.key)!) * group.totalRequired).toFixed(2)}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                            <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-sm flex items-center gap-1 flex-shrink-0">
-                              <span className="text-muted-foreground text-xs">Req:</span>
-                              <span className="font-bold">{group.totalRequired.toLocaleString()}</span>
-                              {group.orders.length > 1 && (
-                                <span className="text-muted-foreground text-[10px]">({group.orders.length} POs)</span>
-                              )}
+                        {/* Row 2: Per-item supplier + cost (only for pending/partial) */}
+                        {(status === 'pending' || status === 'partial') && (
+                          <div className="grid grid-cols-3 gap-1.5">
+                            <div className="relative">
+                              <Input
+                                placeholder="Supplier"
+                                value={supplierData?.name || ''}
+                                onChange={e => updateItemSupplier(group.key, 'name', e.target.value)}
+                                className="h-7 text-[11px] pl-2 pr-1"
+                              />
                             </div>
-                            
-                            {status !== 'purchased' && (
-                              <>
+                            <div className="relative">
+                              <Input
+                                placeholder="Order #"
+                                value={supplierData?.order || ''}
+                                onChange={e => updateItemSupplier(group.key, 'order', e.target.value)}
+                                className="h-7 text-[11px] pl-2 pr-1"
+                              />
+                            </div>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Cost (SAR)"
+                                value={itemCosts.get(group.key) || ''}
+                                onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
+                                className="h-7 text-[11px] pl-2 pr-1"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Row 3: Actions */}
+                        {status !== 'not_available' ? (
+                          <div className="flex items-center gap-1.5">
+                            {itemCosts.get(group.key) && parseFloat(itemCosts.get(group.key)!) > 0 && (
+                              <span className="text-[10px] text-muted-foreground mr-auto">
+                                Total: {(parseFloat(itemCosts.get(group.key)!) * group.totalRequired).toFixed(2)} SAR
+                              </span>
+                            )}
+                            {status === 'purchased' ? (
+                              <div className="flex items-center gap-1.5 text-xs font-medium ml-auto" style={{ color: 'hsl(var(--chart-2, 142 71% 45%))' }}>
+                                <CheckCircle2 className="h-4 w-4" />
+                                Done ({group.totalPurchased}/{group.totalRequired})
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 ml-auto">
                                 <Button
                                   variant="default"
                                   size="sm"
                                   onClick={() => handleOpenBarcodeScanner(group.key)}
                                   disabled={isSaving}
-                                  className="h-10 flex-1 gap-1.5"
+                                  className="h-8 gap-1 text-xs px-3"
                                 >
-                                  {isSaving ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <ScanLine className="h-4 w-4" />
-                                  )}
-                                  <span className="text-xs">Scan (Done)</span>
+                                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanLine className="h-3.5 w-3.5" />}
+                                  Scan Done
                                 </Button>
-                                
                                 <Button
-                                  variant="outline"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleSaveGroup(group.key)}
+                                  disabled={isSaving}
+                                  className="h-8 gap-1 text-xs px-3"
+                                >
+                                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                  Done
+                                </Button>
+                                <Button
+                                  variant="ghost"
                                   size="sm"
                                   onClick={() => handleMarkNotAvailable(group.key)}
                                   disabled={isSaving}
-                                  className="h-10 px-3 gap-1"
+                                  className="h-8 gap-1 text-xs px-2 text-destructive hover:text-destructive"
                                 >
-                                  <XCircle className="h-4 w-4" />
-                                  <span className="text-xs">N/A</span>
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  N/A
                                 </Button>
-                              </>
-                            )}
-                            
-                            {status === 'purchased' && (
-                              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-sm font-medium">
-                                <CheckCircle2 className="h-4 w-4" />
-                                Done ({group.totalPurchased.toLocaleString()}/{group.totalRequired.toLocaleString()})
                               </div>
                             )}
-                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <div className="bg-red-50 dark:bg-red-950/30 rounded-md px-2.5 py-1.5 text-sm text-red-600 dark:text-red-400 flex-1">
-                              Not Available
-                            </div>
+                            <span className="text-xs text-destructive font-medium flex items-center gap-1">
+                              <XCircle className="h-3.5 w-3.5" /> Not Available
+                            </span>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleUndoNotAvailable(group.key)}
                               disabled={isSaving}
-                              className="h-10 px-3"
+                              className="h-7 px-2 text-xs ml-auto"
                             >
-                              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                              <span className="ml-1 text-xs">Undo</span>
+                              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                              <span className="ml-1">Undo</span>
                             </Button>
                           </div>
                         )}
@@ -886,14 +669,13 @@ export default function PurchaseLink() {
             </div>
           </div>
         ) : (
-          <Card className="p-12 text-center border-dashed">
-            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
-            <p className="text-muted-foreground text-sm">No items match your filters</p>
-          </Card>
+          <div className="py-16 text-center">
+            <Package className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No items match your filters</p>
+          </div>
         )}
       </div>
 
-      {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedCount={selectedItems.size}
         totalRequired={selectedTotalRequired}
@@ -901,8 +683,7 @@ export default function PurchaseLink() {
         onMarkNotAvailable={handleBulkMarkNotAvailable}
         onClearSelection={() => setSelectedItems(new Set())}
       />
-      
-      {/* Barcode Scanner Dialog */}
+
       <BarcodeScannerDialog
         open={scanDialogOpen}
         onOpenChange={setScanDialogOpen}
@@ -919,28 +700,21 @@ export default function PurchaseLink() {
   );
 }
 
-// Pure function for computing group status using Map
 function computeGroupStatus(group: GroupedOrder, updatesMap: Map<string, any>): string {
   const allNA = group.orders.every(order => {
     const update = updatesMap.get(order.id);
     return update?.metadata?.not_available === true;
   });
   if (allNA && group.orders.length > 0) return 'not_available';
-
   let someNA = false;
   let effectivePurchased = 0;
   let effectiveRequired = 0;
-
   for (const order of group.orders) {
     const update = updatesMap.get(order.id);
-    if (update?.metadata?.not_available) {
-      someNA = true;
-      continue;
-    }
+    if (update?.metadata?.not_available) { someNA = true; continue; }
     effectivePurchased += update?.purchased_quantity || 0;
     effectiveRequired += order.quantity || 0;
   }
-
   if (effectiveRequired === 0) return 'not_available';
   if (effectivePurchased >= effectiveRequired) return 'purchased';
   if (effectivePurchased > 0 || someNA) return 'partial';

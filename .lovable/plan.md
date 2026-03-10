@@ -1,41 +1,52 @@
 
 
-# Purchase Link Page Redesign
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Changes
+### What We'll Build
 
-### 1. Currency: $ → SAR
-Replace all `$` references with `SAR` throughout the page (unit cost display, total cost calculation).
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-### 2. Supplier Info: Session-level → Per-product
-- Remove the global supplier info collapsible bar (lines 575-613)
-- Remove `supplierName` and `supplierOrderNumber` state variables from the top level
-- Add per-item supplier fields directly into each product card — a compact inline row with two small inputs (Supplier Name + Order #) that appears only for pending/partial items
-- Update `handleSaveGroup` to read supplier info from per-item state (`itemSuppliers` Map) instead of global state
+### How It Works
 
-### 3. UI Redesign — Clean, Mobile-First Layout
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-**Header**: Simplify the collapsible metrics — always show a compact progress bar with percentage + key counts inline. Remove the large SVG ring chart. Keep stats as small inline pills.
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-**Search & Filters**: 
-- Merge dual search into a single unified search input (searches SKU, ASIN, PO, and title together)
-- Status filter tabs as horizontal pill buttons always visible (no collapsible), compact `h-8`
-- Sort buttons inline with filters
+### Data Flow
 
-**Product Cards — Complete Redesign**:
-- Mobile: Full-width stacked layout with clear visual sections
-- Top: Status indicator dot + Product title (2 lines max) + image thumbnail (tap to expand)
-- Middle: Identifier badges row (ASIN, SKU, PO numbers) — horizontal scroll on mobile
-- Bottom section with clear separation:
-  - Left: Required qty badge
-  - Right: Action buttons (Scan Done / N/A)
-- Per-item supplier inputs + unit cost input in a compact row below actions
-- Remove checkbox selection for cleaner mobile UX — keep bulk actions via long-press or select mode toggle
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
+```
 
-**Empty State**: Cleaner with subtle illustration
+### Files to Modify
 
-### 4. Files to Edit
-- `src/pages/PurchaseLink.tsx` — Full rewrite of the render section; move supplier to per-item; change $ to SAR; merge search; redesign cards
-- `src/components/purchase-link/PurchaseSummaryHeader.tsx` — Simplify to compact inline bar (remove ring chart)
-- `src/components/purchase-link/BulkActionsBar.tsx` — Update currency to SAR
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
