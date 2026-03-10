@@ -1475,12 +1475,9 @@ export function Replenishment() {
         const asinUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
           status: 'in-stock'
         }).eq('id', item.id)) || [];
-        const skuUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
-          status: 'in-stock'
-        }).eq('id', item.id)) || [];
 
         // Execute all updates
-        await Promise.all([...skuUpdates]);
+        await Promise.all([...asinUpdates]);
 
         // Remove from local ordered items state
         const restockedIds = restockedItems.map((item: any) => item.id);
@@ -1568,12 +1565,13 @@ export function Replenishment() {
   });
 
   // Since database function now excludes ordered items, all filtered items are pending
+  // Note: pendingItems kept for legacy compatibility but Select All uses filteredReadyToOrder
   const pendingItems = filteredRestockItems;
 
-  // Bulk selection handlers - only allow selection of pending items
+  // Bulk selection handlers - use filteredReadyToOrder (what user actually sees)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allItemIds = pendingItems.map(item => item.id);
+      const allItemIds = filteredReadyToOrder.map(item => item.id);
       setSelectedItems(new Set(allItemIds));
     } else {
       setSelectedItems(new Set());
@@ -1763,7 +1761,8 @@ export function Replenishment() {
     }
 
     // Convert selected restock items to the format expected by SunskyOrderDialog
-    const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
+    // Use filteredReadyToOrder (what user sees) instead of pendingItems (legacy filter)
+    const selectedRestockItems = filteredReadyToOrder.filter(item => selectedItems.has(item.id));
 
     // Calculate quantities based on units sold after last restock
     const orderItems = await Promise.all(selectedRestockItems.map(async item => {
@@ -2514,10 +2513,12 @@ export function Replenishment() {
       />
 
       {/* Config Selector Row */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">Config</span>
           <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
-            <SelectTrigger className="w-[250px]">
+            <SelectTrigger className="w-[220px] h-8 text-xs">
               <SelectValue placeholder="Select calculation method" />
             </SelectTrigger>
             <SelectContent>
@@ -2537,9 +2538,9 @@ export function Replenishment() {
               setSelectedConfig(null);
               setConfigDialogOpen(true);
             }}
-            className="gap-2"
+            className="gap-1.5 h-8 text-xs"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
             New
           </Button>
           
@@ -2552,16 +2553,18 @@ export function Replenishment() {
                 setConfigToDelete(config);
                 setDeleteDialogOpen(true);
               }}
-              className="gap-2 text-destructive hover:text-destructive"
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>
         
-        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Data
+        <div className="flex-1" />
+        
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </Button>
       </div>
 
@@ -2577,39 +2580,31 @@ export function Replenishment() {
           tabTitle: newTab === 'restock' ? 'Restock Management' : 'Daily Orders Queue'
         });
       }}>
-        <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
-          <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
-          <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Daily Orders Queue</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-lg">
+          <TabsTrigger value="restock" className="text-xs font-semibold rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">
+            <Package className="w-3.5 h-3.5 mr-1.5" /> Restock Management
+          </TabsTrigger>
+          <TabsTrigger value="velocity" className="text-xs font-semibold rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">
+            <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Daily Orders Queue
+          </TabsTrigger>
         </TabsList>
 
 
         {/* Restock Management Tab with Separate Tabs */}
-        <TabsContent value="restock" className="space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">Restock Management Dashboard</h3>
-              <p className="text-muted-foreground">Manage items that need restocking and track order status</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />
-                Export Restock Data
-              </Button>
-              <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />
-                Export Ordered Items
-              </Button>
-            </div>
+        <TabsContent value="restock" className="space-y-4 mt-4">
+          <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-card border border-border">
+            <span className="text-xs font-medium text-muted-foreground">Actions</span>
+            <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+              <Download className="w-3.5 h-3.5" />
+              Export Restock
+            </Button>
+            <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+              <Download className="w-3.5 h-3.5" />
+              Export Ordered
+            </Button>
           </div>
-          <Card className="glass-container">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Restock Management
-              </CardTitle>
-              <p className="text-muted-foreground">Manage critical stock items and track orders</p>
-            </CardHeader>
-            <CardContent>
+          <Card className="border border-border bg-card/50">
+            <CardContent className="p-4">
               <Tabs defaultValue="critical" className="w-full" onValueChange={(newTab) => {
                 trackTabChange({
                   category: 'Inventory',
@@ -2622,22 +2617,22 @@ export function Replenishment() {
                            'Non-Source Items'
                 });
               }}>
-                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
-                  <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                    <ShoppingCart className="w-4 h-4" />
-                    Ready to Order ({pendingItems.length})
+                <TabsList className="grid w-full grid-cols-4 h-9 p-0.5 bg-muted rounded-lg">
+                  <TabsTrigger value="critical" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    Ready <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{filteredReadyToOrder.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                    <Truck className="w-4 h-4" />
-                    Ordered ({orderedItems.length})
+                  <TabsTrigger value="ordered" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Truck className="w-3.5 h-3.5" />
+                    Ordered <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{orderedItems.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
-                    <AlertTriangle className="w-4 h-4" />
-                    Out of Stock ({outOfStockItems.length})
+                  <TabsTrigger value="out-of-stock" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    OOS <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{outOfStockItems.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="non-source" className="flex items-center gap-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
-                    <XCircle className="w-4 h-4" />
-                    Non-Source ({nonSourceItems.length})
+                  <TabsTrigger value="non-source" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Non-Src <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{nonSourceItems.length}</Badge>
                   </TabsTrigger>
                 </TabsList>
 
@@ -2646,36 +2641,27 @@ export function Replenishment() {
                   {/* Search Bar */}
                   <ReplenishmentSearchBar value={readyToOrderSearch} onChange={setReadyToOrderSearch} placeholder="Search by ASIN, SKU, serial number, or title..." />
                   
-                  <div className="flex items-center justify-between gap-4">
-                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
-                      {filteredReadyToOrder.length} ready to order
-                    </Badge>
-                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
-                      {outOfStockItems.length} cannot order
-                    </Badge>
-                  </div>
-
                   {/* Bulk Actions for Critical Items */}
-                  {filteredReadyToOrder.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <div className="flex items-center gap-4">
+                  {filteredReadyToOrder.length > 0 && <div className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg border border-border">
+                      <div className="flex items-center gap-3">
                          <div className="flex items-center space-x-2">
-                           <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
-                           <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                             Select All ({pendingItems.length})
+                           <Checkbox id="select-all" checked={selectedItems.size === filteredReadyToOrder.length && filteredReadyToOrder.length > 0} onCheckedChange={handleSelectAll} />
+                           <label htmlFor="select-all" className="text-xs font-medium cursor-pointer">
+                             Select All ({filteredReadyToOrder.length})
                            </label>
                          </div>
-                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
+                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
                              {selectedItems.size} selected
                            </Badge>}
                        </div>
                        <div className="flex items-center gap-2">
-                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-2" variant="secondary">
-                           <Package className="w-4 h-4" />
-                           Order from Sunsky ({selectedItems.size || 'Selected'})
+                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-1.5 h-8 text-xs" variant="secondary">
+                           <Package className="w-3.5 h-3.5" />
+                           Sunsky ({selectedItems.size})
                          </Button>
-                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
-                           <ShoppingCart className="w-4 h-4" />
-                           Mark {selectedItems.size || 'Selected'} as Ordered
+                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-1.5 h-8 text-xs">
+                           <ShoppingCart className="w-3.5 h-3.5" />
+                           Mark Ordered ({selectedItems.size})
                          </Button>
                        </div>
                     </div>}
