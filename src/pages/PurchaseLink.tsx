@@ -591,34 +591,31 @@ export default function PurchaseLink() {
 
                         {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            <div className="relative">
-                              <Input
-                                placeholder="Supplier"
-                                value={supplierData?.name || ''}
-                                onChange={e => updateItemSupplier(group.key, 'name', e.target.value)}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
-                            <div className="relative">
-                              <Input
-                                placeholder="Order #"
-                                value={supplierData?.order || ''}
-                                onChange={e => updateItemSupplier(group.key, 'order', e.target.value)}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
-                            <div className="relative">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Cost (SAR)"
-                                value={itemCosts.get(group.key) || ''}
-                                onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Select
+                              value={supplierData || ''}
+                              onValueChange={(val) => updateItemSupplier(group.key, val)}
+                            >
+                              <SelectTrigger className="h-7 text-[11px]">
+                                <SelectValue placeholder="Select supplier" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(data?.suppliers || []).map((s: any) => (
+                                  <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
+                                    {s.supplier_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Cost (SAR)"
+                              value={itemCosts.get(group.key) || ''}
+                              onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
+                              className="h-7 text-[11px] pl-2 pr-1"
+                            />
                           </div>
                         )}
 
