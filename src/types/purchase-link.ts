@@ -41,6 +41,7 @@ export interface PurchaseLinkData {
   link: PurchaseLink;
   poOrders: any[];
   updates: PurchaseUpdate[];
+  suppliers?: { id: string; supplier_name: string }[];
 }
 
 export interface GenerateLinkRequest {

@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, ScanLine, RotateCcw, ArrowUpDown, User, Hash } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, ScanLine, RotateCcw, ArrowUpDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
 import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
@@ -55,7 +56,7 @@ export default function PurchaseLink() {
 
   // Per-item supplier + cost state
   const [itemCosts, setItemCosts] = useState<Map<string, string>>(new Map());
-  const [itemSuppliers, setItemSuppliers] = useState<Map<string, { name: string; order: string }>>(new Map());
+  const [itemSuppliers, setItemSuppliers] = useState<Map<string, string>>(new Map());
 
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
@@ -127,7 +128,7 @@ export default function PurchaseLink() {
         return !update?.metadata?.not_available;
       });
       const unitCost = parseFloat(itemCosts.get(groupKey) || '0') || undefined;
-      const supplier = itemSuppliers.get(groupKey);
+      const supplierName = itemSuppliers.get(groupKey);
       for (const order of activeOrders) {
         const qtyForThis = Math.min(remaining, order.quantity);
         remaining = Math.max(0, remaining - order.quantity);
@@ -135,8 +136,7 @@ export default function PurchaseLink() {
           poOrderId: order.id, poNumber: order.po_number, asin: order.asin,
           skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
           purchasedQuantity: qtyForThis,
-          supplierName: supplier?.name || undefined,
-          supplierOrderNumber: supplier?.order || undefined,
+          supplierName: supplierName || undefined,
           unitCost, totalCost: unitCost ? unitCost * qtyForThis : undefined,
         });
       }
@@ -378,11 +378,10 @@ export default function PurchaseLink() {
     overscan: 5,
   });
 
-  const updateItemSupplier = (key: string, field: 'name' | 'order', value: string) => {
+  const updateItemSupplier = (key: string, value: string) => {
     setItemSuppliers(prev => {
       const next = new Map(prev);
-      const current = next.get(key) || { name: '', order: '' };
-      next.set(key, { ...current, [field]: value });
+      next.set(key, value);
       return next;
     });
   };
@@ -592,34 +591,31 @@ export default function PurchaseLink() {
 
                         {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            <div className="relative">
-                              <Input
-                                placeholder="Supplier"
-                                value={supplierData?.name || ''}
-                                onChange={e => updateItemSupplier(group.key, 'name', e.target.value)}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
-                            <div className="relative">
-                              <Input
-                                placeholder="Order #"
-                                value={supplierData?.order || ''}
-                                onChange={e => updateItemSupplier(group.key, 'order', e.target.value)}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
-                            <div className="relative">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Cost (SAR)"
-                                value={itemCosts.get(group.key) || ''}
-                                onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
-                                className="h-7 text-[11px] pl-2 pr-1"
-                              />
-                            </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Select
+                              value={supplierData || ''}
+                              onValueChange={(val) => updateItemSupplier(group.key, val)}
+                            >
+                              <SelectTrigger className="h-7 text-[11px]">
+                                <SelectValue placeholder="Select supplier" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(data?.suppliers || []).map((s: any) => (
+                                  <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
+                                    {s.supplier_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Cost (SAR)"
+                              value={itemCosts.get(group.key) || ''}
+                              onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
+                              className="h-7 text-[11px] pl-2 pr-1"
+                            />
                           </div>
                         )}
 
