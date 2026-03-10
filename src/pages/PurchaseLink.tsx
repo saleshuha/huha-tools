@@ -375,7 +375,7 @@ export default function PurchaseLink() {
   const rowVirtualizer = useVirtualizer({
     count: filteredGroups.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 280,
+    estimateSize: () => 320,
     overscan: 5,
   });
 
