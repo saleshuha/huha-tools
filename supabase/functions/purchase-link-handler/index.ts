@@ -196,10 +196,68 @@ serve(async (req) => {
         }
       }
 
-      // Attach product images to orders
+      // Fetch inventory metrics: shipped_orders, fba_inventory, asin_inventory by ASIN
+      const asinsForMetrics = [...new Set(poOrders.map(o => o.asin).filter(Boolean))];
+      
+      // Build ASIN-level metrics maps
+      const shippedMap: Record<string, number> = {};
+      const fbaMap: Record<string, number> = {};
+      const instockMap: Record<string, number> = {};
+      
+      if (asinsForMetrics.length > 0) {
+        const metricsChunkSize = 200;
+        for (let i = 0; i < asinsForMetrics.length; i += metricsChunkSize) {
+          const chunk = asinsForMetrics.slice(i, i + metricsChunkSize);
+          
+          // Fetch shipped_orders
+          const { data: shippedBatch } = await supabaseClient
+            .from('shipped_orders')
+            .select('asin, quantity')
+            .in('asin', chunk)
+            .eq('user_id', link.user_id);
+          if (shippedBatch) {
+            for (const row of shippedBatch) {
+              shippedMap[row.asin] = (shippedMap[row.asin] || 0) + (row.quantity || 0);
+            }
+          }
+          
+          // Fetch fba_inventory
+          const { data: fbaBatch } = await supabaseClient
+            .from('fba_inventory')
+            .select('asin, quantity')
+            .in('asin', chunk)
+            .eq('user_id', link.user_id);
+          if (fbaBatch) {
+            for (const row of fbaBatch) {
+              fbaMap[row.asin] = (fbaMap[row.asin] || 0) + (row.quantity || 0);
+            }
+          }
+          
+          // Fetch asin_inventory (active items with quantity > 0)
+          const { data: invBatch } = await supabaseClient
+            .from('asin_inventory')
+            .select('asin, quantity')
+            .in('asin', chunk)
+            .eq('user_id', link.user_id)
+            .eq('is_active', true)
+            .gt('quantity', 0);
+          if (invBatch) {
+            for (const row of invBatch) {
+              instockMap[row.asin] = (instockMap[row.asin] || 0) + (row.quantity || 0);
+            }
+          }
+        }
+      }
+
+      // Attach product images and metrics to orders
       const ordersWithImages = poOrders.map(order => ({
         ...order,
-        product_image: productImages.find(img => img.asin === order.asin) || null
+        product_image: productImages.find(img => img.asin === order.asin) || null,
+        metrics: {
+          shipped: order.asin ? (shippedMap[order.asin] || 0) : 0,
+          fba: order.asin ? (fbaMap[order.asin] || 0) : 0,
+          instock: order.asin ? (instockMap[order.asin] || 0) : 0,
+        }
       }));
       
       // Fetch existing purchase updates with pagination
