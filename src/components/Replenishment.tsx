@@ -1565,12 +1565,13 @@ export function Replenishment() {
   });
 
   // Since database function now excludes ordered items, all filtered items are pending
+  // Note: pendingItems kept for legacy compatibility but Select All uses filteredReadyToOrder
   const pendingItems = filteredRestockItems;
 
-  // Bulk selection handlers - only allow selection of pending items
+  // Bulk selection handlers - use filteredReadyToOrder (what user actually sees)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allItemIds = pendingItems.map(item => item.id);
+      const allItemIds = filteredReadyToOrder.map(item => item.id);
       setSelectedItems(new Set(allItemIds));
     } else {
       setSelectedItems(new Set());
