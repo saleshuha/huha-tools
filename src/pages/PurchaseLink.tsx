@@ -375,7 +375,7 @@ export default function PurchaseLink() {
   const rowVirtualizer = useVirtualizer({
     count: filteredGroups.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 320,
+    estimateSize: () => 380,
     overscan: 5,
   });
 
@@ -520,13 +520,13 @@ export default function PurchaseLink() {
                       }}
                       ref={(el) => cardRefs.current[group.key] = el}
                     >
-                      <div className="p-3 space-y-2.5">
+                      <div className="p-4 md:p-3 space-y-3 md:space-y-2.5">
                         {/* Row 1: Image + Title + Status */}
-                        <div className="flex gap-2.5 items-start">
+                        <div className="flex gap-3 md:gap-2.5 items-start">
                           {/* Image */}
                           <Dialog>
                             <DialogTrigger asChild>
-                              <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
+                              <div className="flex-shrink-0 w-16 h-16 md:w-12 md:h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
                                 {group.image?.image_url ? (
                                   <img src={group.image.image_url} alt="" className="w-full h-full object-contain p-0.5" loading="lazy" />
                                 ) : (
@@ -542,21 +542,21 @@ export default function PurchaseLink() {
                           </Dialog>
 
                           {/* Title + Identifiers */}
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <p className="text-xs font-medium leading-snug line-clamp-2">{group.title}</p>
-                            <div className="flex flex-wrap gap-1 items-center">
+                          <div className="flex-1 min-w-0 space-y-1.5 md:space-y-1">
+                            <p className="text-sm md:text-xs font-medium leading-snug line-clamp-2">{group.title}</p>
+                            <div className="flex flex-wrap gap-1.5 md:gap-1 items-center">
                               {group.asin && (
-                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge variant="outline" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {group.asin}
                                 </Badge>
                               )}
                               {group.skuCode && (
-                                <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge variant="outline" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {group.skuCode}
                                 </Badge>
                               )}
                               {group.poNumbers.map(po => (
-                                <Badge key={po} variant="secondary" className="text-[9px] font-mono px-1 py-0 h-4">
+                                <Badge key={po} variant="secondary" className="text-[10px] md:text-[9px] font-mono px-1.5 md:px-1 py-0.5 md:py-0 h-5 md:h-4">
                                   {po}
                                 </Badge>
                               ))}
@@ -566,15 +566,15 @@ export default function PurchaseLink() {
 
                           {/* Qty badge */}
                           <div className="flex-shrink-0 text-center">
-                            <div className="bg-muted rounded-md px-2 py-1">
-                              <span className="text-sm font-bold">{group.totalRequired}</span>
-                              <p className="text-[9px] text-muted-foreground leading-none">req</p>
+                            <div className="bg-muted rounded-md px-2.5 md:px-2 py-1.5 md:py-1">
+                              <span className="text-base md:text-sm font-bold">{group.totalRequired}</span>
+                              <p className="text-[10px] md:text-[9px] text-muted-foreground leading-none">req</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Row 2: Inventory Metrics */}
-                        <div className="grid grid-cols-6 gap-1 text-center">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 md:gap-1 text-center">
                           {[
                             { label: 'Shipped', value: group.shipped },
                             { label: 'FBA', value: group.fba },
@@ -583,22 +583,22 @@ export default function PurchaseLink() {
                             { label: 'InStock', value: group.instock },
                             { label: 'Pending', value: Math.max(0, group.totalRequired - group.printed - group.instock) },
                           ].map(m => (
-                            <div key={m.label} className="bg-muted/50 rounded px-1 py-1">
-                              <span className="text-[11px] font-bold block leading-none">{m.value}</span>
-                              <span className="text-[8px] text-muted-foreground leading-none">{m.label}</span>
+                            <div key={m.label} className="bg-muted/50 rounded px-1.5 md:px-1 py-1.5 md:py-1">
+                              <span className="text-sm md:text-[11px] font-bold block leading-none">{m.value}</span>
+                              <span className="text-[10px] md:text-[8px] text-muted-foreground leading-none">{m.label}</span>
                             </div>
                           ))}
                         </div>
 
                         {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
-                          <div className="space-y-1.5">
-                            <div className="grid grid-cols-2 gap-1.5">
+                          <div className="space-y-2 md:space-y-1.5">
+                            <div className="grid grid-cols-2 gap-2 md:gap-1.5">
                               <Select
                                 value={supplierData || ''}
                                 onValueChange={(val) => updateItemSupplier(group.key, val)}
                               >
-                                <SelectTrigger className="h-7 text-[11px]">
+                                <SelectTrigger className="h-9 md:h-7 text-xs md:text-[11px]">
                                   <SelectValue placeholder="Select supplier" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -615,10 +615,10 @@ export default function PurchaseLink() {
                                 placeholder={`Qty (${group.totalRequired})`}
                                 value={itemQtys.get(group.key) || ''}
                                 onChange={e => setItemQtys(prev => new Map(prev).set(group.key, e.target.value))}
-                                className="h-7 text-[11px] pl-2 pr-1"
+                                className="h-9 md:h-7 text-xs md:text-[11px] pl-2 pr-1"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-1.5 items-center">
+                            <div className="grid grid-cols-2 gap-2 md:gap-1.5 items-center">
                               <Input
                                 type="number"
                                 step="0.01"
@@ -626,13 +626,13 @@ export default function PurchaseLink() {
                                 placeholder="Unit cost (SAR)"
                                 value={itemCosts.get(group.key) || ''}
                                 onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
-                                className="h-7 text-[11px] pl-2 pr-1"
+                                className="h-9 md:h-7 text-xs md:text-[11px] pl-2 pr-1"
                               />
                               {(() => {
                                 const cost = parseFloat(itemCosts.get(group.key) || '0');
                                 const qty = parseInt(itemQtys.get(group.key) || '') || group.totalRequired;
                                 return cost > 0 ? (
-                                  <span className="text-[10px] text-muted-foreground">
+                                  <span className="text-xs md:text-[10px] text-muted-foreground font-medium">
                                     Total: {(cost * qty).toFixed(2)} SAR
                                   </span>
                                 ) : null;
@@ -643,22 +643,22 @@ export default function PurchaseLink() {
 
                         {/* Row 4: Actions */}
                         {status !== 'not_available' ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 md:gap-1.5">
                             {status === 'purchased' ? (
-                              <div className="flex items-center gap-1.5 text-xs font-medium ml-auto" style={{ color: 'hsl(var(--chart-2, 142 71% 45%))' }}>
-                                <CheckCircle2 className="h-4 w-4" />
+                              <div className="flex items-center gap-1.5 text-sm md:text-xs font-medium ml-auto" style={{ color: 'hsl(var(--chart-2, 142 71% 45%))' }}>
+                                <CheckCircle2 className="h-5 w-5 md:h-4 md:w-4" />
                                 Done ({group.totalPurchased}/{group.totalRequired})
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1.5 ml-auto">
+                              <div className="flex items-center gap-2 md:gap-1.5 ml-auto w-full md:w-auto">
                                 <Button
                                   variant="default"
                                   size="sm"
                                   onClick={() => handleOpenBarcodeScanner(group.key)}
                                   disabled={isSaving}
-                                  className="h-8 gap-1 text-xs px-3"
+                                  className="h-10 md:h-8 gap-1.5 md:gap-1 text-sm md:text-xs px-4 md:px-3 flex-1 md:flex-none"
                                 >
-                                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanLine className="h-3.5 w-3.5" />}
+                                  {isSaving ? <Loader2 className="h-4 w-4 md:h-3.5 md:w-3.5 animate-spin" /> : <ScanLine className="h-4 w-4 md:h-3.5 md:w-3.5" />}
                                   Scan Done
                                 </Button>
                                 <Button
@@ -669,9 +669,9 @@ export default function PurchaseLink() {
                                     handleSaveGroup(group.key, qty);
                                   }}
                                   disabled={isSaving}
-                                  className="h-8 gap-1 text-xs px-3"
+                                  className="h-10 md:h-8 gap-1.5 md:gap-1 text-sm md:text-xs px-4 md:px-3 flex-1 md:flex-none"
                                 >
-                                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                  {isSaving ? <Loader2 className="h-4 w-4 md:h-3.5 md:w-3.5 animate-spin" /> : <CheckCircle2 className="h-4 w-4 md:h-3.5 md:w-3.5" />}
                                   Done
                                 </Button>
                                 <Button
@@ -679,9 +679,9 @@ export default function PurchaseLink() {
                                   size="sm"
                                   onClick={() => handleMarkNotAvailable(group.key)}
                                   disabled={isSaving}
-                                  className="h-8 gap-1 text-xs px-2 text-destructive hover:text-destructive"
+                                  className="h-10 md:h-8 gap-1 text-sm md:text-xs px-3 md:px-2 text-destructive hover:text-destructive"
                                 >
-                                  <XCircle className="h-3.5 w-3.5" />
+                                  <XCircle className="h-4 w-4 md:h-3.5 md:w-3.5" />
                                   N/A
                                 </Button>
                               </div>
@@ -689,15 +689,15 @@ export default function PurchaseLink() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-destructive font-medium flex items-center gap-1">
-                              <XCircle className="h-3.5 w-3.5" /> Not Available
+                            <span className="text-sm md:text-xs text-destructive font-medium flex items-center gap-1">
+                              <XCircle className="h-4 w-4 md:h-3.5 md:w-3.5" /> Not Available
                             </span>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleUndoNotAvailable(group.key)}
                               disabled={isSaving}
-                              className="h-7 px-2 text-xs ml-auto"
+                              className="h-9 md:h-7 px-3 md:px-2 text-sm md:text-xs ml-auto"
                             >
                               {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                               <span className="ml-1">Undo</span>
