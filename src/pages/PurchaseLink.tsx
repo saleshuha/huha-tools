@@ -573,7 +573,24 @@ export default function PurchaseLink() {
                           </div>
                         </div>
 
-                        {/* Row 2: Per-item supplier + cost (only for pending/partial) */}
+                        {/* Row 2: Inventory Metrics */}
+                        <div className="grid grid-cols-6 gap-1 text-center">
+                          {[
+                            { label: 'Shipped', value: group.shipped },
+                            { label: 'FBA', value: group.fba },
+                            { label: 'PO Req', value: group.totalRequired },
+                            { label: 'Printed', value: group.printed },
+                            { label: 'InStock', value: group.instock },
+                            { label: 'Pending', value: Math.max(0, group.totalRequired - group.printed - group.instock) },
+                          ].map(m => (
+                            <div key={m.label} className="bg-muted/50 rounded px-1 py-1">
+                              <span className="text-[11px] font-bold block leading-none">{m.value}</span>
+                              <span className="text-[8px] text-muted-foreground leading-none">{m.label}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Row 3: Per-item supplier + cost (only for pending/partial) */}
                         {(status === 'pending' || status === 'partial') && (
                           <div className="grid grid-cols-3 gap-1.5">
                             <div className="relative">
