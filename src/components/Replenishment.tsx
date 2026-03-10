@@ -2617,22 +2617,22 @@ export function Replenishment() {
                            'Non-Source Items'
                 });
               }}>
-                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
-                  <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                    <ShoppingCart className="w-4 h-4" />
-                    Ready to Order ({pendingItems.length})
+                <TabsList className="grid w-full grid-cols-4 h-9 p-0.5 bg-muted rounded-lg">
+                  <TabsTrigger value="critical" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    Ready <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{filteredReadyToOrder.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                    <Truck className="w-4 h-4" />
-                    Ordered ({orderedItems.length})
+                  <TabsTrigger value="ordered" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Truck className="w-3.5 h-3.5" />
+                    Ordered <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{orderedItems.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
-                    <AlertTriangle className="w-4 h-4" />
-                    Out of Stock ({outOfStockItems.length})
+                  <TabsTrigger value="out-of-stock" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    OOS <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{outOfStockItems.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="non-source" className="flex items-center gap-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
-                    <XCircle className="w-4 h-4" />
-                    Non-Source ({nonSourceItems.length})
+                  <TabsTrigger value="non-source" className="text-xs gap-1.5 rounded-md data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Non-Src <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/50">{nonSourceItems.length}</Badge>
                   </TabsTrigger>
                 </TabsList>
 
