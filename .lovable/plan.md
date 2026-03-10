@@ -1,52 +1,52 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+# Replenishment Page: Bug Fixes and UI Redesign
 
-### What We'll Build
+## Bugs Found
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+### Bug 1: Dead code in `removeRestockedOrderedItems`
+Lines 1475-1483 create `asinUpdates` array but never execute it. Only `skuUpdates` (a duplicate copy) runs. The `asinUpdates` should be included in the `Promise.all`.
 
-### How It Works
+### Bug 2: Select All uses wrong filter
+`pendingItems` is filtered by the legacy `searchTerm` state, but the Ready to Order tab displays items filtered by `readyToOrderSearch`. This means "Select All" can select items not visible on screen, and vice versa.
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+### Bug 3: Bulk action count mismatch
+The "Order from Sunsky" and "Mark as Ordered" buttons reference `pendingItems` for building the order, which uses the legacy search filter. Should use `filteredReadyToOrder` to match what the user sees.
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+## UI Redesign Plan
 
-### Data Flow
+The current page has inconsistent styling compared to the project's established design system (compact `h-8` controls, `text-xs` typography, `glass-container` surfaces, gradient headers). The redesign will align with the existing theme:
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+### 1. Calculation Status Card
+- Already well-styled, keep as-is.
 
-### Files to Modify
+### 2. Config Selector Row
+- Wrap in a `ToolbarBar`-style card with compact `h-8` controls and `text-xs` labels to match the project pattern.
 
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+### 3. Main Tabs (Restock Management / Daily Orders Queue)
+- Replace the current large `h-14` tab triggers with compact `h-10` styled tabs matching the design system.
+- Remove redundant nested card header ("Restock Management" title appears twice).
 
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### 4. Inner Tabs (Ready to Order / Ordered / Out of Stock / Non-Source)
+- Style with compact rounded tabs, remove hardcoded colors (`bg-blue-600`, `bg-destructive`, `bg-orange-600`) in favor of primary-based active states.
+- Add subtle count badges with themed backgrounds.
+
+### 5. Item Cards (`ReplenishmentItemCard`)
+- Tighten padding from `p-4` to `p-3`.
+- Use `text-xs` for all metrics, smaller image (`w-16 h-16`).
+- Use themed icon colors (`text-primary`) consistently.
+- Add subtle background gradient matching card patterns.
+
+### 6. Search Bars and Bulk Actions
+- Search bars: `h-8` height, `text-xs` placeholder.
+- Bulk action bar: Compact layout with `h-8` buttons.
+
+### 7. Summary Badges
+- Use `CompactStatBar`-style pill badges for counts.
+
+## Files to Edit
+- `src/components/Replenishment.tsx` — Fix 3 bugs, update tab styling, remove redundant headers, align config row
+- `src/components/replenishment/ReplenishmentItemCard.tsx` — Compact card layout, themed styling
+- `src/components/replenishment/ReplenishmentSearchBar.tsx` — Compact `h-8` search input
+- `src/pages/Replenishment.tsx` — Minor cleanup (already well-structured)
 
