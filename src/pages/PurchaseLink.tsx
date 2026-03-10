@@ -378,11 +378,10 @@ export default function PurchaseLink() {
     overscan: 5,
   });
 
-  const updateItemSupplier = (key: string, field: 'name' | 'order', value: string) => {
+  const updateItemSupplier = (key: string, value: string) => {
     setItemSuppliers(prev => {
       const next = new Map(prev);
-      const current = next.get(key) || { name: '', order: '' };
-      next.set(key, { ...current, [field]: value });
+      next.set(key, value);
       return next;
     });
   };
