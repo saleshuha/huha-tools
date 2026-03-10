@@ -230,7 +230,7 @@ export const AsinCostHistory = () => {
                         return (
                           <TableCell key={date} className="text-center">
                             <div className="flex items-center justify-center gap-1">
-                              <span className="text-xs font-medium">${costEntry.cost.toFixed(2)}</span>
+                              <span className="text-xs font-medium">{costEntry.cost.toFixed(2)} SAR</span>
                           {trend === 'up' && <TrendingUp className="h-3 w-3 text-destructive" />}
                               {trend === 'down' && <TrendingDown className="h-3 w-3 text-primary" />}
                               {trend === 'same' && <Minus className="h-3 w-3 text-muted-foreground" />}
