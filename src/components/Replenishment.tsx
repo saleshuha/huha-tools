@@ -1761,7 +1761,8 @@ export function Replenishment() {
     }
 
     // Convert selected restock items to the format expected by SunskyOrderDialog
-    const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
+    // Use filteredReadyToOrder (what user sees) instead of pendingItems (legacy filter)
+    const selectedRestockItems = filteredReadyToOrder.filter(item => selectedItems.has(item.id));
 
     // Calculate quantities based on units sold after last restock
     const orderItems = await Promise.all(selectedRestockItems.map(async item => {
