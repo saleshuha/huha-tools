@@ -2591,32 +2591,20 @@ export function Replenishment() {
 
 
         {/* Restock Management Tab with Separate Tabs */}
-        <TabsContent value="restock" className="space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">Restock Management Dashboard</h3>
-              <p className="text-muted-foreground">Manage items that need restocking and track order status</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />
-                Export Restock Data
-              </Button>
-              <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />
-                Export Ordered Items
-              </Button>
-            </div>
+        <TabsContent value="restock" className="space-y-4 mt-4">
+          <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-card border border-border">
+            <span className="text-xs font-medium text-muted-foreground">Actions</span>
+            <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+              <Download className="w-3.5 h-3.5" />
+              Export Restock
+            </Button>
+            <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+              <Download className="w-3.5 h-3.5" />
+              Export Ordered
+            </Button>
           </div>
-          <Card className="glass-container">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Restock Management
-              </CardTitle>
-              <p className="text-muted-foreground">Manage critical stock items and track orders</p>
-            </CardHeader>
-            <CardContent>
+          <Card className="border border-border bg-card/50">
+            <CardContent className="p-4">
               <Tabs defaultValue="critical" className="w-full" onValueChange={(newTab) => {
                 trackTabChange({
                   category: 'Inventory',
