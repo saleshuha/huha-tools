@@ -56,7 +56,7 @@ export default function PurchaseLink() {
 
   // Per-item supplier + cost state
   const [itemCosts, setItemCosts] = useState<Map<string, string>>(new Map());
-  const [itemSuppliers, setItemSuppliers] = useState<Map<string, { name: string; order: string }>>(new Map());
+  const [itemSuppliers, setItemSuppliers] = useState<Map<string, string>>(new Map());
 
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
