@@ -664,7 +664,10 @@ export default function PurchaseLink() {
                                 <Button
                                   variant="secondary"
                                   size="sm"
-                                  onClick={() => handleSaveGroup(group.key)}
+                                  onClick={() => {
+                                    const qty = parseInt(itemQtys.get(group.key) || '') || group.totalRequired;
+                                    handleSaveGroup(group.key, qty);
+                                  }}
                                   disabled={isSaving}
                                   className="h-8 gap-1 text-xs px-3"
                                 >
