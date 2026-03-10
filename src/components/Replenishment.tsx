@@ -2580,9 +2580,13 @@ export function Replenishment() {
           tabTitle: newTab === 'restock' ? 'Restock Management' : 'Daily Orders Queue'
         });
       }}>
-        <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
-          <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
-          <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Daily Orders Queue</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-lg">
+          <TabsTrigger value="restock" className="text-xs font-semibold rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">
+            <Package className="w-3.5 h-3.5 mr-1.5" /> Restock Management
+          </TabsTrigger>
+          <TabsTrigger value="velocity" className="text-xs font-semibold rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">
+            <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Daily Orders Queue
+          </TabsTrigger>
         </TabsList>
 
 
