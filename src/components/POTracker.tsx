@@ -287,27 +287,33 @@ export const POTracker = () => {
     }
   }, [isPrintConfigCollapsed]);
 
-  // Load saved presets from localStorage
+  // Load saved presets from Supabase
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('poTracker_savedPresets');
-      if (stored) {
-        const presets = JSON.parse(stored);
-        setSavedPresets(presets);
+    const loadPresets = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setPresetsLoading(false); return; }
+        const { data, error } = await supabase
+          .from('po_selection_presets')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setSavedPresets((data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          poNumbers: p.po_numbers || [],
+          createdAt: p.created_at,
+          lastUsed: p.last_used,
+        })));
+      } catch (error) {
+        console.error('Failed to load saved presets:', error);
+      } finally {
+        setPresetsLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to load saved presets:', error);
-    }
+    };
+    loadPresets();
   }, []);
-
-  // Save presets to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('poTracker_savedPresets', JSON.stringify(savedPresets));
-    } catch (error) {
-      console.error('Failed to save presets:', error);
-    }
-  }, [savedPresets]);
   const [qzConnected, setQzConnected] = useState(false);
   const [disabledPOs, setDisabledPOs] = useState<Set<string>>(() => {
     try {
