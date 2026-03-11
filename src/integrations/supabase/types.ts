@@ -3033,6 +3033,36 @@ export type Database = {
           },
         ]
       }
+      po_selection_presets: {
+        Row: {
+          created_at: string
+          id: string
+          last_used: string | null
+          name: string
+          po_numbers: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_used?: string | null
+          name: string
+          po_numbers?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_used?: string | null
+          name?: string
+          po_numbers?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       po_status_history: {
         Row: {
           change_reason: string | null
