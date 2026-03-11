@@ -184,18 +184,8 @@ export const POTracker = () => {
     createdAt: string;
     lastUsed?: string;
   }
-  const [savedPresets, setSavedPresets] = useState<POSelectionPreset[]>(() => {
-    // Load saved presets from localStorage on mount
-    try {
-      const stored = localStorage.getItem('po-selection-presets');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('Failed to load saved presets:', error);
-    }
-    return [];
-  });
+  const [savedPresets, setSavedPresets] = useState<POSelectionPreset[]>([]);
+  const [presetsLoading, setPresetsLoading] = useState(true);
   const [showPresetsDialog, setShowPresetsDialog] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState('');
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
