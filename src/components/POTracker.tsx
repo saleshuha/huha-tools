@@ -7172,49 +7172,74 @@ export const POTracker = () => {
                                           </div>
                                         </Button>}
                                    
-                                   {/* Mark as Printed (without printing) */}
-                                   <Button variant="outline" size="sm" onClick={async () => {
-                                  const printQty = selectedForPrint.get(order.id) || 1;
-                                  try {
-                                    setIsPrintStatusUpdating(true);
-                                    console.group('✅ Mark as Printed');
-                                    console.log('Marking order', order.id, 'as printed with quantity:', printQty);
+                                    {/* Mark ALL as Printed (without printing) */}
+                                    <Button variant="outline" size="sm" onClick={async () => {
+                                      const availableQty = order.quantity - (order.printed_quantity || 0);
+                                      if (availableQty <= 0) return;
+                                      try {
+                                        setIsPrintStatusUpdating(true);
+                                        const newPrintedQty = order.quantity;
+                                        const { error } = await supabase.from('po_orders').update({
+                                          printed_quantity: newPrintedQty,
+                                          is_printed: true
+                                        }).eq('id', order.id);
+                                        if (error) throw error;
+                                        toast({
+                                          title: "Marked All as Printed",
+                                          description: `${availableQty} labels marked as printed for ${order.asin || order.sku_code}`
+                                        });
+                                        queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+                                        await fetchPOOrders(true);
+                                      } catch (error) {
+                                        console.error('Error marking as printed:', error);
+                                        toast({ title: "Error", description: "Failed to mark as printed", variant: "destructive" });
+                                      } finally {
+                                        setIsPrintStatusUpdating(false);
+                                      }
+                                    }} disabled={(order.quantity - (order.printed_quantity || 0)) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-green-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700 text-green-600 transition-all duration-300">
+                                      <div className="flex items-center gap-2">
+                                        {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                        <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : `Mark All (${order.quantity - (order.printed_quantity || 0)})`}</span>
+                                      </div>
+                                    </Button>
 
-                                    // Update printed quantity without actual printing
-                                    const newPrintedQty = (order.printed_quantity || 0) + printQty;
-                                    const {
-                                      error
-                                    } = await supabase.from('po_orders').update({
-                                      printed_quantity: newPrintedQty,
-                                      is_printed: true
-                                    }).eq('id', order.id);
-                                    if (error) throw error;
-                                    toast({
-                                      title: "Marked as Printed",
-                                      description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
-                                    });
-
-                                    // Trigger refresh (real-time will also update)
-                                    queryClient.invalidateQueries({
-                                      queryKey: ['po-orders']
-                                    });
-                                    await fetchPOOrders(true);
-                                    console.groupEnd();
-                                  } catch (error) {
-                                    console.error('Error marking as printed:', error);
-                                    toast({
-                                      title: "Error",
-                                      description: "Failed to mark as printed",
-                                      variant: "destructive"
-                                    });
-                                  } finally {
-                                    setIsPrintStatusUpdating(false);
-                                  }
-                                }} disabled={!selectedForPrint.has(order.id) || !selectedForPrint.get(order.id) || selectedForPrint.get(order.id) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-green-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700 text-green-600 transition-all duration-300">
-                                     <div className="flex items-center gap-2">
-                                       {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
-                                       <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : 'Mark Printed'}</span>
-                                     </div>
+                                    {/* Mark Custom Qty as Printed (without printing) */}
+                                    <Button variant="outline" size="sm" onClick={async () => {
+                                      const markQty = customPrintQuantities.get(order.id);
+                                      const availableQty = order.quantity - (order.printed_quantity || 0);
+                                      if (!markQty || markQty <= 0) {
+                                        toast({ title: "Enter quantity", description: "Please set a quantity in the Print Qty column first", variant: "destructive" });
+                                        return;
+                                      }
+                                      if (markQty > availableQty) {
+                                        toast({ title: "Invalid quantity", description: `Cannot mark ${markQty}. Only ${availableQty} remaining.`, variant: "destructive" });
+                                        return;
+                                      }
+                                      try {
+                                        setIsPrintStatusUpdating(true);
+                                        const newPrintedQty = (order.printed_quantity || 0) + markQty;
+                                        const { error } = await supabase.from('po_orders').update({
+                                          printed_quantity: newPrintedQty,
+                                          is_printed: newPrintedQty >= order.quantity
+                                        }).eq('id', order.id);
+                                        if (error) throw error;
+                                        toast({
+                                          title: "Marked as Printed",
+                                          description: `${markQty} labels marked as printed for ${order.asin || order.sku_code}`
+                                        });
+                                        queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+                                        await fetchPOOrders(true);
+                                      } catch (error) {
+                                        console.error('Error marking as printed:', error);
+                                        toast({ title: "Error", description: "Failed to mark as printed", variant: "destructive" });
+                                      } finally {
+                                        setIsPrintStatusUpdating(false);
+                                      }
+                                    }} disabled={!customPrintQuantities.get(order.id) || customPrintQuantities.get(order.id) <= 0 || (order.quantity - (order.printed_quantity || 0)) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 text-emerald-600 transition-all duration-300">
+                                      <div className="flex items-center gap-2">
+                                        {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                        <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : `Mark ${customPrintQuantities.get(order.id) || '(Set Qty)'}`}</span>
+                                      </div>
                                     </Button>
                                    </div>
                                  </TableCell>
