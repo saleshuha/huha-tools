@@ -7188,12 +7188,25 @@ export const POTracker = () => {
                                       if (availableQty <= 0) return;
                                       try {
                                         setIsPrintStatusUpdating(true);
-                                        const newPrintedQty = order.quantity;
-                                        const { error } = await supabase.from('po_orders').update({
-                                          printed_quantity: newPrintedQty,
-                                          is_printed: true
-                                        }).eq('id', order.id);
-                                        if (error) throw error;
+                                        
+                                        if (order._isConsolidated && order._consolidatedOrders && order._consolidatedOrders.length > 0) {
+                                          // Update each underlying order to its full quantity
+                                          for (const subOrder of order._consolidatedOrders) {
+                                            const subQty = subOrder.quantity || 0;
+                                            const { error } = await supabase.from('po_orders').update({
+                                              printed_quantity: subQty,
+                                              is_printed: true
+                                            }).eq('id', subOrder.id);
+                                            if (error) throw error;
+                                          }
+                                        } else {
+                                          const { error } = await supabase.from('po_orders').update({
+                                            printed_quantity: order.quantity,
+                                            is_printed: true
+                                          }).eq('id', order.id);
+                                          if (error) throw error;
+                                        }
+                                        
                                         toast({
                                           title: "Marked All as Printed",
                                           description: `${availableQty} labels marked as printed for ${order.asin || order.sku_code}`
