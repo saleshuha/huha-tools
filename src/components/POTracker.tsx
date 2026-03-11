@@ -2818,19 +2818,41 @@ export const POTracker = () => {
       });
       return;
     }
-    const newPreset: POSelectionPreset = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      poNumbers: Array.from(selectedPOsForLabels),
-      createdAt: new Date().toISOString()
+    // Save to Supabase
+    const saveToSupabase = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        const { data, error } = await supabase
+          .from('po_selection_presets')
+          .insert({
+            user_id: user.id,
+            name: name.trim(),
+            po_numbers: Array.from(selectedPOsForLabels),
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        const newPreset: POSelectionPreset = {
+          id: data.id,
+          name: data.name,
+          poNumbers: data.po_numbers || [],
+          createdAt: data.created_at,
+          lastUsed: data.last_used,
+        };
+        setSavedPresets(prev => [newPreset, ...prev]);
+        setPresetNameInput('');
+        setShowPresetsDialog(false);
+        toast({
+          title: "✅ Preset saved",
+          description: `"${name}" saved with ${selectedPOsForLabels.size} PO(s).`
+        });
+      } catch (error) {
+        console.error('Failed to save preset:', error);
+        toast({ title: "Error", description: "Failed to save preset.", variant: "destructive" });
+      }
     };
-    setSavedPresets(prev => [...prev, newPreset]);
-    setPresetNameInput('');
-    setShowPresetsDialog(false);
-    toast({
-      title: "✅ Preset saved",
-      description: `"${name}" saved with ${selectedPOsForLabels.size} PO(s).`
-    });
+    saveToSupabase();
     trackAction({
       category: 'Amazon',
       subcategory: 'PO Tracker',
@@ -2862,11 +2884,10 @@ export const POTracker = () => {
     }
     setSelectedPOsForLabels(new Set(availablePOs));
 
-    // Update last used timestamp
-    setSavedPresets(prev => prev.map(p => p.id === preset.id ? {
-      ...p,
-      lastUsed: new Date().toISOString()
-    } : p));
+    // Update last used timestamp in Supabase
+    const now = new Date().toISOString();
+    setSavedPresets(prev => prev.map(p => p.id === preset.id ? { ...p, lastUsed: now } : p));
+    supabase.from('po_selection_presets').update({ last_used: now }).eq('id', preset.id).then();
 
     // Show notification
     if (availablePOs.length === preset.poNumbers.length) {
@@ -2894,10 +2915,12 @@ export const POTracker = () => {
   }, [poOrders, toast, trackAction]);
 
   // Delete a preset
-  const deletePreset = useCallback((presetId: string) => {
+  const deletePreset = useCallback(async (presetId: string) => {
     const preset = savedPresets.find(p => p.id === presetId);
     if (!preset) return;
     setSavedPresets(prev => prev.filter(p => p.id !== presetId));
+    const { error } = await supabase.from('po_selection_presets').delete().eq('id', presetId);
+    if (error) console.error('Failed to delete preset:', error);
     toast({
       title: "Preset deleted",
       description: `"${preset.name}" has been removed.`
@@ -2914,12 +2937,11 @@ export const POTracker = () => {
   }, [savedPresets, toast, trackAction]);
 
   // Rename a preset
-  const renamePreset = useCallback((presetId: string, newName: string) => {
+  const renamePreset = useCallback(async (presetId: string, newName: string) => {
     if (!newName.trim()) return;
-    setSavedPresets(prev => prev.map(p => p.id === presetId ? {
-      ...p,
-      name: newName.trim()
-    } : p));
+    setSavedPresets(prev => prev.map(p => p.id === presetId ? { ...p, name: newName.trim() } : p));
+    const { error } = await supabase.from('po_selection_presets').update({ name: newName.trim() }).eq('id', presetId);
+    if (error) console.error('Failed to rename preset:', error);
     toast({
       title: "Preset renamed",
       description: `Preset renamed to "${newName}".`
