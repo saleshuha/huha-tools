@@ -7188,12 +7188,25 @@ export const POTracker = () => {
                                       if (availableQty <= 0) return;
                                       try {
                                         setIsPrintStatusUpdating(true);
-                                        const newPrintedQty = order.quantity;
-                                        const { error } = await supabase.from('po_orders').update({
-                                          printed_quantity: newPrintedQty,
-                                          is_printed: true
-                                        }).eq('id', order.id);
-                                        if (error) throw error;
+                                        
+                                        if (order._isConsolidated && order._consolidatedOrders && order._consolidatedOrders.length > 0) {
+                                          // Update each underlying order to its full quantity
+                                          for (const subOrder of order._consolidatedOrders) {
+                                            const subQty = subOrder.quantity || 0;
+                                            const { error } = await supabase.from('po_orders').update({
+                                              printed_quantity: subQty,
+                                              is_printed: true
+                                            }).eq('id', subOrder.id);
+                                            if (error) throw error;
+                                          }
+                                        } else {
+                                          const { error } = await supabase.from('po_orders').update({
+                                            printed_quantity: order.quantity,
+                                            is_printed: true
+                                          }).eq('id', order.id);
+                                          if (error) throw error;
+                                        }
+                                        
                                         toast({
                                           title: "Marked All as Printed",
                                           description: `${availableQty} labels marked as printed for ${order.asin || order.sku_code}`
@@ -7214,38 +7227,58 @@ export const POTracker = () => {
                                     </Button>
 
                                     {/* Mark Custom Qty as Printed (without printing) */}
-                                    <Button variant="outline" size="sm" onClick={async () => {
-                                      const markQty = customPrintQuantities.get(order.id);
-                                      const availableQty = order.quantity - (order.printed_quantity || 0);
-                                      if (!markQty || markQty <= 0) {
-                                        toast({ title: "Enter quantity", description: "Please set a quantity in the Print Qty column first", variant: "destructive" });
-                                        return;
-                                      }
-                                      if (markQty > availableQty) {
-                                        toast({ title: "Invalid quantity", description: `Cannot mark ${markQty}. Only ${availableQty} remaining.`, variant: "destructive" });
-                                        return;
-                                      }
-                                      try {
-                                        setIsPrintStatusUpdating(true);
-                                        const newPrintedQty = (order.printed_quantity || 0) + markQty;
-                                        const { error } = await supabase.from('po_orders').update({
-                                          printed_quantity: newPrintedQty,
-                                          is_printed: newPrintedQty >= order.quantity
-                                        }).eq('id', order.id);
-                                        if (error) throw error;
-                                        toast({
-                                          title: "Marked as Printed",
-                                          description: `${markQty} labels marked as printed for ${order.asin || order.sku_code}`
-                                        });
-                                        queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-                                        await fetchPOOrders(true);
-                                      } catch (error) {
-                                        console.error('Error marking as printed:', error);
-                                        toast({ title: "Error", description: "Failed to mark as printed", variant: "destructive" });
-                                      } finally {
-                                        setIsPrintStatusUpdating(false);
-                                      }
-                                    }} disabled={!customPrintQuantities.get(order.id) || customPrintQuantities.get(order.id) <= 0 || (order.quantity - (order.printed_quantity || 0)) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 text-emerald-600 transition-all duration-300">
+                                     <Button variant="outline" size="sm" onClick={async () => {
+                                       const markQty = customPrintQuantities.get(order.id);
+                                       const availableQty = order.quantity - (order.printed_quantity || 0);
+                                       if (!markQty || markQty <= 0) {
+                                         toast({ title: "Enter quantity", description: "Please set a quantity in the Print Qty column first", variant: "destructive" });
+                                         return;
+                                       }
+                                       if (markQty > availableQty) {
+                                         toast({ title: "Invalid quantity", description: `Cannot mark ${markQty}. Only ${availableQty} remaining.`, variant: "destructive" });
+                                         return;
+                                       }
+                                       try {
+                                         setIsPrintStatusUpdating(true);
+                                         
+                                         if (order._isConsolidated && order._consolidatedOrders && order._consolidatedOrders.length > 0) {
+                                           // Distribute markQty across underlying orders sequentially
+                                           let remaining = markQty;
+                                           for (const subOrder of order._consolidatedOrders) {
+                                             if (remaining <= 0) break;
+                                             const subAvailable = (subOrder.quantity || 0) - (subOrder.printed_quantity || 0);
+                                             if (subAvailable <= 0) continue;
+                                             const toMark = Math.min(remaining, subAvailable);
+                                             const newSubPrinted = (subOrder.printed_quantity || 0) + toMark;
+                                             const { error } = await supabase.from('po_orders').update({
+                                               printed_quantity: newSubPrinted,
+                                               is_printed: newSubPrinted >= (subOrder.quantity || 0)
+                                             }).eq('id', subOrder.id);
+                                             if (error) throw error;
+                                             remaining -= toMark;
+                                           }
+                                         } else {
+                                           const newPrintedQty = (order.printed_quantity || 0) + markQty;
+                                           const { error } = await supabase.from('po_orders').update({
+                                             printed_quantity: newPrintedQty,
+                                             is_printed: newPrintedQty >= order.quantity
+                                           }).eq('id', order.id);
+                                           if (error) throw error;
+                                         }
+                                         
+                                         toast({
+                                           title: "Marked as Printed",
+                                           description: `${markQty} labels marked as printed for ${order.asin || order.sku_code}`
+                                         });
+                                         queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+                                         await fetchPOOrders(true);
+                                       } catch (error) {
+                                         console.error('Error marking as printed:', error);
+                                         toast({ title: "Error", description: "Failed to mark as printed", variant: "destructive" });
+                                       } finally {
+                                         setIsPrintStatusUpdating(false);
+                                       }
+                                     }} disabled={!customPrintQuantities.get(order.id) || customPrintQuantities.get(order.id) <= 0 || (order.quantity - (order.printed_quantity || 0)) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 text-emerald-600 transition-all duration-300">
                                       <div className="flex items-center gap-2">
                                         {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                                         <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : `Mark ${customPrintQuantities.get(order.id) || '(Set Qty)'}`}</span>
