@@ -740,14 +740,6 @@ export const POTracker = () => {
     });
   }, [selectedForPrint, qzConnected, selectedPrinter]);
 
-  // Persist presets to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('po-selection-presets', JSON.stringify(savedPresets));
-    } catch (error) {
-      console.error('Failed to save presets to localStorage:', error);
-    }
-  }, [savedPresets]);
 
   // Track page view
   useEffect(() => {
