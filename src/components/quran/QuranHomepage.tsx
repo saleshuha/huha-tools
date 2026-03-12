@@ -86,47 +86,56 @@ export function QuranHomepage() {
     console.log('📖 selectedSurah changed to:', selectedSurah);
   }, [selectedSurah]);
 
-  // Show disabled state if Quran features are not enabled
+  // Show Dashboard + optional Quran tab when Quran is disabled
   if (!isQuranEnabled) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-        {/* Decorative background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
           <div className="absolute top-0 left-0 w-96 h-96 bg-primary rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary rounded-full blur-3xl" />
         </div>
 
-        <div className="container mx-auto px-4 py-8 relative">
-          <div className="max-w-2xl mx-auto text-center space-y-8 mt-32">
-            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium">The Noble Quran</span>
-            </div>
+        <div className="container mx-auto px-4 py-6 relative">
+          <Tabs defaultValue="dashboard" className="space-y-4">
+            <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
+              <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="quran" className="gap-1.5 text-xs">
+                <BookOpen className="h-3.5 w-3.5" />
+                Quran
+              </TabsTrigger>
+            </TabsList>
 
-            <h1 className="text-5xl md:text-6xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              القرآن الكريم
-            </h1>
+            <TabsContent value="dashboard">
+              <MetricsDashboard />
+            </TabsContent>
 
-            <Card className="p-12 space-y-6">
-              <div className="space-y-3">
-                <p className="text-xl font-semibold">Quran Features are Currently Disabled</p>
-                <p className="text-muted-foreground">
-                  Enable the Quran features to access surahs, verses, bookmarks, and more.
-                  <br />
-                  This prevents unnecessary API calls when you're not using this section.
-                </p>
+            <TabsContent value="quran">
+              <div className="max-w-2xl mx-auto text-center space-y-8 mt-16">
+                <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium">The Noble Quran</span>
+                </div>
+                <h1 className="text-5xl md:text-6xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  القرآن الكريم
+                </h1>
+                <Card className="p-12 space-y-6">
+                  <div className="space-y-3">
+                    <p className="text-xl font-semibold">Quran Features are Currently Disabled</p>
+                    <p className="text-muted-foreground">
+                      Enable the Quran features to access surahs, verses, bookmarks, and more.
+                    </p>
+                  </div>
+                  <Button size="lg" onClick={() => setIsQuranEnabled(true)} className="gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Enable Quran Features
+                  </Button>
+                </Card>
               </div>
-
-              <Button
-                size="lg"
-                onClick={() => setIsQuranEnabled(true)}
-                className="gap-2"
-              >
-                <BookOpen className="h-5 w-5" />
-                Enable Quran Features
-              </Button>
-            </Card>
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
