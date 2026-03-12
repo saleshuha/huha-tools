@@ -1,14 +1,13 @@
 import React, { useMemo } from 'react';
-import { useDashboardMetrics, DashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import {
   Package, PackageCheck, PackageX, ShoppingCart, AlertTriangle,
-  TrendingUp, Printer, Clock, MapPin, Truck, RefreshCw, Download,
-  BarChart3, Globe, Layers, Box, CircleDot, Repeat, CalendarPlus,
-  DollarSign
+  TrendingUp, Printer, Clock, Truck, RefreshCw, Download,
+  BarChart3, Layers, Box, CircleDot, Repeat, DollarSign,
+  Zap, Activity, CalendarClock, CreditCard, CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -16,10 +15,10 @@ import { toast } from 'sonner';
 
 const CHART_COLORS = [
   'hsl(var(--primary))',
-  'hsl(var(--chart-2, 160 60% 45%))',
-  'hsl(var(--chart-3, 30 80% 55%))',
-  'hsl(var(--chart-4, 280 65% 60%))',
-  'hsl(var(--chart-5, 340 75% 55%))',
+  'hsl(142 71% 45%)',
+  'hsl(38 92% 50%)',
+  'hsl(280 65% 60%)',
+  'hsl(340 75% 55%)',
   'hsl(var(--destructive))',
 ];
 
@@ -38,9 +37,7 @@ function MetricPill({ icon: Icon, label, value, highlight, onClick }: MetricPill
       onClick={onClick}
       disabled={!onClick}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all ${
-        highlight
-          ? 'bg-primary/10 text-primary font-semibold'
-          : 'bg-muted/50 text-foreground'
+        highlight ? 'bg-primary/10 text-primary font-semibold' : 'bg-muted/50 text-foreground'
       } ${onClick ? 'hover:bg-muted/80 cursor-pointer' : 'cursor-default'}`}
     >
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -54,219 +51,301 @@ function MetricPill({ icon: Icon, label, value, highlight, onClick }: MetricPill
 
 function SectionSkeleton() {
   return (
-    <div className="space-y-3">
-      <Skeleton className="h-6 w-48" />
-      <div className="flex gap-2 flex-wrap">
-        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-32" />)}
-      </div>
-    </div>
+    <Card>
+      <CardHeader className="pb-3"><Skeleton className="h-5 w-40" /></CardHeader>
+      <CardContent>
+        <div className="flex gap-2 flex-wrap">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-32" />)}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function exportMetricsCSV(m: DashboardMetrics) {
-  const lines = [
-    'Section,Metric,Value',
-    // Inventory
-    `Inventory,Total Items,${m.inventory.total}`,
-    `Inventory,In Stock,${m.inventory.inStock}`,
-    `Inventory,Out of Stock,${m.inventory.outOfStock}`,
-    `Inventory,Sold,${m.inventory.sold}`,
-    `Inventory,Ordered,${m.inventory.ordered}`,
-    `Inventory,Damaged,${m.inventory.damaged}`,
-    `Inventory,Low Stock (1-5),${m.inventory.lowStock}`,
-    `Inventory,New (7d),${m.inventory.newLast7Days}`,
-    `Inventory,Total Quantity,${m.inventory.totalQuantity}`,
-    ...Object.entries(m.inventory.countryBreakdown).map(([k, v]) => `Inventory,Country: ${k},${v}`),
-    // PO
-    `Amazon PO,Total POs,${m.po.totalPOs}`,
-    `Amazon PO,Total Items,${m.po.totalItems}`,
-    `Amazon PO,Total Qty,${m.po.totalQty}`,
-    `Amazon PO,Printed,${m.po.printedCount}`,
-    `Amazon PO,Pending,${m.po.pendingCount}`,
-    `Amazon PO,Sunsky Sourced,${m.po.sunskySourced}`,
-    `Amazon PO,Total Cost,${m.po.totalCost.toFixed(2)}`,
-    ...Object.entries(m.po.locationBreakdown).map(([k, v]) => `Amazon PO,Location: ${k},${v.count} items / ${v.qty} qty`),
-    // Replenishment
-    `Replenishment,Items Needing Restock,${m.replenishment.itemsNeedingRestock}`,
-    `Replenishment,Eligible for Restock,${m.replenishment.eligibleForRestock}`,
-    `Replenishment,Avg Days Since Restock,${m.replenishment.avgDaysSinceRestock}`,
-  ];
-
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dashboard-metrics-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.success('Metrics exported');
+function formatCurrency(val: number) {
+  if (val >= 1000) return `$${(val / 1000).toFixed(1)}k`;
+  return `$${val.toFixed(0)}`;
 }
 
 export function MetricsDashboard() {
-  const { data: metrics, isLoading, refetch, isFetching } = useDashboardMetrics();
+  const {
+    inventoryMetrics,
+    velocityMetrics,
+    poMetrics,
+    fulfillmentMetrics,
+    isLoadingInventory,
+    isLoadingSecondary,
+    refreshAll,
+  } = useDashboardMetrics();
   const navigate = useNavigate();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-  const statusChartData = useMemo(() => {
-    if (!metrics) return [];
-    return Object.entries(metrics.inventory.statusBreakdown)
-      .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name: name.replace(/_/g, ' '), value }));
-  }, [metrics]);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try { await refreshAll(); } finally { setIsRefreshing(false); }
+  };
 
-  const locationChartData = useMemo(() => {
-    if (!metrics) return [];
-    return Object.entries(metrics.po.locationBreakdown)
-      .map(([name, { qty }]) => ({ name: name.length > 15 ? name.slice(0, 15) + '…' : name, qty }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 8);
-  }, [metrics]);
+  const handleExport = () => {
+    const lines = ['Section,Metric,Value'];
+    if (inventoryMetrics) {
+      lines.push(
+        `Inventory,Total ASINs,${inventoryMetrics.totalAsins}`,
+        `Inventory,Total SKUs,${inventoryMetrics.totalSkus}`,
+        `Inventory,In Stock,${inventoryMetrics.inStockCount}`,
+        `Inventory,Out of Stock,${inventoryMetrics.outOfStockCount}`,
+        `Inventory,Total ASIN Units,${inventoryMetrics.totalAsinUnits}`,
+        `Inventory,Total SKU Units,${inventoryMetrics.totalSkuUnits}`,
+        `Inventory,Sold ASIN (30d),${inventoryMetrics.soldAsinUnits}`,
+        `Inventory,Sold SKU (30d),${inventoryMetrics.soldSkuUnits}`,
+        `Inventory,Missing SKU,${inventoryMetrics.missingSku}`,
+        `Inventory,Missing Title,${inventoryMetrics.missingTitle}`,
+      );
+    }
+    if (velocityMetrics) {
+      lines.push(
+        `Velocity,Fast Moving,${velocityMetrics.fastMoving}`,
+        `Velocity,Medium Moving,${velocityMetrics.mediumMoving}`,
+        `Velocity,Slow Moving,${velocityMetrics.slowMoving}`,
+        `Velocity,No Sales,${velocityMetrics.noSales}`,
+        `Velocity,Week Sales,${velocityMetrics.weekSales}`,
+        `Velocity,Avg Daily Sales,${velocityMetrics.avgDailySales.toFixed(1)}`,
+      );
+    }
+    if (poMetrics) {
+      lines.push(
+        `PO,Unique POs,${poMetrics.uniquePOs}`,
+        `PO,Active Orders,${poMetrics.activeOrders}`,
+        `PO,Active Quantity,${poMetrics.activeQuantity}`,
+        `PO,Pending,${poMetrics.statusBreakdown.pending.count}`,
+        `PO,Ordered,${poMetrics.statusBreakdown.ordered.count}`,
+        `PO,Shipped,${poMetrics.statusBreakdown.shipped.count}`,
+        `PO,Delivered,${poMetrics.statusBreakdown.delivered.count}`,
+        `PO,Due This Week,${poMetrics.timeline.thisWeek}`,
+        `PO,Delayed,${poMetrics.timeline.delayed}`,
+      );
+    }
+    if (fulfillmentMetrics) {
+      lines.push(
+        `Fulfillment,Total Value,${fulfillmentMetrics.totalValue}`,
+        `Fulfillment,Paid Value,${fulfillmentMetrics.paidValue}`,
+        `Fulfillment,Pending Value,${fulfillmentMetrics.pendingValue}`,
+        `Fulfillment,Overdue Value,${fulfillmentMetrics.overdueValue}`,
+      );
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard-metrics-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Metrics exported');
+  };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 p-4">
-        <SectionSkeleton />
-        <SectionSkeleton />
-        <SectionSkeleton />
-      </div>
-    );
-  }
+  // Charts
+  const velocityChartData = useMemo(() => {
+    if (!velocityMetrics) return [];
+    return [
+      { name: 'Fast', value: velocityMetrics.fastMoving },
+      { name: 'Medium', value: velocityMetrics.mediumMoving },
+      { name: 'Slow', value: velocityMetrics.slowMoving },
+      { name: 'No Sales', value: velocityMetrics.noSales },
+    ].filter(d => d.value > 0);
+  }, [velocityMetrics]);
 
-  if (!metrics) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">Failed to load metrics. Please log in and try again.</p>
-      </Card>
-    );
-  }
-
-  const m = metrics;
+  const poStatusChartData = useMemo(() => {
+    if (!poMetrics) return [];
+    return Object.entries(poMetrics.statusBreakdown)
+      .map(([name, { count }]) => ({ name, count }))
+      .filter(d => d.count > 0);
+  }, [poMetrics]);
 
   return (
-    <div className="space-y-6">
-      {/* Header Controls */}
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Dashboard Metrics</h2>
+        <h2 className="text-lg font-bold">Dashboard Metrics</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => exportMetricsCSV(m)}>
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handleExport}>
             <Download className="h-3.5 w-3.5" />
-            Export CSV
+            Export
           </Button>
         </div>
       </div>
 
-      {/* ===== INVENTORY SECTION ===== */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package className="h-4 w-4 text-primary" />
-            Inventory Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <MetricPill icon={Layers} label="Total" value={m.inventory.total} highlight onClick={() => navigate('/inventory')} />
-            <MetricPill icon={PackageCheck} label="In Stock" value={m.inventory.inStock} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={PackageX} label="Out of Stock" value={m.inventory.outOfStock} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={ShoppingCart} label="Sold" value={m.inventory.sold} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={Clock} label="Ordered" value={m.inventory.ordered} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={AlertTriangle} label="Low Stock" value={m.inventory.lowStock} highlight={m.inventory.lowStock > 0} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={CalendarPlus} label="New (7d)" value={m.inventory.newLast7Days} onClick={() => navigate('/inventory')} />
-            <MetricPill icon={Box} label="Total Qty" value={m.inventory.totalQuantity} />
-          </div>
-
-          {/* Country breakdown pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {Object.entries(m.inventory.countryBreakdown).map(([country, count]) => (
-              <MetricPill key={country} icon={Globe} label={country} value={count} onClick={() => navigate('/inventory')} />
-            ))}
-          </div>
-
-          {/* Status Pie Chart */}
-          {statusChartData.length > 0 && (
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={statusChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {statusChartData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+      {/* ===== INVENTORY ===== */}
+      {isLoadingInventory ? <SectionSkeleton /> : inventoryMetrics && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              Inventory Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={Layers} label="ASINs" value={inventoryMetrics.totalAsins} highlight onClick={() => navigate('/inventory')} />
+              <MetricPill icon={Box} label="SKUs" value={inventoryMetrics.totalSkus} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={PackageCheck} label="In Stock" value={inventoryMetrics.inStockCount} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={PackageX} label="Out of Stock" value={inventoryMetrics.outOfStockCount} highlight={inventoryMetrics.outOfStockCount > 0} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={Package} label="ASIN Units" value={inventoryMetrics.totalAsinUnits} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={Package} label="SKU Units" value={inventoryMetrics.totalSkuUnits} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={ShoppingCart} label="Sold ASIN (30d)" value={inventoryMetrics.soldAsinUnits} onClick={() => navigate('/inventory')} />
+              <MetricPill icon={ShoppingCart} label="Sold SKU (30d)" value={inventoryMetrics.soldSkuUnits} onClick={() => navigate('/inventory')} />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            {(inventoryMetrics.missingSku > 0 || inventoryMetrics.missingTitle > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {inventoryMetrics.missingSku > 0 && <MetricPill icon={AlertTriangle} label="Missing SKU" value={inventoryMetrics.missingSku} highlight onClick={() => navigate('/inventory')} />}
+                {inventoryMetrics.missingTitle > 0 && <MetricPill icon={AlertTriangle} label="Missing Title" value={inventoryMetrics.missingTitle} highlight onClick={() => navigate('/inventory')} />}
+                {inventoryMetrics.missingImage > 0 && <MetricPill icon={AlertTriangle} label="Missing Image" value={inventoryMetrics.missingImage} onClick={() => navigate('/inventory')} />}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ===== REPLENISHMENT SECTION ===== */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Repeat className="h-4 w-4 text-primary" />
-            Replenishment
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <MetricPill icon={AlertTriangle} label="Need Restock" value={m.replenishment.itemsNeedingRestock} highlight={m.replenishment.itemsNeedingRestock > 0} onClick={() => navigate('/replenishment')} />
-            <MetricPill icon={PackageCheck} label="Eligible" value={m.replenishment.eligibleForRestock} onClick={() => navigate('/replenishment')} />
-            <MetricPill icon={Clock} label="Avg Days Since Restock" value={m.replenishment.avgDaysSinceRestock} />
-          </div>
-        </CardContent>
-      </Card>
+      {/* ===== VELOCITY / REPLENISHMENT ===== */}
+      {isLoadingSecondary ? <SectionSkeleton /> : velocityMetrics && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Repeat className="h-4 w-4 text-primary" />
+              Sales Velocity & Replenishment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={Zap} label="Fast Moving" value={velocityMetrics.fastMoving} highlight onClick={() => navigate('/replenishment')} />
+              <MetricPill icon={Activity} label="Medium" value={velocityMetrics.mediumMoving} onClick={() => navigate('/replenishment')} />
+              <MetricPill icon={Clock} label="Slow" value={velocityMetrics.slowMoving} onClick={() => navigate('/replenishment')} />
+              <MetricPill icon={PackageX} label="No Sales" value={velocityMetrics.noSales} onClick={() => navigate('/replenishment')} />
+              <MetricPill icon={TrendingUp} label="Week Sales" value={velocityMetrics.weekSales} highlight onClick={() => navigate('/replenishment')} />
+              <MetricPill icon={BarChart3} label="Avg Daily" value={velocityMetrics.avgDailySales.toFixed(1)} />
+            </div>
 
-      {/* ===== AMAZON / PO SECTION ===== */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" />
-            Amazon / Purchase Orders
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <MetricPill icon={Layers} label="Total POs" value={m.po.totalPOs} highlight onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={Box} label="Total Items" value={m.po.totalItems} onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={Package} label="Total Qty" value={m.po.totalQty} onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={Printer} label="Printed" value={m.po.printedCount} onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={Clock} label="Pending" value={m.po.pendingCount} highlight={m.po.pendingCount > 0} onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={Truck} label="Sunsky Sourced" value={m.po.sunskySourced} onClick={() => navigate('/po-tracker')} />
-            <MetricPill icon={DollarSign} label="Total Cost" value={`$${m.po.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} />
-          </div>
-
-          {/* PO Status pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {Object.entries(m.po.statusBreakdown).map(([status, count]) => (
-              <MetricPill key={status} icon={CircleDot} label={status} value={count} onClick={() => navigate('/po-tracker')} />
-            ))}
-          </div>
-
-          {/* Location Bar Chart */}
-          {locationChartData.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" /> Qty by Location
-              </p>
-              <div className="h-48">
+            {/* Velocity Pie */}
+            {velocityChartData.length > 0 && (
+              <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={locationChartData} layout="vertical" margin={{ left: 10, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} />
+                  <PieChart>
+                    <Pie data={velocityChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {velocityChartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
                     <Tooltip />
-                    <Bar dataKey="qty" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Urgent restocks */}
+            {velocityMetrics.urgentRestocks.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Top Urgent Restocks
+                </p>
+                <div className="grid gap-1">
+                  {velocityMetrics.urgentRestocks.slice(0, 5).map((item, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-muted/30">
+                      <span className="truncate max-w-[200px]">{item.title || item.asin_id}</span>
+                      <span className="font-semibold text-primary">{item.recommendation} units</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== AMAZON / PO ===== */}
+      {isLoadingSecondary ? <SectionSkeleton /> : poMetrics && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Amazon / Purchase Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={Layers} label="Unique POs" value={poMetrics.uniquePOs} highlight onClick={() => navigate('/po-tracker')} />
+              <MetricPill icon={Box} label="Active Items" value={poMetrics.activeOrders} onClick={() => navigate('/po-tracker')} />
+              <MetricPill icon={Package} label="Active Qty" value={poMetrics.activeQuantity} onClick={() => navigate('/po-tracker')} />
+            </div>
+
+            {/* Status breakdown with values */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {Object.entries(poMetrics.statusBreakdown).map(([status, { count, value }]) => (
+                <MetricPill
+                  key={status}
+                  icon={status === 'delivered' ? CheckCircle2 : status === 'shipped' ? Truck : status === 'ordered' ? Printer : CircleDot}
+                  label={`${status} (${formatCurrency(value)})`}
+                  value={count}
+                  highlight={status === 'pending' && count > 0}
+                  onClick={() => navigate('/po-tracker')}
+                />
+              ))}
+            </div>
+
+            {/* Timeline */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={CalendarClock} label="Due This Week" value={poMetrics.timeline.thisWeek} onClick={() => navigate('/po-tracker')} />
+              <MetricPill icon={CalendarClock} label="Due This Month" value={poMetrics.timeline.thisMonth} onClick={() => navigate('/po-tracker')} />
+              {poMetrics.timeline.delayed > 0 && (
+                <MetricPill icon={AlertTriangle} label="Delayed" value={poMetrics.timeline.delayed} highlight onClick={() => navigate('/po-tracker')} />
+              )}
+            </div>
+
+            {/* PO Status Bar Chart */}
+            {poStatusChartData.length > 0 && (
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={poStatusChartData} margin={{ left: 0, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== FULFILLMENT / PAYMENTS ===== */}
+      {isLoadingSecondary ? <SectionSkeleton /> : fulfillmentMetrics && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              Fulfillment & Payments
+              <span className="text-xs font-normal text-muted-foreground">({fulfillmentMetrics.creditDays}d credit)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={DollarSign} label="Total Value" value={formatCurrency(fulfillmentMetrics.totalValue)} highlight onClick={() => navigate('/amazon-orders')} />
+              <MetricPill icon={CheckCircle2} label={`Paid (${fulfillmentMetrics.paidCount})`} value={formatCurrency(fulfillmentMetrics.paidValue)} onClick={() => navigate('/amazon-orders')} />
+              <MetricPill icon={Clock} label={`Pending (${fulfillmentMetrics.pendingCount})`} value={formatCurrency(fulfillmentMetrics.pendingValue)} onClick={() => navigate('/amazon-orders')} />
+              {fulfillmentMetrics.overdueCount > 0 && (
+                <MetricPill icon={AlertTriangle} label={`Overdue (${fulfillmentMetrics.overdueCount})`} value={formatCurrency(fulfillmentMetrics.overdueValue)} highlight onClick={() => navigate('/amazon-orders')} />
+              )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            {/* Upcoming payments */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <MetricPill icon={CalendarClock} label={`Due 7d (${fulfillmentMetrics.upcomingPayments.next7Days.count})`} value={formatCurrency(fulfillmentMetrics.upcomingPayments.next7Days.value)} onClick={() => navigate('/amazon-orders')} />
+              <MetricPill icon={CalendarClock} label={`Due 30d (${fulfillmentMetrics.upcomingPayments.next30Days.count})`} value={formatCurrency(fulfillmentMetrics.upcomingPayments.next30Days.value)} onClick={() => navigate('/amazon-orders')} />
+              <MetricPill icon={CalendarClock} label={`Due 90d (${fulfillmentMetrics.upcomingPayments.next90Days.count})`} value={formatCurrency(fulfillmentMetrics.upcomingPayments.next90Days.value)} onClick={() => navigate('/amazon-orders')} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
