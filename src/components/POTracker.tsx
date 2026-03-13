@@ -2605,6 +2605,28 @@ export const POTracker = () => {
   const stableLabelsOrderRef = useRef<Map<string, number>>(new Map());
   const prevLabelsFilterKeyRef = useRef<string>('');
 
+  // Snapshot lock: freeze filtered result IDs so rows don't vanish mid-workflow
+  const lockedFilterIdsRef = useRef<Set<string> | null>(null);
+  const prevFilterValuesRef = useRef<string>('');
+
+  const hasActiveFilters = useCallback(() => {
+    return printedFilter.length > 0 ||
+      sourceFilter !== 'all' ||
+      fulfillmentFilter.length > 0 ||
+      instockFilter.length > 0 ||
+      barcodeFilter !== 'all';
+  }, [printedFilter, sourceFilter, fulfillmentFilter, instockFilter, barcodeFilter]);
+
+  const clearAllFiltersAndUnlock = useCallback(() => {
+    setPrintedFilter([]);
+    setSourceFilter('all');
+    setFulfillmentFilter([]);
+    setInstockFilter([]);
+    setBarcodeFilter('all');
+    lockedFilterIdsRef.current = null;
+    prevFilterValuesRef.current = '';
+  }, []);
+
   // Helper to preserve scroll position during pagination
   const preserveScrollAndSetPage = useCallback((setter: React.Dispatch<React.SetStateAction<number>>, newPageOrUpdater: number | ((prev: number) => number)) => {
     const savedY = window.scrollY;
