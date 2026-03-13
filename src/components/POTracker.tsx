@@ -2605,6 +2605,28 @@ export const POTracker = () => {
   const stableLabelsOrderRef = useRef<Map<string, number>>(new Map());
   const prevLabelsFilterKeyRef = useRef<string>('');
 
+  // Snapshot lock: freeze filtered result IDs so rows don't vanish mid-workflow
+  const lockedFilterIdsRef = useRef<Set<string> | null>(null);
+  const prevFilterValuesRef = useRef<string>('');
+
+  const hasActiveFilters = useCallback(() => {
+    return printedFilter.length > 0 ||
+      sourceFilter !== 'all' ||
+      fulfillmentFilter.length > 0 ||
+      instockFilter.length > 0 ||
+      barcodeFilter !== 'all';
+  }, [printedFilter, sourceFilter, fulfillmentFilter, instockFilter, barcodeFilter]);
+
+  const clearAllFiltersAndUnlock = useCallback(() => {
+    setPrintedFilter([]);
+    setSourceFilter('all');
+    setFulfillmentFilter([]);
+    setInstockFilter([]);
+    setBarcodeFilter('all');
+    lockedFilterIdsRef.current = null;
+    prevFilterValuesRef.current = '';
+  }, []);
+
   // Helper to preserve scroll position during pagination
   const preserveScrollAndSetPage = useCallback((setter: React.Dispatch<React.SetStateAction<number>>, newPageOrUpdater: number | ((prev: number) => number)) => {
     const savedY = window.scrollY;
@@ -5712,6 +5734,24 @@ export const POTracker = () => {
                     
                     {/* Filter Pills Row */}
                     <div className="flex items-center gap-3 flex-wrap p-3 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 rounded-xl border border-border/20">
+                      {/* Snapshot Lock Indicator */}
+                      {hasActiveFilters() && lockedFilterIdsRef.current && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                          <span className="text-xs font-medium text-primary">
+                            Results locked ({lockedFilterIdsRef.current.size} items)
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
+                            onClick={clearAllFiltersAndUnlock}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear & Refresh
+                          </Button>
+                        </div>
+                      )}
                       {/* Print Status Filter */}
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
@@ -6259,6 +6299,44 @@ export const POTracker = () => {
                           return false;
                         });
                       });
+
+                      // === SNAPSHOT LOCK MECHANISM ===
+                      const filtersActive = hasActiveFilters();
+                      const filterKey = JSON.stringify({ printedFilter, sourceFilter, fulfillmentFilter, instockFilter, barcodeFilter });
+
+                      if (!filtersActive) {
+                        // No filters active → clear lock
+                        lockedFilterIdsRef.current = null;
+                        prevFilterValuesRef.current = '';
+                      } else if (filterKey !== prevFilterValuesRef.current) {
+                        // Filter combination changed → reset lock so new filter evaluates fresh
+                        lockedFilterIdsRef.current = null;
+                        prevFilterValuesRef.current = filterKey;
+                      }
+
+                      if (filtersActive && !lockedFilterIdsRef.current) {
+                        // First render with these filters → snapshot the matching IDs
+                        const ids = new Set(ordersForSelectedPOs.map(o => o.id));
+                        // Also include sub-order IDs from consolidated orders
+                        ordersForSelectedPOs.forEach(o => {
+                          if ((o as any)._consolidatedOrders) {
+                            (o as any)._consolidatedOrders.forEach((sub: any) => ids.add(sub.id));
+                          }
+                        });
+                        lockedFilterIdsRef.current = ids;
+                      }
+
+                      if (filtersActive && lockedFilterIdsRef.current) {
+                        // Use locked IDs: re-filter from the full (unfiltered) set for selected POs
+                        const allUnfilteredForPOs = poOrders.filter(order => {
+                          const poMatch = selectedPOsList.includes(order.po_number);
+                          const statusMatch = order.status !== 'cancelled';
+                          return poMatch && statusMatch;
+                        });
+                        ordersForSelectedPOs = allUnfilteredForPOs.filter(
+                          o => lockedFilterIdsRef.current!.has(o.id)
+                        );
+                      }
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
                       let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
