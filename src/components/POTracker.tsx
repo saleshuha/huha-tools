@@ -6282,6 +6282,44 @@ export const POTracker = () => {
                         });
                       });
 
+                      // === SNAPSHOT LOCK MECHANISM ===
+                      const filtersActive = hasActiveFilters();
+                      const filterKey = JSON.stringify({ printedFilter, sourceFilter, fulfillmentFilter, instockFilter, barcodeFilter });
+
+                      if (!filtersActive) {
+                        // No filters active → clear lock
+                        lockedFilterIdsRef.current = null;
+                        prevFilterValuesRef.current = '';
+                      } else if (filterKey !== prevFilterValuesRef.current) {
+                        // Filter combination changed → reset lock so new filter evaluates fresh
+                        lockedFilterIdsRef.current = null;
+                        prevFilterValuesRef.current = filterKey;
+                      }
+
+                      if (filtersActive && !lockedFilterIdsRef.current) {
+                        // First render with these filters → snapshot the matching IDs
+                        const ids = new Set(ordersForSelectedPOs.map(o => o.id));
+                        // Also include sub-order IDs from consolidated orders
+                        ordersForSelectedPOs.forEach(o => {
+                          if ((o as any)._consolidatedOrders) {
+                            (o as any)._consolidatedOrders.forEach((sub: any) => ids.add(sub.id));
+                          }
+                        });
+                        lockedFilterIdsRef.current = ids;
+                      }
+
+                      if (filtersActive && lockedFilterIdsRef.current) {
+                        // Use locked IDs: re-filter from the full (unfiltered) set for selected POs
+                        const allUnfilteredForPOs = poOrders.filter(order => {
+                          const poMatch = selectedPOsList.includes(order.po_number);
+                          const statusMatch = order.status !== 'cancelled';
+                          return poMatch && statusMatch;
+                        });
+                        ordersForSelectedPOs = allUnfilteredForPOs.filter(
+                          o => lockedFilterIdsRef.current!.has(o.id)
+                        );
+                      }
+
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
                       let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
                       if (selectedPOsList.length > 1 && consolidatedViewMode === 'merged') {
