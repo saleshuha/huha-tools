@@ -5734,6 +5734,24 @@ export const POTracker = () => {
                     
                     {/* Filter Pills Row */}
                     <div className="flex items-center gap-3 flex-wrap p-3 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 rounded-xl border border-border/20">
+                      {/* Snapshot Lock Indicator */}
+                      {hasActiveFilters() && lockedFilterIdsRef.current && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                          <span className="text-xs font-medium text-primary">
+                            Results locked ({lockedFilterIdsRef.current.size} items)
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
+                            onClick={clearAllFiltersAndUnlock}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear & Refresh
+                          </Button>
+                        </div>
+                      )}
                       {/* Print Status Filter */}
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
