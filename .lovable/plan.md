@@ -1,52 +1,67 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+## Plan: Lock Filtered Results During Active Filters
 
-### What We'll Build
+### Problem
+When any column filter is active (Print Status, Source, Fulfillment, In Stock, Barcode), performing actions like "Fulfill from Stock" or "Mark as Printed" causes the underlying data to change, which re-triggers the filter logic and removes items from view mid-workflow.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+### Solution
+Implement a **snapshot lock** mechanism: when any non-default filter is active, capture the set of order IDs that matched on first filter application. Subsequent re-renders will use this locked ID set instead of re-evaluating filter predicates, so rows stay visible even after their data changes. The lock clears when all filters return to defaults.
 
-### How It Works
+### Changes
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+**File: `src/components/POTracker.tsx`**
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+1. **Add a `lockedFilterIdsRef`** (useRef) to store the set of order IDs that matched when filters were first applied — placed near `stableLabelsOrderRef` (~line 2605)
 
-### Data Flow
+2. **Add a helper** `hasActiveFilters()` that returns true if any of `printedFilter`, `sourceFilter`, `fulfillmentFilter`, `instockFilter`, or `barcodeFilter` are non-default
+
+3. **Modify the inline filtering block** (~lines 6179-6261): After all `.filter()` chains produce `ordersForSelectedPOs`, add logic:
+   - If filters are active AND `lockedFilterIdsRef` is empty → snapshot current result IDs into the ref
+   - If filters are active AND `lockedFilterIdsRef` has IDs → instead of running filter chains, use the locked IDs to filter from the full (unfiltered) PO list for the selected POs
+   - If no filters are active → clear the locked ref
+
+4. **Add a visual indicator** — a small "Locked" badge near the filter area showing results are frozen, with a "Clear & Refresh" button that resets all filters and clears the lock
+
+5. **Clear the lock** when filters change — track filter values in a ref, and if the filter *combination* changes (not the data), reset the lock so the new filter runs fresh
+
+### Technical Detail
 
 ```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
+lockedFilterIdsRef = useRef<Set<string> | null>(null)
+prevFilterValuesRef = useRef<string>('')
+
+On each render in the labels table:
+  filterKey = JSON.stringify({printedFilter, sourceFilter, fulfillmentFilter, instockFilter, barcodeFilter})
+  filtersActive = hasActiveFilters()
+  filterValuesChanged = filterKey !== prevFilterValuesRef.current
+
+  if (!filtersActive) {
+    lockedFilterIdsRef.current = null      // no filters → no lock
+  } else if (filterValuesChanged) {
+    lockedFilterIdsRef.current = null      // filter changed → re-evaluate
+    prevFilterValuesRef.current = filterKey
+  }
+
+  // Run normal filter chain...
+  ordersForSelectedPOs = [... filtered results ...]
+
+  if (filtersActive && !lockedFilterIdsRef.current) {
+    // First run with these filters → snapshot
+    lockedFilterIdsRef.current = new Set(ordersForSelectedPOs.map(o => o.id))
+    // Also store consolidated sub-order IDs
+  }
+
+  if (filtersActive && lockedFilterIdsRef.current) {
+    // Use locked IDs: take all orders for selected POs, keep only those in the lock set
+    ordersForSelectedPOs = allOrdersForSelectedPOs.filter(
+      o => lockedFilterIdsRef.current.has(o.id)
+    )
+  }
 ```
 
-### Files to Modify
+This ensures rows never vanish during a workflow session. Only changing the filter selection or clearing filters refreshes the visible set.
 
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
-
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### Files Modified
+- `src/components/POTracker.tsx` — add lock refs, modify filter block, add lock indicator UI
 
