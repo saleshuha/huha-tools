@@ -7881,5 +7881,19 @@ export const POTracker = () => {
           )}
         </DialogContent>
       </Dialog>
+      {/* Snapshot Print Preview Dialog */}
+      <SnapshotPrintPreview
+        open={snapshotPrintOpen}
+        onOpenChange={setSnapshotPrintOpen}
+        orders={ordersToDisplayRef.current}
+        findInventoryMatch={findInventoryMatch}
+        activeFilters={[
+          ...(printedFilter.length > 0 ? [{ label: 'Print Status', value: printedFilter.join(', ') }] : []),
+          ...(sourceFilter !== 'all' ? [{ label: 'Source', value: sourceFilter }] : []),
+          ...(fulfillmentFilter.length > 0 ? [{ label: 'Fulfillment', value: fulfillmentFilter.join(', ') }] : []),
+          ...(instockFilter.length > 0 ? [{ label: 'In Stock', value: instockFilter.join(', ') }] : []),
+          ...(barcodeFilter !== 'all' ? [{ label: 'Barcode', value: barcodeFilter }] : []),
+        ]}
+      />
     </div>;
 };
