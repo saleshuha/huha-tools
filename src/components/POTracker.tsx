@@ -37,6 +37,7 @@ import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel'
 import { PurchaseInvoiceList } from '@/components/po/PurchaseInvoiceList';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
+import { SnapshotPrintPreview } from '@/components/po-tracker/SnapshotPrintPreview';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
 import { POQuantityMatchingDialog } from '@/components/po/POQuantityMatchingDialog';
 import ShippedOrdersUpload from '@/components/po/ShippedOrdersUpload';
@@ -129,6 +130,7 @@ export const POTracker = () => {
   // Metrics filter state
   const [selectedMetricFilter, setSelectedMetricFilter] = useState<string | null>(null);
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
+  const [snapshotPrintOpen, setSnapshotPrintOpen] = useState(false);
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
@@ -5745,6 +5747,15 @@ export const POTracker = () => {
                             variant="ghost"
                             size="sm"
                             className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
+                            onClick={() => setSnapshotPrintOpen(true)}
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Print Preview
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
                             onClick={clearAllFiltersAndUnlock}
                           >
                             <X className="h-3 w-3 mr-1" />
@@ -7870,5 +7881,19 @@ export const POTracker = () => {
           )}
         </DialogContent>
       </Dialog>
+      {/* Snapshot Print Preview Dialog */}
+      <SnapshotPrintPreview
+        open={snapshotPrintOpen}
+        onOpenChange={setSnapshotPrintOpen}
+        orders={ordersToDisplayRef.current}
+        findInventoryMatch={findInventoryMatch}
+        activeFilters={[
+          ...(printedFilter.length > 0 ? [{ label: 'Print Status', value: printedFilter.join(', ') }] : []),
+          ...(sourceFilter !== 'all' ? [{ label: 'Source', value: sourceFilter }] : []),
+          ...(fulfillmentFilter.length > 0 ? [{ label: 'Fulfillment', value: fulfillmentFilter.join(', ') }] : []),
+          ...(instockFilter.length > 0 ? [{ label: 'In Stock', value: instockFilter.join(', ') }] : []),
+          ...(barcodeFilter !== 'all' ? [{ label: 'Barcode', value: barcodeFilter }] : []),
+        ]}
+      />
     </div>;
 };
