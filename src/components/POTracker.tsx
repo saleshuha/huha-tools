@@ -130,6 +130,7 @@ export const POTracker = () => {
   // Metrics filter state
   const [selectedMetricFilter, setSelectedMetricFilter] = useState<string | null>(null);
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
+  const [snapshotPrintOpen, setSnapshotPrintOpen] = useState(false);
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
