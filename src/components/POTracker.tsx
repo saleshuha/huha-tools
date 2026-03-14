@@ -5747,6 +5747,15 @@ export const POTracker = () => {
                             variant="ghost"
                             size="sm"
                             className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
+                            onClick={() => setSnapshotPrintOpen(true)}
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Print Preview
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
                             onClick={clearAllFiltersAndUnlock}
                           >
                             <X className="h-3 w-3 mr-1" />
