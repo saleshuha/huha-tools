@@ -6203,9 +6203,58 @@ export const POTracker = () => {
                         <TableRow className="border-b-2 border-border/30">
                           <TableHead className="w-12 font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center justify-center">
-                              <div className="p-1.5 bg-primary/10 rounded-lg">
-                                <CheckSquare className="h-4 w-4 text-primary" />
-                              </div>
+                              <Checkbox
+                                checked={(() => {
+                                  const displayOrders = ordersToDisplayRef.current;
+                                  if (displayOrders.length === 0) return false;
+                                  const allSelected = displayOrders.every(o => {
+                                    if (o._isConsolidated && o._consolidatedOrders) {
+                                      return o._consolidatedOrders.every((sub: any) => selectedForPrint.has(sub.id));
+                                    }
+                                    return selectedForPrint.has(o.id);
+                                  });
+                                  const someSelected = displayOrders.some(o => {
+                                    if (o._isConsolidated && o._consolidatedOrders) {
+                                      return o._consolidatedOrders.some((sub: any) => selectedForPrint.has(sub.id));
+                                    }
+                                    return selectedForPrint.has(o.id);
+                                  });
+                                  return allSelected ? true : someSelected ? 'indeterminate' : false;
+                                })()}
+                                onCheckedChange={(checked) => {
+                                  const displayOrders = ordersToDisplayRef.current;
+                                  const newSelected = new Map(selectedForPrint);
+                                  const newCustomQty = new Map(customPrintQuantities);
+                                  if (checked) {
+                                    displayOrders.forEach(o => {
+                                      if (o._isConsolidated && o._consolidatedOrders) {
+                                        o._consolidatedOrders.forEach((sub: any) => {
+                                          newSelected.set(sub.id, 1);
+                                        });
+                                        newCustomQty.set(o.id, 1);
+                                      } else {
+                                        newSelected.set(o.id, 1);
+                                        newCustomQty.set(o.id, 1);
+                                      }
+                                    });
+                                  } else {
+                                    displayOrders.forEach(o => {
+                                      if (o._isConsolidated && o._consolidatedOrders) {
+                                        o._consolidatedOrders.forEach((sub: any) => {
+                                          newSelected.delete(sub.id);
+                                        });
+                                        newCustomQty.delete(o.id);
+                                      } else {
+                                        newSelected.delete(o.id);
+                                        newCustomQty.delete(o.id);
+                                      }
+                                    });
+                                  }
+                                  setSelectedForPrint(newSelected);
+                                  setCustomPrintQuantities(newCustomQty);
+                                }}
+                                className="data-[state=indeterminate]:bg-primary/50"
+                              />
                             </div>
                           </TableHead>
                           <TableHead className="w-20 font-bold border-r border-border/10 bg-transparent py-4">
