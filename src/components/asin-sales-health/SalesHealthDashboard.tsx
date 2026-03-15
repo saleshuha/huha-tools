@@ -8,6 +8,8 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, Arrow
 import { AsinTrendChart } from './AsinTrendChart';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
 
+const MONTH_LABELS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 interface Props {
   data: AsinHealth[];
   loading: boolean;
