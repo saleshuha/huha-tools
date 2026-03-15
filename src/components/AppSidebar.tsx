@@ -543,6 +543,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Retail
                           </span>
+                          <NewBadge route="/po-tracker" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
