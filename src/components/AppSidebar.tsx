@@ -447,7 +447,7 @@ export function AppSidebar() {
               )}
 
               {/* Amazon Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central') || canAccessRoute('/amazon-returns-analysis') || canAccessRoute('/asin-cost-history')) && (
+              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central') || canAccessRoute('/amazon-returns-analysis') || canAccessRoute('/asin-cost-history') || canAccessRoute('/asin-sales-health')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isAmazonOpen} onOpenChange={setIsAmazonOpen}>
                     <CollapsibleTrigger asChild>
