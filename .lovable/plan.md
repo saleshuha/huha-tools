@@ -1,28 +1,52 @@
 
 
-## Fix: Fulfillment Print Preview — Print Layout
+## Bulk Push Local Inventory to Shopify (with Images)
 
-### Problem
-The `@media print` CSS in `FulfillmentPrintPreview.tsx` has several issues:
-1. The selector `.fulfillment-print-dialog` targets `DialogContent`, but Radix Dialog renders inside a portal — the `body * { visibility: hidden }` approach hides the portal overlay and the content may not be reachable by the class selector
-2. No landscape orientation set — 10 columns won't fit on portrait paper
-3. The overflow container clips content in print (max-height constraint still active)
-4. Table text too large and columns too wide for paper
-5. Dark mode colors bleed into print (badges, backgrounds)
+### What We'll Build
 
-### Changes — `src/components/po-tracker/FulfillmentPrintPreview.tsx`
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-Rewrite the `<style>` block with robust print CSS:
+### How It Works
 
-1. **Target the Radix portal**: Use `[data-radix-portal]` and `[role="dialog"]` selectors to ensure visibility through the portal
-2. **Landscape orientation**: Add `@page { size: landscape; margin: 8mm; }`
-3. **Remove overflow constraints**: Set `max-height: none`, `overflow: visible` on all scroll containers within the dialog
-4. **Compact table**: Reduce font to 7pt, tighten padding to `2px 4px`, force `white-space: nowrap` on numeric columns
-5. **Force light colors for print**: Set all text to black, backgrounds to white, badge borders to gray
-6. **Ensure full width**: `width: 100vw` on the dialog, `table-layout: fixed` with appropriate column widths
-7. **Hide dialog overlay/backdrop**: `[data-radix-portal] > [data-state] { background: transparent !important; }`
-8. **Page breaks**: `page-break-inside: avoid` on table rows
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-### Files
-- **Modified**: `src/components/po-tracker/FulfillmentPrintPreview.tsx` — rewrite print `<style>` block
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
+
+### Data Flow
+
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
+```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

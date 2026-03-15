@@ -324,26 +324,136 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
 
         <style>{`
           @media print {
+            @page { size: landscape; margin: 8mm; }
+
+            /* Hide everything */
             body * { visibility: hidden !important; }
-            .fulfillment-print-dialog,
-            .fulfillment-print-dialog * { visibility: visible !important; }
-            .fulfillment-print-dialog {
+
+            /* Show the Radix portal and dialog */
+            [data-radix-portal],
+            [data-radix-portal] *,
+            [role="dialog"],
+            [role="dialog"] * {
+              visibility: visible !important;
+            }
+
+            /* Hide the overlay/backdrop */
+            [data-radix-portal] > [data-state] {
+              background: transparent !important;
+              backdrop-filter: none !important;
+            }
+
+            /* Position the dialog for print */
+            [role="dialog"] {
               position: fixed !important;
               top: 0 !important;
               left: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
+              width: 100vw !important;
+              max-width: 100vw !important;
               max-height: none !important;
               height: auto !important;
               overflow: visible !important;
               border: none !important;
               box-shadow: none !important;
               background: white !important;
-              padding: 10mm !important;
+              color: black !important;
+              padding: 4mm !important;
+              transform: none !important;
+              border-radius: 0 !important;
             }
+
+            /* Remove scroll constraints */
+            [role="dialog"] .overflow-auto,
+            [role="dialog"] .overflow-y-auto,
+            [role="dialog"] [class*="overflow"] {
+              max-height: none !important;
+              overflow: visible !important;
+              height: auto !important;
+            }
+
+            /* Hide non-print elements */
             .no-print { display: none !important; }
-            table { font-size: 9pt !important; }
-            th, td { padding: 4px 6px !important; }
+
+            /* Compact table styling */
+            [role="dialog"] table {
+              font-size: 7pt !important;
+              width: 100% !important;
+              table-layout: fixed !important;
+              border-collapse: collapse !important;
+            }
+
+            [role="dialog"] th,
+            [role="dialog"] td {
+              padding: 2px 4px !important;
+              color: black !important;
+              background: white !important;
+              border: 0.5px solid #ccc !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+            }
+
+            /* Title column can wrap */
+            [role="dialog"] td:nth-child(4) {
+              white-space: normal !important;
+              word-break: break-word !important;
+            }
+
+            [role="dialog"] thead th {
+              background: #f0f0f0 !important;
+              font-weight: bold !important;
+              font-size: 7pt !important;
+            }
+
+            [role="dialog"] tfoot td {
+              background: #f5f5f5 !important;
+              font-weight: bold !important;
+            }
+
+            /* Force light colors on badges */
+            [role="dialog"] [class*="badge"],
+            [role="dialog"] [class*="Badge"],
+            [role="dialog"] span[class*="bg-"] {
+              background: transparent !important;
+              color: black !important;
+              border: 0.5px solid #999 !important;
+              font-size: 6pt !important;
+              padding: 0 2px !important;
+            }
+
+            /* Zebra striping */
+            [role="dialog"] tbody tr:nth-child(even) td {
+              background: #fafafa !important;
+            }
+
+            /* Page breaks */
+            [role="dialog"] tr {
+              page-break-inside: avoid !important;
+            }
+
+            /* Header styling for print */
+            .print-header {
+              border-bottom: 1px solid #ccc !important;
+              padding-bottom: 4px !important;
+              margin-bottom: 4px !important;
+            }
+
+            .print-header * {
+              color: black !important;
+            }
+
+            /* Summary stats bar */
+            [role="dialog"] .grid {
+              border: 0.5px solid #ccc !important;
+              background: #fafafa !important;
+            }
+            [role="dialog"] .grid * {
+              color: black !important;
+            }
+
+            /* Hide close button, sort icons */
+            [role="dialog"] button[class*="absolute"] { display: none !important; }
+            [role="dialog"] svg { width: 0 !important; height: 0 !important; overflow: hidden !important; }
           }
         `}</style>
       </DialogContent>
