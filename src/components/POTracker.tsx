@@ -8043,5 +8043,12 @@ export const POTracker = () => {
         eligibleOrders={bulkProcessorOrders}
         onComplete={handleBulkFulfillComplete}
       />
+      {/* Fulfillment Print Preview Dialog */}
+      <FulfillmentPrintPreview
+        open={fulfillmentPreviewOpen}
+        onOpenChange={setFulfillmentPreviewOpen}
+        orders={fulfillmentPreviewOrders}
+        findInventoryMatch={findInventoryMatch}
+      />
     </div>;
 };
