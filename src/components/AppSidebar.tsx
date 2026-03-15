@@ -872,6 +872,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Source API Documentation
                               </span>
+                              <NewBadge route="/sunsky-api-docs" />
                             </NavLink>
                           </SidebarMenuButton>}
 
