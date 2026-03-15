@@ -173,13 +173,29 @@ export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpl
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* File input */}
-        <div className="flex items-center gap-3">
+        {/* File input + header row */}
+        <div className="flex items-center gap-3 flex-wrap">
           <Input type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} className="max-w-xs" />
           {fileName && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <FileSpreadsheet className="h-3 w-3" /> {fileName}
             </span>
+          )}
+          {rawRows.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-foreground whitespace-nowrap">Header Row:</label>
+              <Select value={String(headerRow)} onValueChange={handleHeaderRowChange}>
+                <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {rawRows.slice(0, Math.min(20, rawRows.length)).map((row, i) => (
+                    <SelectItem key={i} value={String(i)}>Row {i + 1}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                {rawRows[headerRow]?.slice(0, 3).join(', ')}…
+              </span>
+            </div>
           )}
         </div>
 
