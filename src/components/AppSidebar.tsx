@@ -947,9 +947,12 @@ export function AppSidebar() {
                   >
                     <BarChart3 className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Carrefour Sales Tracker
-                      </span>
+                      <>
+                        <span className="font-medium text-sm">
+                          Carrefour Sales Tracker
+                        </span>
+                        <NewBadge route="/carrefour-payments" />
+                      </>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
