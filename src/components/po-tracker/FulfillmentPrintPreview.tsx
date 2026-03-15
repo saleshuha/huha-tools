@@ -228,10 +228,10 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                 <TableHead className="min-w-[180px]">Title</TableHead>
                 <TableHead className="min-w-[100px]">PO Number</TableHead>
                 <TableHead className="text-center w-[70px]">PO Qty</TableHead>
-                <SortableHead field="fulfilledQty" className="text-center w-[80px]">Fulfilled</SortableHead>
                 <SortableHead field="pendingQty" className="text-center w-[70px]">Pending</SortableHead>
-                <SortableHead field="serialNumber" className="min-w-[140px]">Serial #</SortableHead>
                 <SortableHead field="inStock" className="text-center w-[80px]">In-Stock</SortableHead>
+                <SortableHead field="serialNumber" className="min-w-[140px]">Serial #</SortableHead>
+                <SortableHead field="fulfilledQty" className="text-center w-[80px]">Fulfilled</SortableHead>
                 <SortableHead field="status" className="text-center w-[120px]">Status</SortableHead>
               </TableRow>
             </TableHeader>
