@@ -447,7 +447,7 @@ export function AppSidebar() {
                     >
                       <ShoppingCart className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">Shopify Sync</span>
+                        <><span className="font-medium text-sm">Shopify Sync</span><NewBadge route="/shopify-sync" /></>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
