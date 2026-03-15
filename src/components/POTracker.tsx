@@ -1087,8 +1087,8 @@ export const POTracker = () => {
     lockedFilterIdsRef.current = null;
     prevFilterValuesRef.current = '';
     setSelectedForPrint(new Map());
-    // Single invalidation — React Query handles the re-fetch
-    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    // Refresh the actual PO source used by this screen
+    fetchPOOrders(true);
     toast({ title: "Bulk Fulfillment Complete", description: "Data refreshed with latest fulfillment status." });
   };
 

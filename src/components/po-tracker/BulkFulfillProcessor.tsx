@@ -129,6 +129,40 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
     return await response.json();
   };
 
+  const waitForTaskResult = async (taskId: string, timeoutMs = 90000) => {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const { data, error } = await supabase
+        .from('background_tasks')
+        .select('status, metadata')
+        .eq('id', taskId)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(`Unable to check fulfillment task: ${error.message}`);
+      }
+
+      if (data?.status === 'completed') {
+        return { ok: true as const, error: null as string | null };
+      }
+
+      if (data?.status === 'failed') {
+        return {
+          ok: false as const,
+          error: (data.metadata as any)?.error || 'Fulfillment task failed',
+        };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+
+    return {
+      ok: false as const,
+      error: 'Fulfillment task timeout. Please retry.',
+    };
+  };
+
   const startProcessing = async () => {
     setPhase('processing');
     cancelledRef.current = false;
@@ -150,7 +184,9 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
       setCurrentIndex(i);
 
       try {
-        let data, error;
+        let data: any;
+        let error: any;
+
         try {
           const result = await supabase.functions.invoke('fulfill-from-stock', {
             body: {
@@ -180,10 +216,16 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
           }
         }
 
+        let taskError: string | null = null;
+        if (!error && data?.taskId) {
+          const taskResult = await waitForTaskResult(data.taskId);
+          taskError = taskResult.ok ? null : taskResult.error;
+        }
+
         updatedItems[i] = {
           ...updatedItems[i],
-          status: error ? 'failed' : 'success',
-          error: error?.message,
+          status: error || taskError ? 'failed' : 'success',
+          error: error?.message || taskError || undefined,
         };
       } catch (err: any) {
         updatedItems[i] = {
