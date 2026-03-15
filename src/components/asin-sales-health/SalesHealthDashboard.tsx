@@ -130,15 +130,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                   Status <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
                 <TableHead className="text-xs">Trend</TableHead>
-                {last12Months.map((m, i) => (
-                  <TableHead
-                    key={`${m.year}-${m.month}`}
-                    className={`text-xs text-right whitespace-nowrap ${i === last12Months.length - 3 ? 'border-r-2 border-primary/30' : ''}`}
-                  >
-                    {MONTH_LABELS[m.month]}<br />
-                    <span className="text-[9px] text-muted-foreground">{m.year}</span>
-                  </TableHead>
-                ))}
+                <TableHead className="text-xs">Monthly Shipped (12mo)</TableHead>
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('changePercent')}>
                   Δ% <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
