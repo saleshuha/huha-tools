@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown } from 'lucide-react';
-import { AsinTrendChart } from './AsinTrendChart';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
 
 const MONTH_LABELS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -23,15 +22,21 @@ const STATUS_CONFIG: Record<HealthStatus, { label: string; icon: any; badgeClass
   new: { label: 'New', icon: Sparkles, badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
 };
 
-type SortKey = 'asin' | 'status' | 'recentAvg' | 'changePercent' | 'totalShipped';
+const ROW_HIGHLIGHT: Record<HealthStatus, string> = {
+  growing: 'bg-green-50/50 dark:bg-green-950/10',
+  declining: 'bg-orange-50/50 dark:bg-orange-950/10',
+  inactive: 'bg-red-50/30 dark:bg-red-950/10',
+  stable: '',
+  new: '',
+};
+
+type SortKey = 'asin' | 'status' | 'recentQty' | 'priorQty' | 'changePercent' | 'totalShipped';
 
 export function SalesHealthDashboard({ data, loading }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('changePercent');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-  const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
 
   // Compute the last 12 calendar months from all data
   const last12Months = useMemo(() => {
@@ -43,14 +48,24 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     return sorted.slice(-12);
   }, [data]);
 
-  // Helper to get qty for a given ASIN at a specific month
   const getQty = (item: AsinHealth, year: number, month: number) => {
     const found = item.monthlyData.find(m => m.year === year && m.month === month);
     return found ? found.qty : 0;
   };
 
+  // Compute recent (last 3) and prior (3 before that) qty sums
+  const getRecentPrior = (item: AsinHealth) => {
+    const recent3 = last12Months.slice(-3);
+    const prior3 = last12Months.slice(-6, -3);
+    const recentQty = recent3.reduce((s, m) => s + getQty(item, m.year, m.month), 0);
+    const priorQty = prior3.reduce((s, m) => s + getQty(item, m.year, m.month), 0);
+    return { recentQty, priorQty };
+  };
+
+  const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
+
   const filtered = useMemo(() => {
-    let result = data;
+    let result = data.map(item => ({ ...item, ...getRecentPrior(item) }));
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(r => r.asin.toLowerCase().includes(q) || r.title?.toLowerCase().includes(q) || r.sku?.toLowerCase().includes(q));
@@ -62,13 +77,14 @@ export function SalesHealthDashboard({ data, loading }: Props) {
       let cmp = 0;
       if (sortKey === 'asin') cmp = a.asin.localeCompare(b.asin);
       else if (sortKey === 'status') cmp = a.status.localeCompare(b.status);
-      else if (sortKey === 'recentAvg') cmp = a.recentAvg - b.recentAvg;
+      else if (sortKey === 'recentQty') cmp = a.recentQty - b.recentQty;
+      else if (sortKey === 'priorQty') cmp = a.priorQty - b.priorQty;
       else if (sortKey === 'changePercent') cmp = a.changePercent - b.changePercent;
       else if (sortKey === 'totalShipped') cmp = a.totalShipped - b.totalShipped;
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return result;
-  }, [data, search, statusFilter, sortKey, sortDir]);
+  }, [data, search, statusFilter, sortKey, sortDir, last12Months]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -122,15 +138,18 @@ export function SalesHealthDashboard({ data, loading }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs cursor-pointer" onClick={() => toggleSort('asin')}>
-                  ASIN <ArrowUpDown className="h-3 w-3 inline" />
+                  Product <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
-                <TableHead className="text-xs">SKU</TableHead>
-                <TableHead className="text-xs">Title</TableHead>
                 <TableHead className="text-xs cursor-pointer" onClick={() => toggleSort('status')}>
                   Status <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
-                <TableHead className="text-xs">Trend</TableHead>
                 <TableHead className="text-xs">Monthly Shipped (12mo)</TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('priorQty')}>
+                  Prior 3mo <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('recentQty')}>
+                  Recent 3mo <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('changePercent')}>
                   Δ% <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
@@ -144,36 +163,80 @@ export function SalesHealthDashboard({ data, loading }: Props) {
               {filtered.map(item => {
                 const cfg = STATUS_CONFIG[item.status];
                 const Icon = cfg.icon;
+                const rowHighlight = ROW_HIGHLIGHT[item.status] || '';
+
+                // Delta background color
+                const deltaClass = item.changePercent > 20
+                  ? 'bg-green-100/60 dark:bg-green-900/20'
+                  : item.changePercent < -20
+                    ? 'bg-orange-100/60 dark:bg-orange-900/20'
+                    : '';
+
                 return (
-                  <TableRow key={item.asin}>
-                    <TableCell className="text-xs font-mono">{item.asin}</TableCell>
-                    <TableCell className="text-xs">{item.sku || '-'}</TableCell>
-                    <TableCell className="text-xs max-w-[180px] truncate">{item.title || '-'}</TableCell>
+                  <TableRow key={item.asin} className={rowHighlight}>
+                    {/* Merged Product Column */}
+                    <TableCell className="py-2 max-w-[220px]">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-medium text-foreground">{item.asin}</span>
+                          {item.sku && (
+                            <span className="text-[10px] text-muted-foreground">· {item.sku}</span>
+                          )}
+                        </div>
+                        {item.title && (
+                          <span className="text-[10px] text-muted-foreground truncate leading-tight">{item.title}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge className={`text-[10px] gap-1 ${cfg.badgeClass}`}>
                         <Icon className="h-3 w-3" /> {cfg.label}
                       </Badge>
                     </TableCell>
-                    <TableCell><AsinTrendChart data={item} maxQty={maxQty} /></TableCell>
+                    {/* Monthly grid + inline trend bars */}
                     <TableCell className="p-1">
-                      <div className="grid grid-cols-6 gap-x-0 gap-y-0 min-w-[240px]">
-                        {last12Months.map((m, i) => {
-                          const qty = getQty(item, m.year, m.month);
-                          const isRecent = i >= last12Months.length - 3;
-                          const isQuarterEnd = (i + 1) % 3 === 0 && i < last12Months.length - 1;
-                          return (
-                            <div
-                              key={`${m.year}-${m.month}`}
-                              className={`flex flex-col items-center px-1 py-0.5 ${isRecent ? 'bg-primary/5 rounded' : ''} ${isQuarterEnd ? 'border-r border-border' : ''}`}
-                            >
-                              <span className="text-[9px] text-muted-foreground leading-none">{MONTH_LABELS[m.month]}</span>
-                              <span className={`text-[10px] font-mono leading-tight ${qty === 0 ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>{qty}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="flex flex-col gap-1">
+                        <div className="grid grid-cols-6 gap-x-0 gap-y-0 min-w-[240px]">
+                          {last12Months.map((m, i) => {
+                            const qty = getQty(item, m.year, m.month);
+                            const isRecent = i >= last12Months.length - 3;
+                            const isQuarterEnd = (i + 1) % 3 === 0 && i < last12Months.length - 1;
+                            return (
+                              <div
+                                key={`${m.year}-${m.month}`}
+                                className={`flex flex-col items-center px-1 py-0.5 ${isRecent ? 'bg-primary/5 rounded' : ''} ${isQuarterEnd ? 'border-r border-border' : ''}`}
+                              >
+                                <span className="text-[9px] text-muted-foreground leading-none">{MONTH_LABELS[m.month]}</span>
+                                <span className={`text-[10px] font-mono leading-tight ${qty === 0 ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>{qty}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Inline mini trend bars */}
+                        <div className="flex items-end gap-[2px] h-4 min-w-[240px] px-0.5">
+                          {last12Months.map((m, i) => {
+                            const qty = getQty(item, m.year, m.month);
+                            const h = Math.max(1, (qty / maxQty) * 16);
+                            const barColor = qty === 0
+                              ? 'bg-muted'
+                              : item.status === 'growing' ? 'bg-green-500'
+                              : item.status === 'declining' ? 'bg-orange-500'
+                              : item.status === 'inactive' ? 'bg-destructive'
+                              : 'bg-primary';
+                            return (
+                              <div
+                                key={`bar-${m.year}-${m.month}`}
+                                className={`flex-1 rounded-t ${barColor}`}
+                                style={{ height: `${h}px` }}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className={`text-xs text-right font-medium ${item.changePercent > 0 ? 'text-green-600' : item.changePercent < 0 ? 'text-orange-600' : ''}`}>
+                    <TableCell className="text-xs text-right font-mono">{item.priorQty}</TableCell>
+                    <TableCell className="text-xs text-right font-mono font-medium">{item.recentQty}</TableCell>
+                    <TableCell className={`text-xs text-right font-medium rounded ${deltaClass} ${item.changePercent > 0 ? 'text-green-600' : item.changePercent < 0 ? 'text-orange-600' : ''}`}>
                       {item.changePercent > 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
                     </TableCell>
                     <TableCell className="text-xs text-right">{item.totalShipped.toLocaleString()}</TableCell>

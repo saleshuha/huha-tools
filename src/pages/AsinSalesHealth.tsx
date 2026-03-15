@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Activity, ChevronDown, Upload } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAsinSalesHealth } from '@/hooks/useAsinSalesHealth';
 import { HealthSummaryCards } from '@/components/asin-sales-health/HealthSummaryCards';
 import { UploadCalendar } from '@/components/asin-sales-health/UploadCalendar';
@@ -14,6 +15,7 @@ export default function AsinSalesHealth() {
   const [country, setCountry] = useState('UAE');
   const [year, setYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const { locks, loading, asinHealthData, summary, uploadMonthlyData, unlockMonth } = useAsinSalesHealth(country);
 
@@ -50,24 +52,37 @@ export default function AsinSalesHealth() {
       {/* Summary Cards */}
       <HealthSummaryCards summary={summary} />
 
-      {/* Calendar + Upload */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <UploadCalendar
-          locks={locks}
-          onSelectMonth={(y, m) => setSelectedMonth(m)}
-          onUnlock={(y, m) => unlockMonth(y, m, country)}
-          selectedYear={year}
-        />
-        {selectedMonth && (
-          <MonthlyUploadPanel
-            selectedYear={year}
-            selectedMonth={selectedMonth}
-            country={country}
-            onUpload={uploadMonthlyData}
-            isLocked={isMonthLocked(year, selectedMonth)}
-          />
-        )}
-      </div>
+      {/* Collapsible Upload Section */}
+      <Collapsible open={uploadOpen} onOpenChange={setUploadOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full justify-between h-9 text-xs">
+            <span className="flex items-center gap-2">
+              <Upload className="h-3.5 w-3.5" />
+              Upload Monthly Data
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${uploadOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <UploadCalendar
+              locks={locks}
+              onSelectMonth={(y, m) => setSelectedMonth(m)}
+              onUnlock={(y, m) => unlockMonth(y, m, country)}
+              selectedYear={year}
+            />
+            {selectedMonth && (
+              <MonthlyUploadPanel
+                selectedYear={year}
+                selectedMonth={selectedMonth}
+                country={country}
+                onUpload={uploadMonthlyData}
+                isLocked={isMonthLocked(year, selectedMonth)}
+              />
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Health Dashboard */}
       <SalesHealthDashboard data={asinHealthData} loading={loading} />
