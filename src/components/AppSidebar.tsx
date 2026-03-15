@@ -756,6 +756,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Noon Orders Tracking
                           </span>
+                          <NewBadge route="/noon-order-tracking" />
                         </NavLink>
                       </SidebarMenuButton>}
 
