@@ -129,6 +129,40 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
     return await response.json();
   };
 
+  const waitForTaskResult = async (taskId: string, timeoutMs = 90000) => {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const { data, error } = await supabase
+        .from('background_tasks')
+        .select('status, metadata')
+        .eq('id', taskId)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(`Unable to check fulfillment task: ${error.message}`);
+      }
+
+      if (data?.status === 'completed') {
+        return { ok: true as const, error: null as string | null };
+      }
+
+      if (data?.status === 'failed') {
+        return {
+          ok: false as const,
+          error: (data.metadata as any)?.error || 'Fulfillment task failed',
+        };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+
+    return {
+      ok: false as const,
+      error: 'Fulfillment task timeout. Please retry.',
+    };
+  };
+
   const startProcessing = async () => {
     setPhase('processing');
     cancelledRef.current = false;
