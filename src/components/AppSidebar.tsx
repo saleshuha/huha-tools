@@ -471,7 +471,7 @@ export function AppSidebar() {
                     >
                       <Banknote className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">Market Purchases</span>
+                        <><span className="font-medium text-sm">Market Purchases</span><NewBadge route="/market-purchases" /></>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
