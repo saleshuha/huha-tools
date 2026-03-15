@@ -851,6 +851,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Source Order Tracking
                               </span>
+                              <NewBadge route="/sunsky-order-tracking" />
                             </NavLink>
                           </SidebarMenuButton>}
 
