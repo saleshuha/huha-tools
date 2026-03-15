@@ -399,6 +399,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Instock Inventory
                             </span>
+                            <NewBadge route="/inventory" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
