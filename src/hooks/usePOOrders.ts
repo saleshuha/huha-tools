@@ -339,14 +339,14 @@ export const usePOOrders = () => {
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
-      setLoadingStatus('Failed to load PO orders');
-      setPOOrders([]); // Clear orders on error
+      setLoadingStatus('Failed to load PO orders (showing previous data)');
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch PO orders",
+        title: "Refresh failed",
+        description: error instanceof Error ? `${error.message} — showing last loaded data.` : "Failed to fetch PO orders — showing last loaded data.",
         variant: "destructive"
       });
     } finally {
+      isFetchingPOOrdersRef.current = false;
       setTimeout(() => {
         setIsLoading(false);
         setLoadingProgress(0);
