@@ -1003,7 +1003,6 @@ export function AppSidebar() {
                               {item.title}
                             </span>
                             <NewBadge route={item.url} />
-                            </span>
                           </NavLink>
                         </SidebarMenuButton>
                       ))}
