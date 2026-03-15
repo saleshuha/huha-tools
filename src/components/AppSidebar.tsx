@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote, Activity } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -207,7 +207,7 @@ export function AppSidebar() {
   }
 
   const isAmazonSectionActive = () => {
-    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader") || isActive("/amazon-returns-analysis") || isActive("/asin-cost-history")
+    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader") || isActive("/amazon-returns-analysis") || isActive("/asin-cost-history") || isActive("/asin-sales-health")
   }
 
   const isNoonSectionActive = () => {
@@ -447,7 +447,7 @@ export function AppSidebar() {
               )}
 
               {/* Amazon Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central') || canAccessRoute('/amazon-returns-analysis') || canAccessRoute('/asin-cost-history')) && (
+              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central') || canAccessRoute('/amazon-returns-analysis') || canAccessRoute('/asin-cost-history') || canAccessRoute('/asin-sales-health')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isAmazonOpen} onOpenChange={setIsAmazonOpen}>
                     <CollapsibleTrigger asChild>
@@ -619,6 +619,29 @@ export function AppSidebar() {
                             <DollarSign className="h-4 w-4 flex-shrink-0 opacity-75" />
                             <span className="font-medium text-xs">
                               ASIN Cost History
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+
+                      {/* ASIN Sales Health */}
+                      {canAccessRoute('/asin-sales-health') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/asin-sales-health")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/asin-sales-health" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <Activity className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              ASIN Sales Health
                             </span>
                           </NavLink>
                         </SidebarMenuButton>

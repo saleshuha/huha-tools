@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      amazon_monthly_sales: {
+        Row: {
+          asin: string
+          country: string
+          created_at: string
+          id: string
+          month: number
+          shipped_qty: number
+          sku: string | null
+          title: string | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          asin: string
+          country?: string
+          created_at?: string
+          id?: string
+          month: number
+          shipped_qty?: number
+          sku?: string | null
+          title?: string | null
+          user_id: string
+          year: number
+        }
+        Update: {
+          asin?: string
+          country?: string
+          created_at?: string
+          id?: string
+          month?: number
+          shipped_qty?: number
+          sku?: string | null
+          title?: string | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      amazon_monthly_upload_locks: {
+        Row: {
+          country: string
+          id: string
+          locked_at: string
+          month: number
+          total_asins: number | null
+          total_qty: number | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          country: string
+          id?: string
+          locked_at?: string
+          month: number
+          total_asins?: number | null
+          total_qty?: number | null
+          user_id: string
+          year: number
+        }
+        Update: {
+          country?: string
+          id?: string
+          locked_at?: string
+          month?: number
+          total_asins?: number | null
+          total_qty?: number | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       amazon_returns_data: {
         Row: {
           asin: string
