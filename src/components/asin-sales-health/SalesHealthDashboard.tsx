@@ -8,6 +8,8 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, Arrow
 import { AsinTrendChart } from './AsinTrendChart';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
 
+const MONTH_LABELS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 interface Props {
   data: AsinHealth[];
   loading: boolean;
@@ -30,6 +32,22 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
+
+  // Compute the last 12 calendar months from all data
+  const last12Months = useMemo(() => {
+    const allMonths = new Set<string>();
+    data.forEach(d => d.monthlyData.forEach(m => allMonths.add(`${m.year}-${m.month}`)));
+    const sorted = Array.from(allMonths)
+      .map(k => { const [y, m] = k.split('-').map(Number); return { year: y, month: m, num: y * 12 + m }; })
+      .sort((a, b) => a.num - b.num);
+    return sorted.slice(-12);
+  }, [data]);
+
+  // Helper to get qty for a given ASIN at a specific month
+  const getQty = (item: AsinHealth, year: number, month: number) => {
+    const found = item.monthlyData.find(m => m.year === year && m.month === month);
+    return found ? found.qty : 0;
+  };
 
   const filtered = useMemo(() => {
     let result = data;
@@ -111,12 +129,18 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                 <TableHead className="text-xs cursor-pointer" onClick={() => toggleSort('status')}>
                   Status <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
-                <TableHead className="text-xs">Trend (12mo)</TableHead>
-                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('recentAvg')}>
-                  Avg (3mo) <ArrowUpDown className="h-3 w-3 inline" />
-                </TableHead>
+                <TableHead className="text-xs">Trend</TableHead>
+                {last12Months.map((m, i) => (
+                  <TableHead
+                    key={`${m.year}-${m.month}`}
+                    className={`text-xs text-right whitespace-nowrap ${i === last12Months.length - 3 ? 'border-r-2 border-primary/30' : ''}`}
+                  >
+                    {MONTH_LABELS[m.month]}<br />
+                    <span className="text-[9px] text-muted-foreground">{m.year}</span>
+                  </TableHead>
+                ))}
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('changePercent')}>
-                  Change % <ArrowUpDown className="h-3 w-3 inline" />
+                  Δ% <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('totalShipped')}>
                   Total <ArrowUpDown className="h-3 w-3 inline" />
@@ -139,7 +163,17 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell><AsinTrendChart data={item} maxQty={maxQty} /></TableCell>
-                    <TableCell className="text-xs text-right">{item.recentAvg.toFixed(0)}</TableCell>
+                    {last12Months.map((m, i) => {
+                      const qty = getQty(item, m.year, m.month);
+                      return (
+                        <TableCell
+                          key={`${m.year}-${m.month}`}
+                          className={`text-xs text-right font-mono ${qty === 0 ? 'text-muted-foreground' : ''} ${i === last12Months.length - 3 ? 'border-r-2 border-primary/30' : ''}`}
+                        >
+                          {qty}
+                        </TableCell>
+                      );
+                    })}
                     <TableCell className={`text-xs text-right font-medium ${item.changePercent > 0 ? 'text-green-600' : item.changePercent < 0 ? 'text-orange-600' : ''}`}>
                       {item.changePercent > 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
                     </TableCell>
