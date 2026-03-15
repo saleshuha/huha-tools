@@ -919,9 +919,12 @@ export function AppSidebar() {
                   >
                     <Tag className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Label Designer
-                      </span>
+                      <>
+                        <span className="font-medium text-sm">
+                          Label Designer
+                        </span>
+                        <NewBadge route="/label-designer" />
+                      </>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
