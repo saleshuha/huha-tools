@@ -168,6 +168,12 @@ export const usePOOrders = () => {
 
   // Fetch PO orders - restored working version with progressive loading
   const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
+    if (isFetchingPOOrdersRef.current) {
+      console.log('⏭️ fetchPOOrders skipped: another fetch is already in progress');
+      return;
+    }
+
+    isFetchingPOOrdersRef.current = true;
     console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
     setIsLoading(true);
     setLoadingProgress(0);
@@ -191,24 +197,26 @@ export const usePOOrders = () => {
       setLoadingProgress(10);
       setLoadingStatus('Fetching Sunsky SKUs...');
 
-      // Fetch ALL Sunsky SKUs first (they're typically fewer)
-      const { data: sunskySKUs, error: skuError } = await supabase
+      // Fetch ALL Sunsky SKUs first (non-fatal if this query times out)
+      const { data: sunskySKUsData, error: skuError } = await supabase
         .from('sunsky_skus')
         .select('*')
         .eq('user_id', user.id);
 
+      const sunskySKUs = Array.isArray(sunskySKUsData) ? sunskySKUsData : [];
+
       if (skuError) {
-        console.error('❌ Error fetching Sunsky SKUs:', skuError);
-        throw skuError;
+        console.error('⚠️ Error fetching Sunsky SKUs (continuing without SKU join):', skuError);
+      } else {
+        console.log(`✅ Loaded ${sunskySKUs.length || 0} Sunsky SKUs`);
       }
 
-      console.log(`✅ Loaded ${sunskySKUs?.length || 0} Sunsky SKUs`);
       setLoadingProgress(30);
       setLoadingStatus('Fetching PO orders...');
 
       // Create SKU map for faster lookups
       const skuMap = new Map();
-      (sunskySKUs || []).forEach((sku: any) => {
+      sunskySKUs.forEach((sku: any) => {
         skuMap.set(sku.sku_code, sku);
       });
 
