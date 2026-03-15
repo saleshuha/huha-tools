@@ -423,6 +423,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Sales & Replenishment
                             </span>
+                            <NewBadge route="/replenishment" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
