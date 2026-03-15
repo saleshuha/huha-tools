@@ -206,7 +206,16 @@ async function processFulfillment(
     const newQuantity = inventoryItem.quantity - quantity;
     const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${originalQuantity}\nFulfilled on: ${new Date().toISOString()}`;
 
-    // Step 3: Update PO status to closed (only for the specific ASIN)
+    // Step 3: Update PO status to closed (normalized ASIN match)
+    const normalizedAsin = (asin || '').trim().toUpperCase();
+    const matchingPoIds = poRecords
+      .filter((po: any) => (po.asin || '').trim().toUpperCase() === normalizedAsin)
+      .map((po: any) => po.id);
+
+    if (matchingPoIds.length === 0) {
+      throw new Error(`PO rows not found for normalized ASIN: ${asin || 'N/A'}`);
+    }
+
     const { error: updateError } = await supabaseClient
       .from('po_orders')
       .update({
@@ -214,12 +223,11 @@ async function processFulfillment(
         notes: notes,
         updated_at: new Date().toISOString(),
       })
-      .eq('po_number', poNumber)
       .eq('user_id', userId)
-      .eq('asin', asin);
+      .in('id', matchingPoIds);
 
     if (updateError) throw updateError;
-    console.log('✅ PO status updated to closed');
+    console.log('✅ PO status updated to closed for rows:', matchingPoIds.length);
 
     // Step 4: Update inventory quantity and sync status
     const { error: invUpdateError } = await supabaseClient
