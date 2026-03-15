@@ -778,6 +778,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             FBPI Orders
                           </span>
+                          <NewBadge route="/noon-fbpi" />
                         </NavLink>
                       </SidebarMenuButton>}
                     </CollapsibleContent>
