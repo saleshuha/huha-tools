@@ -261,14 +261,14 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                     <span className="text-xs font-mono font-semibold">{order._poQty}</span>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={`text-xs font-mono font-semibold ${order._fulfilledQty > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                      {order._fulfilledQty}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
                     <span className={`text-xs font-mono font-semibold ${order._pendingQty > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
                       {order._pendingQty}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className={`text-xs font-mono ${order._inStockQty > 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-muted/50 text-muted-foreground'}`}>
+                      {order._inStockQty}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {order._serialNumbers.length > 0 ? (
@@ -289,9 +289,9 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className={`text-xs font-mono ${order._inStockQty > 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-muted/50 text-muted-foreground'}`}>
-                      {order._inStockQty}
-                    </Badge>
+                    <span className={`text-xs font-mono font-semibold ${order._fulfilledQty > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      {order._fulfilledQty}
+                    </span>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className={`text-[10px] gap-1 ${statusBadge(order._fulfillmentStatus)}`}>
