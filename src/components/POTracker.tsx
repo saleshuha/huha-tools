@@ -8023,5 +8023,12 @@ export const POTracker = () => {
         results={bulkFulfillResults}
         timestamp={bulkFulfillTimestamp}
       />
+      {/* Bulk Fulfill Processor Dialog */}
+      <BulkFulfillProcessor
+        open={bulkProcessorOpen}
+        onOpenChange={setBulkProcessorOpen}
+        eligibleOrders={bulkProcessorOrders}
+        onComplete={handleBulkFulfillComplete}
+      />
     </div>;
 };
