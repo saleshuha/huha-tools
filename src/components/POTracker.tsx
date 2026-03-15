@@ -1025,7 +1025,165 @@ export const POTracker = () => {
     }
   };
 
-  // Delete all PO orders for fresh upload
+  // Handle bulk fulfill from stock for selected items
+  const handleBulkFulfillFromStock = async () => {
+    const displayOrders = ordersToDisplayRef.current;
+    // Get all selected order IDs (from selectedForPrint map)
+    const selectedIds = new Set(selectedForPrint.keys());
+    if (selectedIds.size === 0) {
+      toast({ title: "No items selected", description: "Select items to fulfill from stock.", variant: "destructive" });
+      return;
+    }
+
+    // Build list of orders to process — only those with in-stock inventory
+    const eligibleOrders: { order: POOrder; match: any; pendingQty: number }[] = [];
+    
+    for (const displayOrder of displayOrders) {
+      if (displayOrder._isConsolidated && displayOrder._consolidatedOrders) {
+        // For consolidated: check if any sub-order is selected
+        const hasSelected = displayOrder._consolidatedOrders.some((o: any) => selectedIds.has(o.id));
+        if (!hasSelected) continue;
+        
+        for (const subOrder of displayOrder._consolidatedOrders) {
+          if (!selectedIds.has(subOrder.id)) continue;
+          const match = findInventoryMatch(subOrder.asin, subOrder.sunsky_sku?.sku_code, subOrder.sku_code, subOrder.model_number, subOrder.sunsky_sku);
+          if (match && match.status === 'in-stock' && match.quantity > 0) {
+            const pending = Math.max(0, (subOrder.quantity || 0) - (subOrder.printed_quantity || 0));
+            if (pending > 0) {
+              eligibleOrders.push({ order: subOrder, match, pendingQty: pending });
+            }
+          }
+        }
+      } else {
+        if (!selectedIds.has(displayOrder.id)) continue;
+        const match = findInventoryMatch(displayOrder.asin, displayOrder.sunsky_sku?.sku_code, displayOrder.sku_code, displayOrder.model_number, displayOrder.sunsky_sku);
+        if (match && match.status === 'in-stock' && match.quantity > 0) {
+          const pending = Math.max(0, (displayOrder.quantity || 0) - (displayOrder.printed_quantity || 0));
+          if (pending > 0) {
+            eligibleOrders.push({ order: displayOrder, match, pendingQty: pending });
+          }
+        }
+      }
+    }
+
+    if (eligibleOrders.length === 0) {
+      toast({ title: "No eligible items", description: "None of the selected items have in-stock inventory with pending quantities.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkFulfilling(true);
+    setBulkFulfillProgress({ current: 0, total: eligibleOrders.length });
+    const results: BulkFulfillResult[] = [];
+    let remainingStock = new Map<string, number>(); // Track stock depletion across items with same ASIN
+
+    for (let i = 0; i < eligibleOrders.length; i++) {
+      const { order, match, pendingQty } = eligibleOrders[i];
+      setBulkFulfillProgress({ current: i + 1, total: eligibleOrders.length });
+      
+      const asinKey = (order.asin || '').toUpperCase();
+      const stockBefore = remainingStock.has(asinKey) ? remainingStock.get(asinKey)! : match.quantity;
+      const fulfillQty = Math.min(stockBefore, pendingQty);
+      
+      if (fulfillQty <= 0) {
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: 0,
+          instock_before: stockBefore,
+          instock_after: stockBefore,
+          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
+          success: false,
+          error: 'Insufficient stock',
+        });
+        continue;
+      }
+
+      try {
+        // Call the existing fulfill-from-stock edge function
+        let data, error;
+        try {
+          const result = await supabase.functions.invoke('fulfill-from-stock', {
+            body: {
+              poNumber: order.po_number,
+              quantity: fulfillQty,
+              asin: order.asin,
+              title: order.title,
+              originalQuantity: order.quantity,
+            }
+          });
+          data = result.data;
+          error = result.error;
+        } catch (invokeError: any) {
+          error = invokeError;
+        }
+
+        if (error) {
+          // Try fallback
+          try {
+            data = await fulfillWithFallback(order.po_number, fulfillQty, {
+              asin: order.asin,
+              title: order.title,
+              quantity: order.quantity,
+            });
+            error = null;
+          } catch (fallbackError: any) {
+            // Both failed
+          }
+        }
+
+        const stockAfter = Math.max(0, stockBefore - fulfillQty);
+        remainingStock.set(asinKey, stockAfter);
+
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: error ? 0 : fulfillQty,
+          instock_before: stockBefore,
+          instock_after: error ? stockBefore : stockAfter,
+          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
+          success: !error,
+          error: error?.message,
+        });
+      } catch (err: any) {
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: 0,
+          instock_before: stockBefore,
+          instock_after: stockBefore,
+          serial_numbers: [],
+          success: false,
+          error: err?.message || 'Unknown error',
+        });
+      }
+    }
+
+    setIsBulkFulfilling(false);
+    setBulkFulfillResults(results);
+    setBulkFulfillTimestamp(new Date());
+    setBulkFulfillOpen(true);
+
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    fetchPOOrders(true);
+
+    const successCount = results.filter(r => r.success).length;
+    toast({
+      title: `Bulk Fulfillment Complete`,
+      description: `${successCount}/${results.length} items fulfilled successfully.`,
+    });
+  };
+
+
   const handleDeleteAllPO = async () => {
     await deletePOOrders();
   };
