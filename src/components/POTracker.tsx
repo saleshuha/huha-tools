@@ -38,6 +38,7 @@ import { PurchaseInvoiceList } from '@/components/po/PurchaseInvoiceList';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { SnapshotPrintPreview } from '@/components/po-tracker/SnapshotPrintPreview';
+import { BulkFulfillSummary, BulkFulfillResult } from '@/components/po-tracker/BulkFulfillSummary';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
 import { POQuantityMatchingDialog } from '@/components/po/POQuantityMatchingDialog';
 import ShippedOrdersUpload from '@/components/po/ShippedOrdersUpload';
@@ -131,6 +132,11 @@ export const POTracker = () => {
   const [selectedMetricFilter, setSelectedMetricFilter] = useState<string | null>(null);
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
   const [snapshotPrintOpen, setSnapshotPrintOpen] = useState(false);
+  const [bulkFulfillOpen, setBulkFulfillOpen] = useState(false);
+  const [bulkFulfillResults, setBulkFulfillResults] = useState<BulkFulfillResult[]>([]);
+  const [bulkFulfillTimestamp, setBulkFulfillTimestamp] = useState<Date>(new Date());
+  const [isBulkFulfilling, setIsBulkFulfilling] = useState(false);
+  const [bulkFulfillProgress, setBulkFulfillProgress] = useState({ current: 0, total: 0 });
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
@@ -1019,7 +1025,165 @@ export const POTracker = () => {
     }
   };
 
-  // Delete all PO orders for fresh upload
+  // Handle bulk fulfill from stock for selected items
+  const handleBulkFulfillFromStock = async () => {
+    const displayOrders = ordersToDisplayRef.current;
+    // Get all selected order IDs (from selectedForPrint map)
+    const selectedIds = new Set(selectedForPrint.keys());
+    if (selectedIds.size === 0) {
+      toast({ title: "No items selected", description: "Select items to fulfill from stock.", variant: "destructive" });
+      return;
+    }
+
+    // Build list of orders to process — only those with in-stock inventory
+    const eligibleOrders: { order: POOrder; match: any; pendingQty: number }[] = [];
+    
+    for (const displayOrder of displayOrders) {
+      if (displayOrder._isConsolidated && displayOrder._consolidatedOrders) {
+        // For consolidated: check if any sub-order is selected
+        const hasSelected = displayOrder._consolidatedOrders.some((o: any) => selectedIds.has(o.id));
+        if (!hasSelected) continue;
+        
+        for (const subOrder of displayOrder._consolidatedOrders) {
+          if (!selectedIds.has(subOrder.id)) continue;
+          const match = findInventoryMatch(subOrder.asin, subOrder.sunsky_sku?.sku_code, subOrder.sku_code, subOrder.model_number, subOrder.sunsky_sku);
+          if (match && match.status === 'in-stock' && match.quantity > 0) {
+            const pending = Math.max(0, (subOrder.quantity || 0) - (subOrder.printed_quantity || 0));
+            if (pending > 0) {
+              eligibleOrders.push({ order: subOrder, match, pendingQty: pending });
+            }
+          }
+        }
+      } else {
+        if (!selectedIds.has(displayOrder.id)) continue;
+        const match = findInventoryMatch(displayOrder.asin, displayOrder.sunsky_sku?.sku_code, displayOrder.sku_code, displayOrder.model_number, displayOrder.sunsky_sku);
+        if (match && match.status === 'in-stock' && match.quantity > 0) {
+          const pending = Math.max(0, (displayOrder.quantity || 0) - (displayOrder.printed_quantity || 0));
+          if (pending > 0) {
+            eligibleOrders.push({ order: displayOrder, match, pendingQty: pending });
+          }
+        }
+      }
+    }
+
+    if (eligibleOrders.length === 0) {
+      toast({ title: "No eligible items", description: "None of the selected items have in-stock inventory with pending quantities.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkFulfilling(true);
+    setBulkFulfillProgress({ current: 0, total: eligibleOrders.length });
+    const results: BulkFulfillResult[] = [];
+    let remainingStock = new Map<string, number>(); // Track stock depletion across items with same ASIN
+
+    for (let i = 0; i < eligibleOrders.length; i++) {
+      const { order, match, pendingQty } = eligibleOrders[i];
+      setBulkFulfillProgress({ current: i + 1, total: eligibleOrders.length });
+      
+      const asinKey = (order.asin || '').toUpperCase();
+      const stockBefore = remainingStock.has(asinKey) ? remainingStock.get(asinKey)! : match.quantity;
+      const fulfillQty = Math.min(stockBefore, pendingQty);
+      
+      if (fulfillQty <= 0) {
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: 0,
+          instock_before: stockBefore,
+          instock_after: stockBefore,
+          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
+          success: false,
+          error: 'Insufficient stock',
+        });
+        continue;
+      }
+
+      try {
+        // Call the existing fulfill-from-stock edge function
+        let data, error;
+        try {
+          const result = await supabase.functions.invoke('fulfill-from-stock', {
+            body: {
+              poNumber: order.po_number,
+              quantity: fulfillQty,
+              asin: order.asin,
+              title: order.title,
+              originalQuantity: order.quantity,
+            }
+          });
+          data = result.data;
+          error = result.error;
+        } catch (invokeError: any) {
+          error = invokeError;
+        }
+
+        if (error) {
+          // Try fallback
+          try {
+            data = await fulfillWithFallback(order.po_number, fulfillQty, {
+              asin: order.asin,
+              title: order.title,
+              quantity: order.quantity,
+            });
+            error = null;
+          } catch (fallbackError: any) {
+            // Both failed
+          }
+        }
+
+        const stockAfter = Math.max(0, stockBefore - fulfillQty);
+        remainingStock.set(asinKey, stockAfter);
+
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: error ? 0 : fulfillQty,
+          instock_before: stockBefore,
+          instock_after: error ? stockBefore : stockAfter,
+          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
+          success: !error,
+          error: error?.message,
+        });
+      } catch (err: any) {
+        results.push({
+          asin: order.asin,
+          title: order.title,
+          sku_code: order.sku_code,
+          po_number: order.po_number,
+          requested_qty: pendingQty,
+          fulfilled_qty: 0,
+          instock_before: stockBefore,
+          instock_after: stockBefore,
+          serial_numbers: [],
+          success: false,
+          error: err?.message || 'Unknown error',
+        });
+      }
+    }
+
+    setIsBulkFulfilling(false);
+    setBulkFulfillResults(results);
+    setBulkFulfillTimestamp(new Date());
+    setBulkFulfillOpen(true);
+
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    fetchPOOrders(true);
+
+    const successCount = results.filter(r => r.success).length;
+    toast({
+      title: `Bulk Fulfillment Complete`,
+      description: `${successCount}/${results.length} items fulfilled successfully.`,
+    });
+  };
+
+
   const handleDeleteAllPO = async () => {
     await deletePOOrders();
   };
@@ -5756,6 +5920,25 @@ export const POTracker = () => {
                             variant="ghost"
                             size="sm"
                             className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
+                            disabled={isBulkFulfilling || selectedForPrint.size === 0}
+                            onClick={handleBulkFulfillFromStock}
+                          >
+                            {isBulkFulfilling ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Fulfilling {bulkFulfillProgress.current}/{bulkFulfillProgress.total}...
+                              </>
+                            ) : (
+                              <>
+                                <Warehouse className="h-3 w-3 mr-1" />
+                                Bulk Fulfill ({selectedForPrint.size})
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
                             onClick={clearAllFiltersAndUnlock}
                           >
                             <X className="h-3 w-3 mr-1" />
@@ -6039,9 +6222,58 @@ export const POTracker = () => {
                         <TableRow className="border-b-2 border-border/30">
                           <TableHead className="w-12 font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center justify-center">
-                              <div className="p-1.5 bg-primary/10 rounded-lg">
-                                <CheckSquare className="h-4 w-4 text-primary" />
-                              </div>
+                              <Checkbox
+                                checked={(() => {
+                                  const displayOrders = ordersToDisplayRef.current;
+                                  if (displayOrders.length === 0) return false;
+                                  const allSelected = displayOrders.every(o => {
+                                    if (o._isConsolidated && o._consolidatedOrders) {
+                                      return o._consolidatedOrders.every((sub: any) => selectedForPrint.has(sub.id));
+                                    }
+                                    return selectedForPrint.has(o.id);
+                                  });
+                                  const someSelected = displayOrders.some(o => {
+                                    if (o._isConsolidated && o._consolidatedOrders) {
+                                      return o._consolidatedOrders.some((sub: any) => selectedForPrint.has(sub.id));
+                                    }
+                                    return selectedForPrint.has(o.id);
+                                  });
+                                  return allSelected ? true : someSelected ? 'indeterminate' : false;
+                                })()}
+                                onCheckedChange={(checked) => {
+                                  const displayOrders = ordersToDisplayRef.current;
+                                  const newSelected = new Map(selectedForPrint);
+                                  const newCustomQty = new Map(customPrintQuantities);
+                                  if (checked) {
+                                    displayOrders.forEach(o => {
+                                      if (o._isConsolidated && o._consolidatedOrders) {
+                                        o._consolidatedOrders.forEach((sub: any) => {
+                                          newSelected.set(sub.id, 1);
+                                        });
+                                        newCustomQty.set(o.id, 1);
+                                      } else {
+                                        newSelected.set(o.id, 1);
+                                        newCustomQty.set(o.id, 1);
+                                      }
+                                    });
+                                  } else {
+                                    displayOrders.forEach(o => {
+                                      if (o._isConsolidated && o._consolidatedOrders) {
+                                        o._consolidatedOrders.forEach((sub: any) => {
+                                          newSelected.delete(sub.id);
+                                        });
+                                        newCustomQty.delete(o.id);
+                                      } else {
+                                        newSelected.delete(o.id);
+                                        newCustomQty.delete(o.id);
+                                      }
+                                    });
+                                  }
+                                  setSelectedForPrint(newSelected);
+                                  setCustomPrintQuantities(newCustomQty);
+                                }}
+                                className="data-[state=indeterminate]:bg-primary/50"
+                              />
                             </div>
                           </TableHead>
                           <TableHead className="w-20 font-bold border-r border-border/10 bg-transparent py-4">
@@ -7894,6 +8126,13 @@ export const POTracker = () => {
           ...(instockFilter.length > 0 ? [{ label: 'In Stock', value: instockFilter.join(', ') }] : []),
           ...(barcodeFilter !== 'all' ? [{ label: 'Barcode', value: barcodeFilter }] : []),
         ]}
+      />
+      {/* Bulk Fulfill Summary Dialog */}
+      <BulkFulfillSummary
+        open={bulkFulfillOpen}
+        onOpenChange={setBulkFulfillOpen}
+        results={bulkFulfillResults}
+        timestamp={bulkFulfillTimestamp}
       />
     </div>;
 };
