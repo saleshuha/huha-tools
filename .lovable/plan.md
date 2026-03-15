@@ -1,52 +1,31 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+## Fix: Fulfillment Print — New Window Approach
 
-### What We'll Build
+### Root Cause
+The current approach tries to use `window.print()` with complex CSS to show/hide elements within a Radix Dialog portal. This is inherently fragile — Radix portals, overlay backdrops, and `visibility: hidden` cascades conflict across browsers and cause columns/data to disappear.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+### Solution
+Replace `window.print()` with a **new-window print** approach. The `handlePrint` function will:
 
-### How It Works
+1. Build a standalone HTML document string containing only the table data (no title, no dialog chrome)
+2. Open it in a new window via `window.open()`
+3. Call `newWindow.print()` then close it
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+This completely bypasses all Radix portal / CSS visibility issues.
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+### Changes — `src/components/po-tracker/FulfillmentPrintPreview.tsx`
 
-### Data Flow
+1. **Rewrite `handlePrint`** (line 133): Instead of `window.print()`, generate a full HTML string with:
+   - `@page { size: landscape; margin: 8mm; }` 
+   - Clean table with all 10 columns: #, ASIN/SKU, Title, PO Number, PO Qty, Pending, In-Stock, Serial #, Fulfilled, Status
+   - Inline styles: 8pt font, collapsed borders, `1px solid #333` on cells, zebra striping `#f0f0f0`, bold header row `#e8e8e8`, footer totals `#e0e0e0`
+   - Title column (`white-space: normal; word-break: break-word`) — all others `nowrap`
+   - No title/header — just the data table with a small "Generated: {date}" line at bottom
+   - Strong row borders (`border-bottom: 1.5px solid #000`)
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+2. **Remove the entire `<style>` block** (lines 325–460): No longer needed since printing happens in a new window
 
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
-
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### Files
+- **Modified**: `src/components/po-tracker/FulfillmentPrintPreview.tsx`
 
