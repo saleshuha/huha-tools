@@ -1002,6 +1002,8 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               {item.title}
                             </span>
+                            <NewBadge route={item.url} />
+                            </span>
                           </NavLink>
                         </SidebarMenuButton>
                       ))}
