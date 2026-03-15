@@ -52,12 +52,22 @@ export default function AsinSalesHealth() {
 
       {/* Calendar + Upload */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <UploadCalendar
-          locks={locks}
-          onSelectMonth={(y, m) => setSelectedMonth(m)}
-          onUnlock={(y, m) => unlockMonth(y, m, country)}
-          selectedYear={year}
-        />
+        <div className="space-y-4">
+          <UploadCalendar
+            locks={locks}
+            onSelectMonth={(y, m) => { setYear(y); setSelectedMonth(m); }}
+            onUnlock={(y, m) => unlockMonth(y, m, country)}
+            selectedYear={year}
+          />
+          {year > 2025 && (
+            <UploadCalendar
+              locks={locks}
+              onSelectMonth={(y, m) => { setYear(y); setSelectedMonth(m); }}
+              onUnlock={(y, m) => unlockMonth(y, m, country)}
+              selectedYear={year - 1}
+            />
+          )}
+        </div>
         {selectedMonth && (
           <MonthlyUploadPanel
             selectedYear={year}
