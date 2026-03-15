@@ -132,6 +132,11 @@ export const POTracker = () => {
   const [selectedMetricFilter, setSelectedMetricFilter] = useState<string | null>(null);
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
   const [snapshotPrintOpen, setSnapshotPrintOpen] = useState(false);
+  const [bulkFulfillOpen, setBulkFulfillOpen] = useState(false);
+  const [bulkFulfillResults, setBulkFulfillResults] = useState<BulkFulfillResult[]>([]);
+  const [bulkFulfillTimestamp, setBulkFulfillTimestamp] = useState<Date>(new Date());
+  const [isBulkFulfilling, setIsBulkFulfilling] = useState(false);
+  const [bulkFulfillProgress, setBulkFulfillProgress] = useState({ current: 0, total: 0 });
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
