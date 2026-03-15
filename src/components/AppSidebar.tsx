@@ -623,6 +623,29 @@ export function AppSidebar() {
                           </NavLink>
                         </SidebarMenuButton>
                       )}
+
+                      {/* ASIN Sales Health */}
+                      {canAccessRoute('/asin-sales-health') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/asin-sales-health")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/asin-sales-health" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <Activity className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              ASIN Sales Health
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>
