@@ -7117,13 +7117,17 @@ export const POTracker = () => {
                                               <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 w-fit">
                                                 PO: {order.po_number}
                                               </Badge>
+
+                                              {/* Total PO Qty */}
+                                              <Badge variant="secondary" className="text-xs px-2 py-1 font-medium font-mono bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 w-fit">
+                                                Qty: {order.quantity}
+                                              </Badge>
                                               
                                               <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
                                                  {(() => {
                                         const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
                                         const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
                                         const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                        // If original quantity not in notes, assume fulfilled quantity was the original
                                         const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
                                         return `Fulfilled: ${fulfilledQty}/${originalQty}`;
                                       })()}
