@@ -6034,15 +6034,14 @@ export const POTracker = () => {
                             Clear
                           </Button>}
                         {/* Fulfillment Print Preview */}
-                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview labels filtered by fulfillment" onClick={() => {
+                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview fulfillment status" onClick={() => {
                           const filtered = getSelectedPOsOrdersByFulfillment();
                           if (filtered.length === 0) {
                             toast({ title: "No Items to Preview", description: "No items match the fulfillment filter.", variant: "destructive" });
                             return;
                           }
-                          setPrintMode('bulk');
-                          setPrintOrders(filtered);
-                          setPrintDialogOpen(true);
+                          setFulfillmentPreviewOrders(filtered);
+                          setFulfillmentPreviewOpen(true);
                         }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
                           <FileText className="h-3.5 w-3.5" />
                           Print Preview
