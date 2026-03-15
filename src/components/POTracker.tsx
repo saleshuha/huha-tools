@@ -39,6 +39,7 @@ import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { SnapshotPrintPreview } from '@/components/po-tracker/SnapshotPrintPreview';
 import { BulkFulfillSummary, BulkFulfillResult } from '@/components/po-tracker/BulkFulfillSummary';
+import { BulkFulfillProcessor, EligibleOrder } from '@/components/po-tracker/BulkFulfillProcessor';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
 import { POQuantityMatchingDialog } from '@/components/po/POQuantityMatchingDialog';
 import ShippedOrdersUpload from '@/components/po/ShippedOrdersUpload';
