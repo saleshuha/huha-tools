@@ -207,7 +207,7 @@ export function AppSidebar() {
   }
 
   const isAmazonSectionActive = () => {
-    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader") || isActive("/amazon-returns-analysis") || isActive("/asin-cost-history")
+    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader") || isActive("/amazon-returns-analysis") || isActive("/asin-cost-history") || isActive("/asin-sales-health")
   }
 
   const isNoonSectionActive = () => {
