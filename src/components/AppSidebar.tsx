@@ -27,6 +27,35 @@ import {
 import { SidebarNotificationLogs } from "@/components/sidebar/SidebarNotificationLogs"
 import { SidebarProgressIndicator } from "@/components/sidebar/SidebarProgressIndicator"
 
+// Routes with their added dates — items within 90 days get a "New" badge
+const ROUTE_ADDED_DATES: Record<string, string> = {
+  '/asin-sales-health': '2026-03-15',
+  '/asin-cost-history': '2026-02-10',
+  '/amazon-returns-analysis': '2026-01-20',
+  '/market-purchases': '2026-01-05',
+  '/noon-fbpi': '2025-12-28',
+  '/global-sources': '2026-02-01',
+  '/carrefour-payments': '2026-01-15',
+}
+
+const isNewRoute = (route: string): boolean => {
+  const addedDate = ROUTE_ADDED_DATES[route]
+  if (!addedDate) return false
+  const added = new Date(addedDate)
+  const now = new Date()
+  const diffDays = (now.getTime() - added.getTime()) / (1000 * 60 * 60 * 24)
+  return diffDays <= 90
+}
+
+const NewBadge = ({ route }: { route: string }) => {
+  if (!isNewRoute(route)) return null
+  return (
+    <span className="ml-auto px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-accent text-accent-foreground leading-none tracking-wide">
+      New
+    </span>
+  )
+}
+
 const navigationItems = [
   {
     title: "Homepage",
@@ -289,9 +318,12 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">
-                          {item.title}
-                        </span>
+                        <>
+                          <span className="font-medium text-sm">
+                            {item.title}
+                          </span>
+                          <NewBadge route={item.url} />
+                        </>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -343,6 +375,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Receive Stock
                             </span>
+                            <NewBadge route="/receive-stock" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -366,6 +399,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Instock Inventory
                             </span>
+                            <NewBadge route="/inventory" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -389,6 +423,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Sales & Replenishment
                             </span>
+                            <NewBadge route="/replenishment" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -415,7 +450,7 @@ export function AppSidebar() {
                     >
                       <ShoppingCart className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">Shopify Sync</span>
+                        <><span className="font-medium text-sm">Shopify Sync</span><NewBadge route="/shopify-sync" /></>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -439,7 +474,7 @@ export function AppSidebar() {
                     >
                       <Banknote className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">Market Purchases</span>
+                        <><span className="font-medium text-sm">Market Purchases</span><NewBadge route="/market-purchases" /></>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -489,6 +524,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             DF Order Processing
                           </span>
+                          <NewBadge route="/order-processing" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
@@ -510,6 +546,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Retail
                           </span>
+                          <NewBadge route="/po-tracker" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
@@ -531,6 +568,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Fulfillment Tracker
                           </span>
+                          <NewBadge route="/amazon-fulfillment" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
@@ -552,6 +590,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Image Uploader
                           </span>
+                          <NewBadge route="/amazon-image-uploader" />
                         </NavLink>
                       </SidebarMenuButton>}
 
@@ -574,6 +613,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Amazon Vendor Central
                             </span>
+                            <NewBadge route="/amazon-vendor-central" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -597,6 +637,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Amazon Returns Analysis
                             </span>
+                            <NewBadge route="/amazon-returns-analysis" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -620,6 +661,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               ASIN Cost History
                             </span>
+                            <NewBadge route="/asin-cost-history" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -643,6 +685,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               ASIN Sales Health
                             </span>
+                            <NewBadge route="/asin-sales-health" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
@@ -694,6 +737,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Noon Orders Processing
                           </span>
+                          <NewBadge route="/noon-order-processing" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
@@ -715,6 +759,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Noon Orders Tracking
                           </span>
+                          <NewBadge route="/noon-order-tracking" />
                         </NavLink>
                       </SidebarMenuButton>}
 
@@ -736,6 +781,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             FBPI Orders
                           </span>
+                          <NewBadge route="/noon-fbpi" />
                         </NavLink>
                       </SidebarMenuButton>}
                     </CollapsibleContent>
@@ -786,6 +832,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Source Product Importer
                           </span>
+                          <NewBadge route="/sunsky-importer" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
@@ -807,6 +854,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Source Order Tracking
                               </span>
+                              <NewBadge route="/sunsky-order-tracking" />
                             </NavLink>
                           </SidebarMenuButton>}
 
@@ -827,6 +875,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Source API Documentation
                               </span>
+                              <NewBadge route="/sunsky-api-docs" />
                             </NavLink>
                           </SidebarMenuButton>}
 
@@ -848,6 +897,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Global Sources
                               </span>
+                              <NewBadge route="/global-sources" />
                             </NavLink>
                           </SidebarMenuButton>}
                     </CollapsibleContent>
@@ -872,9 +922,12 @@ export function AppSidebar() {
                   >
                     <Tag className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Label Designer
-                      </span>
+                      <>
+                        <span className="font-medium text-sm">
+                          Label Designer
+                        </span>
+                        <NewBadge route="/label-designer" />
+                      </>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
@@ -897,9 +950,12 @@ export function AppSidebar() {
                   >
                     <BarChart3 className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Carrefour Sales Tracker
-                      </span>
+                      <>
+                        <span className="font-medium text-sm">
+                          Carrefour Sales Tracker
+                        </span>
+                        <NewBadge route="/carrefour-payments" />
+                      </>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
@@ -949,6 +1005,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               {item.title}
                             </span>
+                            <NewBadge route={item.url} />
                           </NavLink>
                         </SidebarMenuButton>
                       ))}
