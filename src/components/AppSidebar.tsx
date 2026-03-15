@@ -27,6 +27,35 @@ import {
 import { SidebarNotificationLogs } from "@/components/sidebar/SidebarNotificationLogs"
 import { SidebarProgressIndicator } from "@/components/sidebar/SidebarProgressIndicator"
 
+// Routes with their added dates — items within 90 days get a "New" badge
+const ROUTE_ADDED_DATES: Record<string, string> = {
+  '/asin-sales-health': '2026-03-15',
+  '/asin-cost-history': '2026-02-10',
+  '/amazon-returns-analysis': '2026-01-20',
+  '/market-purchases': '2026-01-05',
+  '/noon-fbpi': '2025-12-28',
+  '/global-sources': '2026-02-01',
+  '/carrefour-payments': '2026-01-15',
+}
+
+const isNewRoute = (route: string): boolean => {
+  const addedDate = ROUTE_ADDED_DATES[route]
+  if (!addedDate) return false
+  const added = new Date(addedDate)
+  const now = new Date()
+  const diffDays = (now.getTime() - added.getTime()) / (1000 * 60 * 60 * 24)
+  return diffDays <= 90
+}
+
+const NewBadge = ({ route }: { route: string }) => {
+  if (!isNewRoute(route)) return null
+  return (
+    <span className="ml-auto px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-accent text-accent-foreground leading-none tracking-wide">
+      New
+    </span>
+  )
+}
+
 const navigationItems = [
   {
     title: "Homepage",
