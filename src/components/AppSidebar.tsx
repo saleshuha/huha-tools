@@ -634,6 +634,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Amazon Returns Analysis
                             </span>
+                            <NewBadge route="/amazon-returns-analysis" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
