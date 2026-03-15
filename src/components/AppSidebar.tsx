@@ -318,9 +318,12 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && (
-                        <span className="font-medium text-sm">
-                          {item.title}
-                        </span>
+                        <>
+                          <span className="font-medium text-sm">
+                            {item.title}
+                          </span>
+                          <NewBadge route={item.url} />
+                        </>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
