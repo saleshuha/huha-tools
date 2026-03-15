@@ -565,6 +565,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Fulfillment Tracker
                           </span>
+                          <NewBadge route="/amazon-fulfillment" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
