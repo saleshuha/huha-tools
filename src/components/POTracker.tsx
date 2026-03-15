@@ -768,6 +768,7 @@ export const POTracker = () => {
   // Auto-refresh on window focus
   useEffect(() => {
     const handleFocus = async () => {
+      if (bulkProcessorOpen) return;
       console.log('🔄 Window focused, checking for PO updates...');
       await queryClient.invalidateQueries({
         queryKey: ['po-orders']
@@ -775,13 +776,14 @@ export const POTracker = () => {
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [queryClient]);
+  }, [queryClient, bulkProcessorOpen]);
 
   // Polling when "Print Labels" tab is active
   useEffect(() => {
-    if (activeTab === 'labels') {
+    if (activeTab === 'labels' && !bulkProcessorOpen) {
       console.log('🔄 Starting auto-polling for Print Labels tab');
       const interval = setInterval(async () => {
+        if (bulkProcessorOpen) return;
         console.log('🔄 Auto-polling for PO updates...');
         await queryClient.invalidateQueries({
           queryKey: ['po-orders']
@@ -793,7 +795,7 @@ export const POTracker = () => {
         clearInterval(interval);
       };
     }
-  }, [activeTab, queryClient]);
+  }, [activeTab, queryClient, bulkProcessorOpen]);
 
   // Real-time subscription for po_orders updates
   useEffect(() => {
@@ -805,6 +807,11 @@ export const POTracker = () => {
       table: 'po_orders',
       filter: `country=eq.${selectedCountry}`
     }, async payload => {
+      if (bulkProcessorOpen) {
+        console.log('⏸️ Skipping realtime PO refresh while bulk processor is open');
+        return;
+      }
+
       console.log('🔴 Real-time update received:', payload);
 
       // Invalidate cache and trigger fresh fetch
@@ -826,7 +833,7 @@ export const POTracker = () => {
       console.log('🔴 Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
-  }, [selectedCountry, fetchPOOrders, toast]);
+  }, [selectedCountry, fetchPOOrders, toast, queryClient, bulkProcessorOpen]);
 
   // Function to handle bulk PO closing
   // Delete all PO orders for fresh upload
