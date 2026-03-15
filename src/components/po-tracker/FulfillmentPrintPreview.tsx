@@ -308,14 +308,14 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                   Totals ({totals.items} items)
                 </TableCell>
                 <TableCell className="text-center text-xs font-mono">{totals.poQty}</TableCell>
-                <TableCell className="text-center text-xs font-mono text-green-600 dark:text-green-400">{totals.fulfilledQty}</TableCell>
                 <TableCell className="text-center text-xs font-mono font-bold text-destructive">{totals.pendingQty}</TableCell>
-                <TableCell />
                 <TableCell className="text-center">
                   <Badge variant="outline" className="text-xs font-mono bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
                     {totals.inStockQty}
                   </Badge>
                 </TableCell>
+                <TableCell />
+                <TableCell className="text-center text-xs font-mono text-green-600 dark:text-green-400">{totals.fulfilledQty}</TableCell>
                 <TableCell />
               </TableRow>
             </TableFooter>
