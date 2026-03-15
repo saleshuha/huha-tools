@@ -1028,22 +1028,19 @@ export const POTracker = () => {
     }
   };
 
-  // Handle bulk fulfill from stock for selected items
-  const handleBulkFulfillFromStock = async () => {
+  // Compute eligible orders for bulk fulfillment and open processor dialog
+  const handleBulkFulfillFromStock = () => {
     const displayOrders = ordersToDisplayRef.current;
-    // Get all selected order IDs (from selectedForPrint map)
     const selectedIds = new Set(selectedForPrint.keys());
     if (selectedIds.size === 0) {
       toast({ title: "No items selected", description: "Select items to fulfill from stock.", variant: "destructive" });
       return;
     }
 
-    // Build list of orders to process — only those with in-stock inventory
-    const eligibleOrders: { order: POOrder; match: any; pendingQty: number }[] = [];
+    const eligible: EligibleOrder[] = [];
     
     for (const displayOrder of displayOrders) {
       if (displayOrder._isConsolidated && displayOrder._consolidatedOrders) {
-        // For consolidated: check if any sub-order is selected
         const hasSelected = displayOrder._consolidatedOrders.some((o: any) => selectedIds.has(o.id));
         if (!hasSelected) continue;
         
@@ -1053,7 +1050,7 @@ export const POTracker = () => {
           if (match && match.status === 'in-stock' && match.quantity > 0) {
             const pending = Math.max(0, (subOrder.quantity || 0) - (subOrder.printed_quantity || 0));
             if (pending > 0) {
-              eligibleOrders.push({ order: subOrder, match, pendingQty: pending });
+              eligible.push({ order: subOrder, match, pendingQty: pending });
             }
           }
         }
@@ -1063,127 +1060,25 @@ export const POTracker = () => {
         if (match && match.status === 'in-stock' && match.quantity > 0) {
           const pending = Math.max(0, (displayOrder.quantity || 0) - (displayOrder.printed_quantity || 0));
           if (pending > 0) {
-            eligibleOrders.push({ order: displayOrder, match, pendingQty: pending });
+            eligible.push({ order: displayOrder, match, pendingQty: pending });
           }
         }
       }
     }
 
-    if (eligibleOrders.length === 0) {
+    if (eligible.length === 0) {
       toast({ title: "No eligible items", description: "None of the selected items have in-stock inventory with pending quantities.", variant: "destructive" });
       return;
     }
 
-    setIsBulkFulfilling(true);
-    setBulkFulfillProgress({ current: 0, total: eligibleOrders.length });
-    const results: BulkFulfillResult[] = [];
-    let remainingStock = new Map<string, number>(); // Track stock depletion across items with same ASIN
+    setBulkProcessorOrders(eligible);
+    setBulkProcessorOpen(true);
+  };
 
-    for (let i = 0; i < eligibleOrders.length; i++) {
-      const { order, match, pendingQty } = eligibleOrders[i];
-      setBulkFulfillProgress({ current: i + 1, total: eligibleOrders.length });
-      
-      const asinKey = (order.asin || '').toUpperCase();
-      const stockBefore = remainingStock.has(asinKey) ? remainingStock.get(asinKey)! : match.quantity;
-      const fulfillQty = Math.min(stockBefore, pendingQty);
-      
-      if (fulfillQty <= 0) {
-        results.push({
-          asin: order.asin,
-          title: order.title,
-          sku_code: order.sku_code,
-          po_number: order.po_number,
-          requested_qty: pendingQty,
-          fulfilled_qty: 0,
-          instock_before: stockBefore,
-          instock_after: stockBefore,
-          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
-          success: false,
-          error: 'Insufficient stock',
-        });
-        continue;
-      }
-
-      try {
-        // Call the existing fulfill-from-stock edge function
-        let data, error;
-        try {
-          const result = await supabase.functions.invoke('fulfill-from-stock', {
-            body: {
-              poNumber: order.po_number,
-              quantity: fulfillQty,
-              asin: order.asin,
-              title: order.title,
-              originalQuantity: order.quantity,
-            }
-          });
-          data = result.data;
-          error = result.error;
-        } catch (invokeError: any) {
-          error = invokeError;
-        }
-
-        if (error) {
-          // Try fallback
-          try {
-            data = await fulfillWithFallback(order.po_number, fulfillQty, {
-              asin: order.asin,
-              title: order.title,
-              quantity: order.quantity,
-            });
-            error = null;
-          } catch (fallbackError: any) {
-            // Both failed
-          }
-        }
-
-        const stockAfter = Math.max(0, stockBefore - fulfillQty);
-        remainingStock.set(asinKey, stockAfter);
-
-        results.push({
-          asin: order.asin,
-          title: order.title,
-          sku_code: order.sku_code,
-          po_number: order.po_number,
-          requested_qty: pendingQty,
-          fulfilled_qty: error ? 0 : fulfillQty,
-          instock_before: stockBefore,
-          instock_after: error ? stockBefore : stockAfter,
-          serial_numbers: match.serialNumbers || (match.serialNumber ? [match.serialNumber] : []),
-          success: !error,
-          error: error?.message,
-        });
-      } catch (err: any) {
-        results.push({
-          asin: order.asin,
-          title: order.title,
-          sku_code: order.sku_code,
-          po_number: order.po_number,
-          requested_qty: pendingQty,
-          fulfilled_qty: 0,
-          instock_before: stockBefore,
-          instock_after: stockBefore,
-          serial_numbers: [],
-          success: false,
-          error: err?.message || 'Unknown error',
-        });
-      }
-    }
-
-    setIsBulkFulfilling(false);
-    setBulkFulfillResults(results);
-    setBulkFulfillTimestamp(new Date());
-    setBulkFulfillOpen(true);
-
-    // Refresh data
+  const handleBulkFulfillComplete = () => {
     queryClient.invalidateQueries({ queryKey: ['po-orders'] });
     fetchPOOrders(true);
-
-    const successCount = results.filter(r => r.success).length;
-    toast({
-      title: `Bulk Fulfillment Complete`,
-      description: `${successCount}/${results.length} items fulfilled successfully.`,
-    });
+    toast({ title: "Bulk Fulfillment Complete", description: "Check the summary report for details." });
   };
 
 
