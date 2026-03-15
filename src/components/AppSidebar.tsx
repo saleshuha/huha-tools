@@ -375,6 +375,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Receive Stock
                             </span>
+                            <NewBadge route="/receive-stock" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
