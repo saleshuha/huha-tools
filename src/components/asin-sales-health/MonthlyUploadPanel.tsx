@@ -142,7 +142,9 @@ export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpl
       await onUpload(mappedRows, selectedYear, selectedMonth, country);
       setParsedRows([]);
       setHeaders([]);
+      setRawRows([]);
       setFileName('');
+      setHeaderRow(0);
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     } finally {
