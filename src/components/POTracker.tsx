@@ -1076,9 +1076,13 @@ export const POTracker = () => {
   };
 
   const handleBulkFulfillComplete = () => {
+    // Clear snapshot lock so refreshed data isn't filtered against stale IDs
+    lockedFilterIdsRef.current = null;
+    prevFilterValuesRef.current = '';
+    setSelectedForPrint(new Set());
+    // Single invalidation — React Query handles the re-fetch
     queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-    fetchPOOrders(true);
-    toast({ title: "Bulk Fulfillment Complete", description: "Check the summary report for details." });
+    toast({ title: "Bulk Fulfillment Complete", description: "Data refreshed with latest fulfillment status." });
   };
 
 
