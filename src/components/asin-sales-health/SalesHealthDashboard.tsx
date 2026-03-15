@@ -130,15 +130,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                   Status <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
                 <TableHead className="text-xs">Trend</TableHead>
-                {last12Months.map((m, i) => (
-                  <TableHead
-                    key={`${m.year}-${m.month}`}
-                    className={`text-xs text-right whitespace-nowrap ${i === last12Months.length - 3 ? 'border-r-2 border-primary/30' : ''}`}
-                  >
-                    {MONTH_LABELS[m.month]}<br />
-                    <span className="text-[9px] text-muted-foreground">{m.year}</span>
-                  </TableHead>
-                ))}
+                <TableHead className="text-xs">Monthly Shipped (12mo)</TableHead>
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('changePercent')}>
                   Δ% <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
@@ -163,17 +155,24 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell><AsinTrendChart data={item} maxQty={maxQty} /></TableCell>
-                    {last12Months.map((m, i) => {
-                      const qty = getQty(item, m.year, m.month);
-                      return (
-                        <TableCell
-                          key={`${m.year}-${m.month}`}
-                          className={`text-xs text-right font-mono ${qty === 0 ? 'text-muted-foreground' : ''} ${i === last12Months.length - 3 ? 'border-r-2 border-primary/30' : ''}`}
-                        >
-                          {qty}
-                        </TableCell>
-                      );
-                    })}
+                    <TableCell className="p-1">
+                      <div className="grid grid-cols-6 gap-x-0 gap-y-0 min-w-[240px]">
+                        {last12Months.map((m, i) => {
+                          const qty = getQty(item, m.year, m.month);
+                          const isRecent = i >= last12Months.length - 3;
+                          const isQuarterEnd = (i + 1) % 3 === 0 && i < last12Months.length - 1;
+                          return (
+                            <div
+                              key={`${m.year}-${m.month}`}
+                              className={`flex flex-col items-center px-1 py-0.5 ${isRecent ? 'bg-primary/5 rounded' : ''} ${isQuarterEnd ? 'border-r border-border' : ''}`}
+                            >
+                              <span className="text-[9px] text-muted-foreground leading-none">{MONTH_LABELS[m.month]}</span>
+                              <span className={`text-[10px] font-mono leading-tight ${qty === 0 ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>{qty}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </TableCell>
                     <TableCell className={`text-xs text-right font-medium ${item.changePercent > 0 ? 'text-green-600' : item.changePercent < 0 ? 'text-orange-600' : ''}`}>
                       {item.changePercent > 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
                     </TableCell>
