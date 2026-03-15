@@ -33,6 +33,22 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
   const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
 
+  // Compute the last 12 calendar months from all data
+  const last12Months = useMemo(() => {
+    const allMonths = new Set<string>();
+    data.forEach(d => d.monthlyData.forEach(m => allMonths.add(`${m.year}-${m.month}`)));
+    const sorted = Array.from(allMonths)
+      .map(k => { const [y, m] = k.split('-').map(Number); return { year: y, month: m, num: y * 12 + m }; })
+      .sort((a, b) => a.num - b.num);
+    return sorted.slice(-12);
+  }, [data]);
+
+  // Helper to get qty for a given ASIN at a specific month
+  const getQty = (item: AsinHealth, year: number, month: number) => {
+    const found = item.monthlyData.find(m => m.year === year && m.month === month);
+    return found ? found.qty : 0;
+  };
+
   const filtered = useMemo(() => {
     let result = data;
     if (search) {
