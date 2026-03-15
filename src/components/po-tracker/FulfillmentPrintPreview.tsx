@@ -130,7 +130,63 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
       : <ArrowUp className="h-3 w-3 text-primary" />;
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const rows = sortedOrders.map((order, idx) => {
+      const poNumbers = order._isConsolidated && order._consolidatedOrders
+        ? [...new Set(order._consolidatedOrders.map((o: any) => o.po_number))].join(', ')
+        : order.po_number || '';
+      const serials = order._serialNumbers.join(' | ') || '—';
+      const bgColor = idx % 2 === 0 ? '#fff' : '#f0f0f0';
+      return `<tr style="border-bottom:1.5px solid #000;background:${bgColor}">
+        <td style="text-align:center">${idx + 1}</td>
+        <td><div>${order.asin || '—'}</div>${order.sku_code || order.model_number ? `<div style="font-size:7pt;color:#666">${order.sku_code || order.model_number}</div>` : ''}</td>
+        <td style="white-space:normal;word-break:break-word">${order.title || '—'}</td>
+        <td>${poNumbers}</td>
+        <td style="text-align:center;font-weight:600">${order._poQty}</td>
+        <td style="text-align:center;font-weight:600;color:${order._pendingQty > 0 ? '#dc2626' : '#16a34a'}">${order._pendingQty}</td>
+        <td style="text-align:center">${order._inStockQty}</td>
+        <td style="font-size:7pt">${serials}</td>
+        <td style="text-align:center;font-weight:600;color:${order._fulfilledQty > 0 ? '#16a34a' : '#999'}">${order._fulfilledQty}</td>
+        <td style="text-align:center;font-size:7pt">${order._fulfillmentStatus}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><title>Fulfillment Report</title><style>
+      @page { size: landscape; margin: 8mm; }
+      body { font-family: Arial, sans-serif; font-size: 8pt; margin: 0; padding: 0; color: #000; }
+      table { width: 100%; border-collapse: collapse; table-layout: auto; }
+      th, td { padding: 3px 5px; border: 1px solid #333; font-size: 8pt; white-space: nowrap; }
+      th { background: #e8e8e8; font-weight: bold; }
+      tfoot td { background: #e0e0e0; font-weight: bold; }
+      .footer-note { margin-top: 6px; font-size: 7pt; color: #666; text-align: right; }
+    </style></head><body>
+      <table>
+        <thead><tr>
+          <th>#</th><th>ASIN / SKU</th><th>Title</th><th>PO Number</th>
+          <th>PO Qty</th><th>Pending</th><th>In-Stock</th><th>Serial #</th>
+          <th>Fulfilled</th><th>Status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td colspan="4" style="text-align:right">Totals (${totals.items} items)</td>
+          <td style="text-align:center">${totals.poQty}</td>
+          <td style="text-align:center;color:#dc2626">${totals.pendingQty}</td>
+          <td style="text-align:center">${totals.inStockQty}</td>
+          <td></td>
+          <td style="text-align:center;color:#16a34a">${totals.fulfilledQty}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <div class="footer-note">Generated: ${new Date().toLocaleString()}</div>
+    </body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => { printWindow.print(); printWindow.close(); };
+    }
+  };
 
   const handleExportCSV = () => {
     const headers = ['#', 'ASIN', 'SKU', 'Title', 'PO Number', 'PO Qty', 'Fulfilled Qty', 'Pending Qty', 'Serial Number(s)', 'In-Stock Qty', 'Fulfillment Status'];
