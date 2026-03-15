@@ -1,65 +1,52 @@
 
 
-## Plan: Comprehensive Bulk Fulfillment Processing Dialog
+## Bulk Push Local Inventory to Shopify (with Images)
 
-### Problem
-Currently, clicking "Bulk Fulfill" immediately starts processing in the background with no preview. Users lose visibility into what's being processed, and PO data can get lost if errors occur silently. The flow needs to be: **Preview → Confirm → Live Processing → Summary Report**.
+### What We'll Build
 
-### Solution
-Replace the fire-and-forget approach with a multi-step dialog that shows all items before processing, displays live progress item-by-item during fulfillment, and then transitions to the final summary report.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-### New File: `src/components/po-tracker/BulkFulfillProcessor.tsx`
+### How It Works
 
-A single dialog component with 3 internal phases:
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-**Phase 1 — Preview (before processing)**
-- Table listing all eligible items: ASIN/SKU, Title, PO Number, In-Stock Qty, Pending Qty, Fulfill Qty (auto-calculated as `min(stock, pending)`)
-- Summary bar: Total Items, Total Qty to Fulfill, Items with insufficient stock (shown but greyed out)
-- "Start Fulfillment" and "Cancel" buttons
-- Items grouped by ASIN so shared-stock depletion is visible
-
-**Phase 2 — Processing (live progress)**
-- Same table but each row gets a status indicator that updates in real-time:
-  - ⏳ Waiting → 🔄 Processing → ✅ Success / ❌ Failed
-- Progress bar at top showing `current/total`
-- Current item highlighted with a subtle pulse animation
-- "Cancel Remaining" button to abort mid-process
-- Each row updates immediately after its edge function call completes
-
-**Phase 3 — Summary Report (after completion)**
-- Reuses the existing `BulkFulfillSummary` layout (stats bar, grouped table, print/CSV export)
-- Enhanced with the professional PDF layout already built
-- "Close" and "Export" buttons
-
-### Modified File: `src/components/POTracker.tsx`
-
-1. **Change button behavior**: Instead of calling `handleBulkFulfillFromStock` directly, clicking "Bulk Fulfill" opens the new `BulkFulfillProcessor` dialog with the eligible orders pre-computed
-
-2. **Move processing logic into the dialog**: The `handleBulkFulfillFromStock` logic (edge function calls, stock tracking, fallback) moves into `BulkFulfillProcessor` as an internal async handler, using state updates after each item to show live progress
-
-3. **New state**: Replace `isBulkFulfilling` / `bulkFulfillProgress` with a single `bulkProcessorOpen` boolean + pass eligible orders as props
-
-4. **Eligible order computation**: Extract the eligibility-building loop (lines 1039-1067) into a standalone function `getEligibleOrders()` that returns the list, so it can be called on button click to populate the dialog
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
 ### Data Flow
 
 ```text
-User clicks "Bulk Fulfill" button
-  → getEligibleOrders() computes eligible items from selection
-  → BulkFulfillProcessor dialog opens in Preview phase
-  → User reviews items, clicks "Start Fulfillment"
-  → Phase switches to Processing
-  → For each item sequentially:
-      - Row status → "Processing"
-      - Call fulfill-from-stock edge function (with fallback)
-      - Row status → "Success" or "Failed" with details
-      - Stock tracking map updated
-  → All done → Phase switches to Summary
-  → User can Print / Export CSV / Close
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-### Files
-- **Created**: `src/components/po-tracker/BulkFulfillProcessor.tsx`
-- **Modified**: `src/components/POTracker.tsx` — replace inline bulk fulfill logic with dialog trigger
-- **Kept**: `src/components/po-tracker/BulkFulfillSummary.tsx` — reused inside the processor for Phase 3
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
