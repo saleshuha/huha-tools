@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -72,6 +72,7 @@ export const usePOOrders = () => {
   const [poProgress, setPOProgress] = useState<POProgressItem[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isFetchingPOOrdersRef = useRef(false);
 
   // NEW: Fetch PO orders for a specific PO number only (optimized for details page)
   const fetchSinglePOOrders = useCallback(async (poNumber: string) => {
@@ -167,6 +168,12 @@ export const usePOOrders = () => {
 
   // Fetch PO orders - restored working version with progressive loading
   const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
+    if (isFetchingPOOrdersRef.current) {
+      console.log('⏭️ fetchPOOrders skipped: another fetch is already in progress');
+      return;
+    }
+
+    isFetchingPOOrdersRef.current = true;
     console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
     setIsLoading(true);
     setLoadingProgress(0);
@@ -190,24 +197,26 @@ export const usePOOrders = () => {
       setLoadingProgress(10);
       setLoadingStatus('Fetching Sunsky SKUs...');
 
-      // Fetch ALL Sunsky SKUs first (they're typically fewer)
-      const { data: sunskySKUs, error: skuError } = await supabase
+      // Fetch ALL Sunsky SKUs first (non-fatal if this query times out)
+      const { data: sunskySKUsData, error: skuError } = await supabase
         .from('sunsky_skus')
         .select('*')
         .eq('user_id', user.id);
 
+      const sunskySKUs = Array.isArray(sunskySKUsData) ? sunskySKUsData : [];
+
       if (skuError) {
-        console.error('❌ Error fetching Sunsky SKUs:', skuError);
-        throw skuError;
+        console.error('⚠️ Error fetching Sunsky SKUs (continuing without SKU join):', skuError);
+      } else {
+        console.log(`✅ Loaded ${sunskySKUs.length || 0} Sunsky SKUs`);
       }
 
-      console.log(`✅ Loaded ${sunskySKUs?.length || 0} Sunsky SKUs`);
       setLoadingProgress(30);
       setLoadingStatus('Fetching PO orders...');
 
       // Create SKU map for faster lookups
       const skuMap = new Map();
-      (sunskySKUs || []).forEach((sku: any) => {
+      sunskySKUs.forEach((sku: any) => {
         skuMap.set(sku.sku_code, sku);
       });
 
@@ -330,14 +339,14 @@ export const usePOOrders = () => {
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
-      setLoadingStatus('Failed to load PO orders');
-      setPOOrders([]); // Clear orders on error
+      setLoadingStatus('Failed to load PO orders (showing previous data)');
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch PO orders",
+        title: "Refresh failed",
+        description: error instanceof Error ? `${error.message} — showing last loaded data.` : "Failed to fetch PO orders — showing last loaded data.",
         variant: "destructive"
       });
     } finally {
+      isFetchingPOOrdersRef.current = false;
       setTimeout(() => {
         setIsLoading(false);
         setLoadingProgress(0);
