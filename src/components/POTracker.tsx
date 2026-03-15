@@ -141,6 +141,8 @@ export const POTracker = () => {
   const [bulkFulfillProgress, setBulkFulfillProgress] = useState({ current: 0, total: 0 });
   const [bulkProcessorOpen, setBulkProcessorOpen] = useState(false);
   const [bulkProcessorOrders, setBulkProcessorOrders] = useState<EligibleOrder[]>([]);
+  const [fulfillmentPreviewOpen, setFulfillmentPreviewOpen] = useState(false);
+  const [fulfillmentPreviewOrders, setFulfillmentPreviewOrders] = useState<POOrder[]>([]);
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
