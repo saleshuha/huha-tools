@@ -521,6 +521,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             DF Order Processing
                           </span>
+                          <NewBadge route="/order-processing" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
