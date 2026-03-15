@@ -184,7 +184,9 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
       setCurrentIndex(i);
 
       try {
-        let data, error;
+        let data: any;
+        let error: any;
+
         try {
           const result = await supabase.functions.invoke('fulfill-from-stock', {
             body: {
@@ -214,10 +216,16 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
           }
         }
 
+        let taskError: string | null = null;
+        if (!error && data?.taskId) {
+          const taskResult = await waitForTaskResult(data.taskId);
+          taskError = taskResult.ok ? null : taskResult.error;
+        }
+
         updatedItems[i] = {
           ...updatedItems[i],
-          status: error ? 'failed' : 'success',
-          error: error?.message,
+          status: error || taskError ? 'failed' : 'success',
+          error: error?.message || taskError || undefined,
         };
       } catch (err: any) {
         updatedItems[i] = {

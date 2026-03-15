@@ -169,23 +169,26 @@ async function processFulfillment(
 
     console.log('✅ Found PO records:', poRecords.length);
 
-    // Step 2: Find inventory by ASIN
+    // Step 2: Find inventory by ASIN (normalized to handle spacing/case inconsistencies)
     let inventoryItem = null;
 
     if (asin) {
-      // Use quantity-based filtering instead of status-based filtering
-      // This ensures items with stock are found even if status field is out of sync
+      const normalizedAsin = asin.trim().toUpperCase();
+
       const result = await supabaseClient
         .from('asin_inventory')
-        .select('id, quantity, asin, sku, serial_number, status')
-        .eq('asin', asin)
+        .select('id, quantity, asin, sku, serial_number, status, updated_at')
         .eq('user_id', userId)
-        .gt('quantity', 0)  // quantity-based check instead of .eq('status', 'in-stock')
-        .maybeSingle();
+        .gt('quantity', 0)
+        .ilike('asin', `%${normalizedAsin}%`)
+        .order('updated_at', { ascending: false })
+        .limit(50);
 
-      inventoryItem = result.data;
       if (result.error) {
         console.error('❌ Inventory lookup error:', result.error);
+      } else {
+        const matches = result.data || [];
+        inventoryItem = matches.find((item: any) => (item.asin || '').trim().toUpperCase() === normalizedAsin) || null;
       }
     }
 
