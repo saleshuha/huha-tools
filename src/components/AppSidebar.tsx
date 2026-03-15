@@ -829,6 +829,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Source Product Importer
                           </span>
+                          <NewBadge route="/sunsky-importer" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
