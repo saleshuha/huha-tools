@@ -8127,5 +8127,12 @@ export const POTracker = () => {
           ...(barcodeFilter !== 'all' ? [{ label: 'Barcode', value: barcodeFilter }] : []),
         ]}
       />
+      {/* Bulk Fulfill Summary Dialog */}
+      <BulkFulfillSummary
+        open={bulkFulfillOpen}
+        onOpenChange={setBulkFulfillOpen}
+        results={bulkFulfillResults}
+        timestamp={bulkFulfillTimestamp}
+      />
     </div>;
 };
