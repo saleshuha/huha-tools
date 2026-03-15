@@ -41,6 +41,67 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('changePercent');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [exportStatuses, setExportStatuses] = useState<Set<HealthStatus>>(new Set());
+  const { toast } = useToast();
+
+  const toggleExportStatus = (status: HealthStatus) => {
+    setExportStatuses(prev => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const selectAllExportStatuses = () => {
+    const allStatuses = Object.keys(STATUS_CONFIG) as HealthStatus[];
+    setExportStatuses(prev => prev.size === allStatuses.length ? new Set() : new Set(allStatuses));
+  };
+
+  const handleExport = useCallback(() => {
+    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(Object.keys(STATUS_CONFIG) as HealthStatus[]);
+    const exportData = data
+      .map(item => ({ ...item, ...getRecentPriorStatic(item, last12Months, getQty) }))
+      .filter(item => statusesToExport.has(item.status));
+
+    if (exportData.length === 0) {
+      toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
+      return;
+    }
+
+    const monthHeaders = last12Months.map(m => `${MONTH_LABELS[m.month]} ${m.year}`);
+    const headers = ['ASIN', 'SKU', 'Title', 'Status', ...monthHeaders, 'Prior 3mo', 'Recent 3mo', 'Δ%', 'Total Shipped', 'Last Active'];
+
+    const rows = exportData.map(item => {
+      const monthlyQtys = last12Months.map(m => getQty(item, m.year, m.month));
+      return [
+        item.asin,
+        item.sku || '',
+        `"${(item.title || '').replace(/"/g, '""')}"`,
+        item.status,
+        ...monthlyQtys,
+        item.priorQty,
+        item.recentQty,
+        `${item.changePercent.toFixed(1)}%`,
+        item.totalShipped,
+        item.lastActiveMonth,
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const statusLabel = exportStatuses.size > 0
+      ? Array.from(exportStatuses).join('_')
+      : 'all';
+    a.download = `asin_health_${statusLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
+  }, [data, exportStatuses, last12Months, toast]);
 
   // Compute the last 12 calendar months from all data
   const last12Months = useMemo(() => {
