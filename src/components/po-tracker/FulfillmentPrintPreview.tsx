@@ -324,9 +324,9 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
 
         <style>{`
           @media print {
-            @page { size: landscape; margin: 8mm; }
+            @page { size: landscape; margin: 6mm; }
 
-            /* Hide everything */
+            /* Hide everything first */
             body * { visibility: hidden !important; }
 
             /* Show the Radix portal and dialog */
@@ -337,13 +337,13 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
               visibility: visible !important;
             }
 
-            /* Hide the overlay/backdrop */
+            /* Hide overlay/backdrop */
             [data-radix-portal] > [data-state] {
               background: transparent !important;
               backdrop-filter: none !important;
             }
 
-            /* Position the dialog for print */
+            /* Position dialog for full-page print */
             [role="dialog"] {
               position: fixed !important;
               top: 0 !important;
@@ -357,7 +357,7 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
               box-shadow: none !important;
               background: white !important;
               color: black !important;
-              padding: 4mm !important;
+              padding: 2mm !important;
               transform: none !important;
               border-radius: 0 !important;
             }
@@ -371,89 +371,91 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
               height: auto !important;
             }
 
-            /* Hide non-print elements */
-            .no-print { display: none !important; }
+            /* Hide header, stats bar, buttons, close button */
+            .print-header,
+            .no-print,
+            [role="dialog"] .grid,
+            [role="dialog"] button[class*="absolute"] {
+              display: none !important;
+              visibility: hidden !important;
+              height: 0 !important;
+              overflow: hidden !important;
+            }
 
-            /* Compact table styling */
+            /* Hide all SVG icons */
+            [role="dialog"] svg {
+              width: 0 !important;
+              height: 0 !important;
+              overflow: hidden !important;
+              display: none !important;
+            }
+
+            /* Table: auto layout, 8pt font */
             [role="dialog"] table {
-              font-size: 7pt !important;
+              font-size: 8pt !important;
               width: 100% !important;
-              table-layout: fixed !important;
+              table-layout: auto !important;
               border-collapse: collapse !important;
             }
 
+            /* Cell styling — clear borders, no clipping */
             [role="dialog"] th,
             [role="dialog"] td {
-              padding: 2px 4px !important;
+              padding: 3px 5px !important;
               color: black !important;
               background: white !important;
-              border: 0.5px solid #ccc !important;
+              border: 1px solid #333 !important;
+              overflow: visible !important;
+              text-overflow: unset !important;
               white-space: nowrap !important;
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
             }
 
-            /* Title column can wrap */
+            /* Title column wraps */
             [role="dialog"] td:nth-child(4) {
               white-space: normal !important;
               word-break: break-word !important;
             }
 
+            /* Header row */
             [role="dialog"] thead th {
+              background: #e8e8e8 !important;
+              font-weight: bold !important;
+              font-size: 8pt !important;
+              border: 1px solid #333 !important;
+            }
+
+            /* Strong row separation */
+            [role="dialog"] tbody tr {
+              border-bottom: 1.5px solid #000 !important;
+            }
+
+            /* Zebra striping */
+            [role="dialog"] tbody tr:nth-child(even) td {
               background: #f0f0f0 !important;
-              font-weight: bold !important;
-              font-size: 7pt !important;
             }
 
+            /* Footer row */
             [role="dialog"] tfoot td {
-              background: #f5f5f5 !important;
+              background: #e0e0e0 !important;
               font-weight: bold !important;
+              border: 1px solid #333 !important;
             }
 
-            /* Force light colors on badges */
+            /* Badges — light, readable */
             [role="dialog"] [class*="badge"],
             [role="dialog"] [class*="Badge"],
             [role="dialog"] span[class*="bg-"] {
               background: transparent !important;
               color: black !important;
-              border: 0.5px solid #999 !important;
-              font-size: 6pt !important;
+              border: 0.5px solid #666 !important;
+              font-size: 7pt !important;
               padding: 0 2px !important;
-            }
-
-            /* Zebra striping */
-            [role="dialog"] tbody tr:nth-child(even) td {
-              background: #fafafa !important;
             }
 
             /* Page breaks */
             [role="dialog"] tr {
               page-break-inside: avoid !important;
             }
-
-            /* Header styling for print */
-            .print-header {
-              border-bottom: 1px solid #ccc !important;
-              padding-bottom: 4px !important;
-              margin-bottom: 4px !important;
-            }
-
-            .print-header * {
-              color: black !important;
-            }
-
-            /* Summary stats bar */
-            [role="dialog"] .grid {
-              border: 0.5px solid #ccc !important;
-              background: #fafafa !important;
-            }
-            [role="dialog"] .grid * {
-              color: black !important;
-            }
-
-            /* Hide close button, sort icons */
-            [role="dialog"] button[class*="absolute"] { display: none !important; }
-            [role="dialog"] svg { width: 0 !important; height: 0 !important; overflow: hidden !important; }
           }
         `}</style>
       </DialogContent>
