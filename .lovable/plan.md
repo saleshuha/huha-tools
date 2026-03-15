@@ -1,52 +1,88 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+# ASIN Sales Health Tracker — Monthly Sales Analysis System
 
-### What We'll Build
+## Overview
+A new system to upload monthly Amazon shipping data per ASIN, track sales trends over time, detect declining/inactive ASINs, and lock months after upload to prevent duplicates.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+## Database Design
 
-### How It Works
+### Table: `amazon_monthly_sales`
+Stores the raw monthly shipped quantities per ASIN.
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| user_id | uuid FK auth.users | |
+| asin | text NOT NULL | |
+| sku | text | |
+| title | text | |
+| country | text NOT NULL | UAE/KSA |
+| year | integer NOT NULL | e.g. 2025 |
+| month | integer NOT NULL | 1-12 |
+| shipped_qty | integer NOT NULL | total shipped that month |
+| created_at | timestamptz | default now() |
+| UNIQUE | | (user_id, asin, country, year, month) |
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+### Table: `amazon_monthly_upload_locks`
+Tracks which months have been uploaded/locked.
 
-### Data Flow
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| user_id | uuid FK auth.users | |
+| country | text NOT NULL | |
+| year | integer NOT NULL | |
+| month | integer NOT NULL | |
+| total_asins | integer | count of ASINs uploaded |
+| total_qty | integer | total shipped qty |
+| locked_at | timestamptz | default now() |
+| UNIQUE | | (user_id, country, year, month) |
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+RLS: Both tables — authenticated users can CRUD their own rows (`user_id = auth.uid()`).
 
-### Files to Modify
+## Frontend Architecture
 
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+### New Page: `src/pages/AsinSalesHealth.tsx`
+Route: `/asin-sales-health`
 
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+### Components: `src/components/asin-sales-health/`
+
+1. **MonthlyUploadPanel** — File upload for monthly data (Excel/CSV with ASIN + shipped qty columns), month/year selector, column mapping, preview before save, lock month after upload
+2. **UploadCalendar** — Visual grid showing which months are uploaded (locked) vs pending, with country filter
+3. **SalesHealthDashboard** — Analytics view with:
+   - Health status per ASIN: Growing / Stable / Declining / Inactive / New
+   - Trend calculation: compare recent 3 months vs prior 3 months
+   - Sortable/filterable table showing all ASINs with monthly breakdown
+   - Color-coded health indicators
+4. **AsinTrendChart** — Sparkline or bar chart per ASIN showing monthly qty over time
+5. **HealthSummaryCards** — KPI cards: Total Active ASINs, Declining count, Inactive count, Top Growers
+
+### Health Classification Logic (client-side)
+- **Growing**: Recent 3-month avg > Prior 3-month avg by >20%
+- **Stable**: Within ±20%
+- **Declining**: Recent 3-month avg < Prior 3-month avg by >20%
+- **Inactive**: 0 sales in last 2+ months but had sales before
+- **New**: Only appeared in recent months
+
+### Hook: `useAsinSalesHealth.ts`
+- Fetch monthly data from `amazon_monthly_sales`
+- Fetch lock status from `amazon_monthly_upload_locks`
+- Calculate health metrics client-side
+- Upload handler with lock creation
+
+## Navigation
+Add sidebar entry under Amazon section: "ASIN Sales Health" with `Activity` icon
+
+## Files to Create/Modify
+- **Create**: `src/pages/AsinSalesHealth.tsx`
+- **Create**: `src/components/asin-sales-health/MonthlyUploadPanel.tsx`
+- **Create**: `src/components/asin-sales-health/UploadCalendar.tsx`
+- **Create**: `src/components/asin-sales-health/SalesHealthDashboard.tsx`
+- **Create**: `src/components/asin-sales-health/AsinTrendChart.tsx`
+- **Create**: `src/components/asin-sales-health/HealthSummaryCards.tsx`
+- **Create**: `src/hooks/useAsinSalesHealth.ts`
+- **Modify**: `src/App.tsx` — add route
+- **Modify**: `src/components/AppSidebar.tsx` — add nav entry
+- **DB Migration**: Create both tables with RLS
 
