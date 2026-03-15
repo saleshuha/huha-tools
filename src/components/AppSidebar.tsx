@@ -610,6 +610,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               Amazon Vendor Central
                             </span>
+                            <NewBadge route="/amazon-vendor-central" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
