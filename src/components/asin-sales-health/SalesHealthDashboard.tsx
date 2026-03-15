@@ -26,6 +26,8 @@ const STATUS_CONFIG: Record<HealthStatus, { label: string; icon: any; badgeClass
   new: { label: 'New', icon: Sparkles, badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
 };
 
+const ALL_STATUSES = Object.keys(STATUS_CONFIG) as HealthStatus[];
+
 const ROW_HIGHLIGHT: Record<HealthStatus, string> = {
   growing: 'bg-green-50/50 dark:bg-green-950/10',
   declining: 'bg-orange-50/50 dark:bg-orange-950/10',
@@ -44,66 +46,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [exportStatuses, setExportStatuses] = useState<Set<HealthStatus>>(new Set());
   const { toast } = useToast();
 
-  const toggleExportStatus = (status: HealthStatus) => {
-    setExportStatuses(prev => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
-  };
-
-  const selectAllExportStatuses = () => {
-    const allStatuses = Object.keys(STATUS_CONFIG) as HealthStatus[];
-    setExportStatuses(prev => prev.size === allStatuses.length ? new Set() : new Set(allStatuses));
-  };
-
-  const handleExport = useCallback(() => {
-    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(Object.keys(STATUS_CONFIG) as HealthStatus[]);
-    const exportData = data
-      .map(item => ({ ...item, ...getRecentPriorStatic(item, last12Months, getQty) }))
-      .filter(item => statusesToExport.has(item.status));
-
-    if (exportData.length === 0) {
-      toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
-      return;
-    }
-
-    const monthHeaders = last12Months.map(m => `${MONTH_LABELS[m.month]} ${m.year}`);
-    const headers = ['ASIN', 'SKU', 'Title', 'Status', ...monthHeaders, 'Prior 3mo', 'Recent 3mo', 'Δ%', 'Total Shipped', 'Last Active'];
-
-    const rows = exportData.map(item => {
-      const monthlyQtys = last12Months.map(m => getQty(item, m.year, m.month));
-      return [
-        item.asin,
-        item.sku || '',
-        `"${(item.title || '').replace(/"/g, '""')}"`,
-        item.status,
-        ...monthlyQtys,
-        item.priorQty,
-        item.recentQty,
-        `${item.changePercent.toFixed(1)}%`,
-        item.totalShipped,
-        item.lastActiveMonth,
-      ].join(',');
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const statusLabel = exportStatuses.size > 0
-      ? Array.from(exportStatuses).join('_')
-      : 'all';
-    a.download = `asin_health_${statusLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
-  }, [data, exportStatuses, last12Months, toast]);
-
-  // Compute the last 12 calendar months from all data
   const last12Months = useMemo(() => {
     const allMonths = new Set<string>();
     data.forEach(d => d.monthlyData.forEach(m => allMonths.add(`${m.year}-${m.month}`)));
@@ -118,7 +60,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     return found ? found.qty : 0;
   };
 
-  // Compute recent (last 3) and prior (3 before that) qty sums
   const getRecentPrior = (item: AsinHealth) => {
     const recent3 = last12Months.slice(-3);
     const prior3 = last12Months.slice(-6, -3);
@@ -156,6 +97,57 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
+  const toggleExportStatus = (status: HealthStatus) => {
+    setExportStatuses(prev => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const handleExport = useCallback(() => {
+    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
+    const exportData = data
+      .map(item => ({ ...item, ...getRecentPrior(item) }))
+      .filter(item => statusesToExport.has(item.status));
+
+    if (exportData.length === 0) {
+      toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
+      return;
+    }
+
+    const monthHeaders = last12Months.map(m => `${MONTH_LABELS[m.month]} ${m.year}`);
+    const headers = ['ASIN', 'SKU', 'Title', 'Status', ...monthHeaders, 'Prior 3mo', 'Recent 3mo', 'Change %', 'Total Shipped', 'Last Active'];
+
+    const rows = exportData.map(item => {
+      const monthlyQtys = last12Months.map(m => getQty(item, m.year, m.month));
+      return [
+        item.asin,
+        item.sku || '',
+        `"${(item.title || '').replace(/"/g, '""')}"`,
+        item.status,
+        ...monthlyQtys,
+        item.priorQty,
+        item.recentQty,
+        `${item.changePercent.toFixed(1)}%`,
+        item.totalShipped,
+        item.lastActiveMonth,
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const statusLabel = exportStatuses.size > 0 ? Array.from(exportStatuses).join('_') : 'all';
+    a.download = `asin_health_${statusLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
+  }, [data, exportStatuses, last12Months, toast]);
+
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Loading health data...</div>;
   }
@@ -169,6 +161,10 @@ export function SalesHealthDashboard({ data, loading }: Props) {
       </Card>
     );
   }
+
+  const exportCount = exportStatuses.size > 0
+    ? data.filter(d => exportStatuses.has(d.status)).length
+    : data.length;
 
   return (
     <Card className="border border-border">
@@ -194,6 +190,56 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Export Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="end">
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-foreground">Export by Status</p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={exportStatuses.size === ALL_STATUSES.length}
+                        onCheckedChange={() => {
+                          setExportStatuses(prev =>
+                            prev.size === ALL_STATUSES.length ? new Set() : new Set(ALL_STATUSES)
+                          );
+                        }}
+                      />
+                      <span className="text-xs font-medium">Select All</span>
+                    </label>
+                    <div className="border-t border-border pt-2 space-y-1.5">
+                      {ALL_STATUSES.map(status => {
+                        const cfg = STATUS_CONFIG[status];
+                        const Icon = cfg.icon;
+                        const count = data.filter(d => d.status === status).length;
+                        return (
+                          <label key={status} className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox
+                              checked={exportStatuses.has(status)}
+                              onCheckedChange={() => toggleExportStatus(status)}
+                            />
+                            <Icon className="h-3 w-3 shrink-0" />
+                            <span className="text-xs flex-1">{cfg.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{count}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button size="sm" className="w-full h-8 text-xs gap-1.5" onClick={handleExport}>
+                    <Download className="h-3 w-3" />
+                    Export {exportCount} ASINs
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </CardHeader>
@@ -229,8 +275,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                 const cfg = STATUS_CONFIG[item.status];
                 const Icon = cfg.icon;
                 const rowHighlight = ROW_HIGHLIGHT[item.status] || '';
-
-                // Delta background color
                 const deltaClass = item.changePercent > 20
                   ? 'bg-green-100/60 dark:bg-green-900/20'
                   : item.changePercent < -20
@@ -239,7 +283,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
                 return (
                   <TableRow key={item.asin} className={rowHighlight}>
-                    {/* Merged Product Column */}
                     <TableCell className="py-2 max-w-[220px]">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
@@ -258,7 +301,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                         <Icon className="h-3 w-3" /> {cfg.label}
                       </Badge>
                     </TableCell>
-                    {/* Monthly grid + inline trend bars */}
                     <TableCell className="p-1">
                       <div className="flex flex-col gap-1">
                         <div className="grid grid-cols-6 gap-x-0 gap-y-0 min-w-[240px]">
@@ -277,9 +319,8 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                             );
                           })}
                         </div>
-                        {/* Inline mini trend bars */}
                         <div className="flex items-end gap-[2px] h-4 min-w-[240px] px-0.5">
-                          {last12Months.map((m, i) => {
+                          {last12Months.map((m) => {
                             const qty = getQty(item, m.year, m.month);
                             const h = Math.max(1, (qty / maxQty) * 16);
                             const barColor = qty === 0
