@@ -5818,20 +5818,11 @@ export const POTracker = () => {
                             variant="ghost"
                             size="sm"
                             className="h-5 px-2 text-xs text-primary hover:text-primary hover:bg-primary/20"
-                            disabled={isBulkFulfilling || selectedForPrint.size === 0}
+                            disabled={selectedForPrint.size === 0}
                             onClick={handleBulkFulfillFromStock}
                           >
-                            {isBulkFulfilling ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Fulfilling {bulkFulfillProgress.current}/{bulkFulfillProgress.total}...
-                              </>
-                            ) : (
-                              <>
-                                <Warehouse className="h-3 w-3 mr-1" />
-                                Bulk Fulfill ({selectedForPrint.size})
-                              </>
-                            )}
+                            <Warehouse className="h-3 w-3 mr-1" />
+                            Bulk Fulfill ({selectedForPrint.size})
                           </Button>
                           <Button
                             variant="ghost"
