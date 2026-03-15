@@ -72,6 +72,7 @@ export const usePOOrders = () => {
   const [poProgress, setPOProgress] = useState<POProgressItem[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isFetchingPOOrdersRef = useRef(false);
 
   // NEW: Fetch PO orders for a specific PO number only (optimized for details page)
   const fetchSinglePOOrders = useCallback(async (poNumber: string) => {
