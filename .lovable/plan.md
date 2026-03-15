@@ -1,29 +1,52 @@
 
 
-# Advanced ASIN Sales Health Dashboard
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Changes
+### What We'll Build
 
-### 1. Collapsible Upload Section
-Wrap the Upload Calendar + MonthlyUploadPanel in a `Collapsible` (already available in `src/components/ui/collapsible.tsx`), closed by default. A trigger button with chevron toggle at the top.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-### 2. Merge ASIN/SKU/Title into Single "Product" Column
-Combine the three columns into one cell:
-- **ASIN** in monospace (top line)
-- **SKU** in muted text (same line or below)
-- **Title** truncated below in smaller text
+### How It Works
 
-### 3. Enhanced Health Analytics
-- **Summary Cards**: Add percentage of total next to each count (e.g., "7 (10.6%)"), add a colored progress bar under each card showing proportion
-- **Dashboard table improvements**:
-  - Remove separate "Trend" sparkline column — integrate the mini bar chart into the Monthly Shipped cell (below the grid)
-  - Add "Recent Qty" and "Prior Qty" columns (sum of last 3 months vs prior 3 months) for clearer comparison
-  - Color-code the Δ% cell background lightly based on severity
-  - Add row highlight: faint red for declining, faint green for growing
-- **Status badge**: Keep as-is, already good
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-## Files Modified
-- `src/pages/AsinSalesHealth.tsx` — wrap calendar+upload in Collapsible
-- `src/components/asin-sales-health/SalesHealthDashboard.tsx` — merge columns, add recent/prior qty, row highlights, remove trend column
-- `src/components/asin-sales-health/HealthSummaryCards.tsx` — add percentages and progress bars
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
+
+### Data Flow
+
+```text
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
+```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 
