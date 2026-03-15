@@ -658,6 +658,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               ASIN Cost History
                             </span>
+                            <NewBadge route="/asin-cost-history" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
