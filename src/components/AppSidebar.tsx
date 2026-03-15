@@ -587,6 +587,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Amazon Image Uploader
                           </span>
+                          <NewBadge route="/amazon-image-uploader" />
                         </NavLink>
                       </SidebarMenuButton>}
 
