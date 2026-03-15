@@ -1,38 +1,52 @@
 
 
-## Plan: Fix Data Loss During Bulk Fulfillment
+## Bulk Push Local Inventory to Shopify (with Images)
 
-### Root Cause
+### What We'll Build
 
-In `BulkFulfillProcessor.tsx` line 201, `onComplete()` is called immediately when processing finishes — while the user is still viewing the summary report in the dialog. This triggers `handleBulkFulfillComplete` in `POTracker.tsx` (line 1078-1082) which does:
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-1. `queryClient.invalidateQueries({ queryKey: ['po-orders'] })` — triggers a full re-fetch
-2. `fetchPOOrders(true)` — triggers ANOTHER full re-fetch (3500+ orders, ~72s)
+### How It Works
 
-This double re-fetch happens while the dialog is still open. When the data reloads, the snapshot lock ref (`lockedFilterIdsRef`) still holds old IDs, but the underlying orders array gets replaced. The snapshot lock mechanism then can't find the old IDs in the new data, causing rows to vanish. Additionally, with `staleTime: 0` on the query, every refetch overwrites the cache immediately.
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
 
-### Fix
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
 
-**File: `src/components/po-tracker/BulkFulfillProcessor.tsx`**
-- Remove `onComplete()` call from end of `startProcessing` (line 201)
-- Instead, call `onComplete()` only when the user **closes the dialog** after viewing the summary (in `handleClose`, only if phase is `summary`)
-- This ensures data refresh happens after the user is done reviewing results
-
-**File: `src/components/POTracker.tsx`**
-- In `handleBulkFulfillComplete`: remove the redundant double-fetch. Keep only `queryClient.invalidateQueries` (which already triggers a re-fetch via React Query). Remove `fetchPOOrders(true)` to avoid the duplicate heavy fetch
-- Clear the snapshot lock (`lockedFilterIdsRef.current = null`) so the refreshed data isn't filtered against stale IDs
-
-### Changes Summary
+### Data Flow
 
 ```text
-BulkFulfillProcessor.tsx:
-  Line 201: Remove onComplete() from startProcessing
-  handleClose: Call onComplete() when closing from summary phase
-
-POTracker.tsx:
-  handleBulkFulfillComplete:
-    - Remove fetchPOOrders(true) (redundant with invalidateQueries)
-    - Clear lockedFilterIdsRef.current = null
-    - Clear selectedForPrint
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

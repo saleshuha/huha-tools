@@ -198,7 +198,6 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
 
     setCompletedTimestamp(new Date());
     setPhase('summary');
-    onComplete();
   };
 
   const handleCancel = () => {
@@ -206,6 +205,10 @@ export const BulkFulfillProcessor: React.FC<BulkFulfillProcessorProps> = ({
   };
 
   const handleClose = () => {
+    // Only trigger data refresh when closing after summary (processing is done)
+    if (phase === 'summary') {
+      onComplete();
+    }
     onOpenChange(false);
     // Reset after close animation
     setTimeout(() => {
