@@ -734,6 +734,7 @@ export function AppSidebar() {
                           <span className="font-medium text-xs">
                             Noon Orders Processing
                           </span>
+                          <NewBadge route="/noon-order-processing" />
                         </NavLink>
                       </SidebarMenuButton>}
                       
