@@ -38,6 +38,7 @@ import { PurchaseInvoiceList } from '@/components/po/PurchaseInvoiceList';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { SnapshotPrintPreview } from '@/components/po-tracker/SnapshotPrintPreview';
+import { FulfillmentPrintPreview } from '@/components/po-tracker/FulfillmentPrintPreview';
 import { BulkFulfillSummary, BulkFulfillResult } from '@/components/po-tracker/BulkFulfillSummary';
 import { BulkFulfillProcessor, EligibleOrder } from '@/components/po-tracker/BulkFulfillProcessor';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
@@ -140,6 +141,8 @@ export const POTracker = () => {
   const [bulkFulfillProgress, setBulkFulfillProgress] = useState({ current: 0, total: 0 });
   const [bulkProcessorOpen, setBulkProcessorOpen] = useState(false);
   const [bulkProcessorOrders, setBulkProcessorOrders] = useState<EligibleOrder[]>([]);
+  const [fulfillmentPreviewOpen, setFulfillmentPreviewOpen] = useState(false);
+  const [fulfillmentPreviewOrders, setFulfillmentPreviewOrders] = useState<POOrder[]>([]);
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode' | 'serial_number_qty'>('po_number');
@@ -6031,15 +6034,14 @@ export const POTracker = () => {
                             Clear
                           </Button>}
                         {/* Fulfillment Print Preview */}
-                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview labels filtered by fulfillment" onClick={() => {
+                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview fulfillment status" onClick={() => {
                           const filtered = getSelectedPOsOrdersByFulfillment();
                           if (filtered.length === 0) {
                             toast({ title: "No Items to Preview", description: "No items match the fulfillment filter.", variant: "destructive" });
                             return;
                           }
-                          setPrintMode('bulk');
-                          setPrintOrders(filtered);
-                          setPrintDialogOpen(true);
+                          setFulfillmentPreviewOrders(filtered);
+                          setFulfillmentPreviewOpen(true);
                         }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
                           <FileText className="h-3.5 w-3.5" />
                           Print Preview
@@ -8040,6 +8042,13 @@ export const POTracker = () => {
         onOpenChange={setBulkProcessorOpen}
         eligibleOrders={bulkProcessorOrders}
         onComplete={handleBulkFulfillComplete}
+      />
+      {/* Fulfillment Print Preview Dialog */}
+      <FulfillmentPrintPreview
+        open={fulfillmentPreviewOpen}
+        onOpenChange={setFulfillmentPreviewOpen}
+        orders={fulfillmentPreviewOrders}
+        findInventoryMatch={findInventoryMatch}
       />
     </div>;
 };
