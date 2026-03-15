@@ -682,6 +682,7 @@ export function AppSidebar() {
                             <span className="font-medium text-xs">
                               ASIN Sales Health
                             </span>
+                            <NewBadge route="/asin-sales-health" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
