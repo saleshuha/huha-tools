@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, FileSpreadsheet, Check } from 'lucide-react';
-import { parseFileSimply } from '@/components/SimpleFileParser';
 import { useToast } from '@/hooks/use-toast';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface Props {
   selectedYear: number;
@@ -18,9 +19,56 @@ interface Props {
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+/** Parse file into raw 2D array (no headers applied) */
+const parseFileRaw = (file: File): Promise<string[][]> => {
+  const fileName = file.name.toLowerCase();
+  const isCSV = fileName.endsWith('.csv') || file.type.includes('csv');
+
+  return new Promise((resolve, reject) => {
+    if (isCSV) {
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: (results) => resolve((results.data as string[][]).filter(r => r.some(c => c?.toString().trim()))),
+        error: (err) => reject(new Error(err.message)),
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: 'array', raw: false });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
+          resolve(rows.filter(r => r.some(c => c?.toString().trim())));
+        } catch (err: any) {
+          reject(new Error(err.message));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(file);
+    }
+  });
+};
+
+/** Apply header row to raw data, returning objects */
+const applyHeaderRow = (rawRows: string[][], headerRowIndex: number): { headers: string[]; data: Record<string, string>[] } => {
+  if (headerRowIndex >= rawRows.length) return { headers: [], data: [] };
+  const headers = rawRows[headerRowIndex].map(h => (h ?? '').toString().trim()).filter(Boolean);
+  const dataRows = rawRows.slice(headerRowIndex + 1);
+  const data = dataRows.map(row => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = (row[i] ?? '').toString(); });
+    return obj;
+  }).filter(obj => Object.values(obj).some(v => v.trim()));
+  return { headers, data };
+};
+
 export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpload, isLocked }: Props) {
+  const [rawRows, setRawRows] = useState<string[][]>([]);
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [headerRow, setHeaderRow] = useState(0);
   const [asinCol, setAsinCol] = useState('');
   const [skuCol, setSkuCol] = useState('');
   const [titleCol, setTitleCol] = useState('');
@@ -29,36 +77,49 @@ export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpl
   const [fileName, setFileName] = useState('');
   const { toast } = useToast();
 
+  const autoDetectColumns = (cols: string[]) => {
+    const lower = cols.map(c => c.toLowerCase());
+    const asinIdx = lower.findIndex(c => c.includes('asin'));
+    const skuIdx = lower.findIndex(c => c.includes('sku') || c.includes('seller-sku'));
+    const titleIdx = lower.findIndex(c => c.includes('title') || c.includes('product'));
+    const qtyIdx = lower.findIndex(c => c.includes('ship') || c.includes('qty') || c.includes('quantity') || c.includes('units'));
+    setAsinCol(asinIdx >= 0 ? cols[asinIdx] : '');
+    setSkuCol(skuIdx >= 0 ? cols[skuIdx] : '');
+    setTitleCol(titleIdx >= 0 ? cols[titleIdx] : '');
+    setQtyCol(qtyIdx >= 0 ? cols[qtyIdx] : '');
+  };
+
+  const applyHeader = useCallback((rows: string[][], rowIdx: number) => {
+    const { headers: cols, data } = applyHeaderRow(rows, rowIdx);
+    setHeaders(cols);
+    setParsedRows(data);
+    autoDetectColumns(cols);
+  }, []);
+
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
 
     try {
-      const data = await parseFileSimply(file);
-      if (data.length === 0) {
+      const rows = await parseFileRaw(file);
+      if (rows.length === 0) {
         toast({ title: 'Empty file', variant: 'destructive' });
         return;
       }
-      const cols = Object.keys(data[0]);
-      setHeaders(cols);
-      setParsedRows(data);
-
-      // Auto-detect columns
-      const lower = cols.map(c => c.toLowerCase());
-      const asinIdx = lower.findIndex(c => c.includes('asin'));
-      const skuIdx = lower.findIndex(c => c.includes('sku') || c.includes('seller-sku'));
-      const titleIdx = lower.findIndex(c => c.includes('title') || c.includes('product'));
-      const qtyIdx = lower.findIndex(c => c.includes('ship') || c.includes('qty') || c.includes('quantity') || c.includes('units'));
-
-      if (asinIdx >= 0) setAsinCol(cols[asinIdx]);
-      if (skuIdx >= 0) setSkuCol(cols[skuIdx]);
-      if (titleIdx >= 0) setTitleCol(cols[titleIdx]);
-      if (qtyIdx >= 0) setQtyCol(cols[qtyIdx]);
+      setRawRows(rows);
+      setHeaderRow(0);
+      applyHeader(rows, 0);
     } catch (err: any) {
       toast({ title: 'Parse error', description: err.message, variant: 'destructive' });
     }
-  }, [toast]);
+  }, [toast, applyHeader]);
+
+  const handleHeaderRowChange = (val: string) => {
+    const idx = parseInt(val);
+    setHeaderRow(idx);
+    applyHeader(rawRows, idx);
+  };
 
   const mappedRows = parsedRows.map(r => ({
     asin: String(r[asinCol] || '').trim(),
@@ -81,7 +142,9 @@ export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpl
       await onUpload(mappedRows, selectedYear, selectedMonth, country);
       setParsedRows([]);
       setHeaders([]);
+      setRawRows([]);
       setFileName('');
+      setHeaderRow(0);
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -112,13 +175,29 @@ export function MonthlyUploadPanel({ selectedYear, selectedMonth, country, onUpl
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* File input */}
-        <div className="flex items-center gap-3">
+        {/* File input + header row */}
+        <div className="flex items-center gap-3 flex-wrap">
           <Input type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} className="max-w-xs" />
           {fileName && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <FileSpreadsheet className="h-3 w-3" /> {fileName}
             </span>
+          )}
+          {rawRows.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-foreground whitespace-nowrap">Header Row:</label>
+              <Select value={String(headerRow)} onValueChange={handleHeaderRowChange}>
+                <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {rawRows.slice(0, Math.min(20, rawRows.length)).map((row, i) => (
+                    <SelectItem key={i} value={String(i)}>Row {i + 1}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                {rawRows[headerRow]?.slice(0, 3).join(', ')}…
+              </span>
+            </div>
           )}
         </div>
 
