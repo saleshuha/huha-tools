@@ -78,6 +78,7 @@ import MarketPurchases from "./pages/MarketPurchases";
 import MarketPurchasePublic from "./pages/MarketPurchasePublic";
 import ShopifySyncPage from "./pages/ShopifySyncPage";
 import NoonFBPIPage from "./pages/NoonFBPIPage";
+import AsinSalesHealth from "./pages/AsinSalesHealth";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
