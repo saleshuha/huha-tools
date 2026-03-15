@@ -894,6 +894,7 @@ export function AppSidebar() {
                               <span className="font-medium text-xs">
                                 Global Sources
                               </span>
+                              <NewBadge route="/global-sources" />
                             </NavLink>
                           </SidebarMenuButton>}
                     </CollapsibleContent>
