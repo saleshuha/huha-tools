@@ -228,10 +228,10 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                 <TableHead className="min-w-[180px]">Title</TableHead>
                 <TableHead className="min-w-[100px]">PO Number</TableHead>
                 <TableHead className="text-center w-[70px]">PO Qty</TableHead>
-                <SortableHead field="fulfilledQty" className="text-center w-[80px]">Fulfilled</SortableHead>
                 <SortableHead field="pendingQty" className="text-center w-[70px]">Pending</SortableHead>
-                <SortableHead field="serialNumber" className="min-w-[140px]">Serial #</SortableHead>
                 <SortableHead field="inStock" className="text-center w-[80px]">In-Stock</SortableHead>
+                <SortableHead field="serialNumber" className="min-w-[140px]">Serial #</SortableHead>
+                <SortableHead field="fulfilledQty" className="text-center w-[80px]">Fulfilled</SortableHead>
                 <SortableHead field="status" className="text-center w-[120px]">Status</SortableHead>
               </TableRow>
             </TableHeader>
@@ -261,14 +261,14 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                     <span className="text-xs font-mono font-semibold">{order._poQty}</span>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={`text-xs font-mono font-semibold ${order._fulfilledQty > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                      {order._fulfilledQty}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
                     <span className={`text-xs font-mono font-semibold ${order._pendingQty > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
                       {order._pendingQty}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className={`text-xs font-mono ${order._inStockQty > 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-muted/50 text-muted-foreground'}`}>
+                      {order._inStockQty}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {order._serialNumbers.length > 0 ? (
@@ -289,9 +289,9 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className={`text-xs font-mono ${order._inStockQty > 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-muted/50 text-muted-foreground'}`}>
-                      {order._inStockQty}
-                    </Badge>
+                    <span className={`text-xs font-mono font-semibold ${order._fulfilledQty > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      {order._fulfilledQty}
+                    </span>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className={`text-[10px] gap-1 ${statusBadge(order._fulfillmentStatus)}`}>
@@ -308,14 +308,14 @@ export function FulfillmentPrintPreview({ open, onOpenChange, orders, findInvent
                   Totals ({totals.items} items)
                 </TableCell>
                 <TableCell className="text-center text-xs font-mono">{totals.poQty}</TableCell>
-                <TableCell className="text-center text-xs font-mono text-green-600 dark:text-green-400">{totals.fulfilledQty}</TableCell>
                 <TableCell className="text-center text-xs font-mono font-bold text-destructive">{totals.pendingQty}</TableCell>
-                <TableCell />
                 <TableCell className="text-center">
                   <Badge variant="outline" className="text-xs font-mono bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
                     {totals.inStockQty}
                   </Badge>
                 </TableCell>
+                <TableCell />
+                <TableCell className="text-center text-xs font-mono text-green-600 dark:text-green-400">{totals.fulfilledQty}</TableCell>
                 <TableCell />
               </TableRow>
             </TableFooter>
