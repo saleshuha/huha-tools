@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
 
@@ -36,6 +36,8 @@ const ROW_HIGHLIGHT: Record<HealthStatus, string> = {
   new: '',
 };
 
+const PAGE_SIZES = [25, 50, 100];
+
 type SortKey = 'asin' | 'status' | 'recentQty' | 'priorQty' | 'changePercent' | 'totalShipped';
 
 export function SalesHealthDashboard({ data, loading }: Props) {
@@ -44,6 +46,8 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('changePercent');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [exportStatuses, setExportStatuses] = useState<Set<HealthStatus>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const { toast } = useToast();
 
   const last12Months = useMemo(() => {
@@ -70,6 +74,13 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
   const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
 
+  // Status counts for filter badges
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: data.length };
+    ALL_STATUSES.forEach(s => { counts[s] = data.filter(d => d.status === s).length; });
+    return counts;
+  }, [data]);
+
   const filtered = useMemo(() => {
     let result = data.map(item => ({ ...item, ...getRecentPrior(item) }));
     if (search) {
@@ -91,6 +102,16 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     });
     return result;
   }, [data, search, statusFilter, sortKey, sortDir, last12Months]);
+
+  // Reset page when filters change
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  if (safePage !== page) setPage(safePage);
+
+  const paginatedData = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, safePage, pageSize]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -166,6 +187,9 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     ? data.filter(d => exportStatuses.has(d.status)).length
     : data.length;
 
+  const showStart = (safePage - 1) * pageSize + 1;
+  const showEnd = Math.min(safePage * pageSize, filtered.length);
+
   return (
     <Card className="border border-border">
       <CardHeader className="pb-3">
@@ -177,16 +201,16 @@ export function SalesHealthDashboard({ data, loading }: Props) {
               <Input
                 placeholder="Search ASIN, SKU, title..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
                 className="pl-7 h-8 text-xs w-48"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 text-xs w-32"><SelectValue /></SelectTrigger>
+            <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+              <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All Status ({statusCounts.all})</SelectItem>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  <SelectItem key={k} value={k}>{v.label} ({statusCounts[k] || 0})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -271,7 +295,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(item => {
+              {paginatedData.map(item => {
                 const cfg = STATUS_CONFIG[item.status];
                 const Icon = cfg.icon;
                 const rowHighlight = ROW_HIGHLIGHT[item.status] || '';
@@ -353,8 +377,46 @@ export function SalesHealthDashboard({ data, loading }: Props) {
             </TableBody>
           </Table>
         </div>
-        <div className="p-3 border-t text-xs text-muted-foreground">
-          Showing {filtered.length} of {data.length} ASINs
+
+        {/* Pagination Footer */}
+        <div className="p-3 border-t flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground">
+            Showing {filtered.length > 0 ? showStart : 0}–{showEnd} of {filtered.length} ASINs
+            {filtered.length !== data.length && ` (filtered from ${data.length})`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger className="h-7 text-xs w-20"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZES.map(s => (
+                  <SelectItem key={s} value={String(s)}>{s} / page</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                disabled={safePage <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs text-muted-foreground min-w-[60px] text-center">
+                {safePage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

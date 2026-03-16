@@ -39,6 +39,36 @@ export interface AsinHealth {
   lastActiveMonth: string;
 }
 
+// Batch-fetch all rows, bypassing the 1000-row default limit
+async function fetchAllRows<T extends { id: string }>(
+  query: () => any,
+  batchSize = 1000
+): Promise<T[]> {
+  const seen = new Set<string>();
+  const all: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await query()
+      .range(from, from + batchSize - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    for (const row of data as T[]) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        all.push(row);
+      }
+    }
+
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+
+  return all;
+}
+
 export function useAsinSalesHealth(selectedCountry: string) {
   const [sales, setSales] = useState<MonthlySale[]>([]);
   const [locks, setLocks] = useState<UploadLock[]>([]);
@@ -51,26 +81,29 @@ export function useAsinSalesHealth(selectedCountry: string) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [salesRes, locksRes] = await Promise.all([
+      // Batch-fetch sales (may exceed 1000 rows)
+      const salesData = await fetchAllRows<MonthlySale>(() =>
         supabase
           .from('amazon_monthly_sales')
           .select('*')
           .eq('country', selectedCountry)
           .order('year', { ascending: true })
-          .order('month', { ascending: true }),
-        supabase
-          .from('amazon_monthly_upload_locks')
-          .select('*')
-          .eq('country', selectedCountry)
-          .order('year', { ascending: true })
-          .order('month', { ascending: true }),
-      ]);
+          .order('month', { ascending: true })
+          .order('id', { ascending: true })
+      );
 
-      if (salesRes.error) throw salesRes.error;
-      if (locksRes.error) throw locksRes.error;
+      // Locks are always small, single fetch is fine
+      const { data: locksData, error: locksErr } = await supabase
+        .from('amazon_monthly_upload_locks')
+        .select('*')
+        .eq('country', selectedCountry)
+        .order('year', { ascending: true })
+        .order('month', { ascending: true });
 
-      setSales((salesRes.data as any[]) || []);
-      setLocks((locksRes.data as any[]) || []);
+      if (locksErr) throw locksErr;
+
+      setSales(salesData);
+      setLocks((locksData as any[]) || []);
     } catch (err: any) {
       toast({ title: 'Error loading data', description: err.message, variant: 'destructive' });
     } finally {
@@ -91,7 +124,6 @@ export function useAsinSalesHealth(selectedCountry: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Upsert sales data
     const records = rows.map(r => ({
       user_id: user.id,
       asin: r.asin,
@@ -109,7 +141,6 @@ export function useAsinSalesHealth(selectedCountry: string) {
 
     if (salesError) throw salesError;
 
-    // Create lock
     const { error: lockError } = await supabase
       .from('amazon_monthly_upload_locks')
       .upsert({
@@ -150,21 +181,33 @@ export function useAsinSalesHealth(selectedCountry: string) {
     toast({ title: 'Month Unlocked', description: `Data for ${month}/${year} removed` });
   };
 
-  // Calculate health per ASIN
+  // Build calendar months from locks for consistent health calculations
+  const calendarMonths = useMemo(() => {
+    if (locks.length === 0) return [];
+    const sorted = locks
+      .map(l => ({ year: l.year, month: l.month, num: l.year * 12 + l.month }))
+      .sort((a, b) => a.num - b.num);
+    return sorted;
+  }, [locks]);
+
+  // Calculate health per ASIN using calendar-based logic
   const asinHealthData = useMemo((): AsinHealth[] => {
-    if (sales.length === 0) return [];
+    if (sales.length === 0 || calendarMonths.length === 0) return [];
+
+    const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Use the last 6 calendar months from locks for recent/prior calculation
+    const last6 = calendarMonths.slice(-6);
+    const recent3Months = last6.slice(-3);
+    const prior3Months = last6.length >= 6 ? last6.slice(0, 3) : [];
+    const latestMonthNum = calendarMonths[calendarMonths.length - 1].num;
 
     // Group by ASIN
     const asinMap = new Map<string, MonthlySale[]>();
     sales.forEach(s => {
-      const key = s.asin;
-      if (!asinMap.has(key)) asinMap.set(key, []);
-      asinMap.get(key)!.push(s);
+      if (!asinMap.has(s.asin)) asinMap.set(s.asin, []);
+      asinMap.get(s.asin)!.push(s);
     });
-
-    // Find most recent locked month
-    const allMonths = locks.map(l => l.year * 12 + l.month).sort((a, b) => b - a);
-    const latestMonthNum = allMonths[0] || 0;
 
     return Array.from(asinMap.entries()).map(([asin, records]) => {
       const sorted = records.sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
@@ -172,24 +215,38 @@ export function useAsinSalesHealth(selectedCountry: string) {
       const monthlyData = sorted.map(r => ({ year: r.year, month: r.month, qty: r.shipped_qty }));
       const totalShipped = sorted.reduce((s, r) => s + r.shipped_qty, 0);
 
-      // Recent 3 months vs prior 3 months
-      const recent3 = sorted.slice(-3);
-      const prior3 = sorted.slice(-6, -3);
+      // Calendar-based recent and prior qty
+      const getQtyForMonth = (y: number, m: number) => {
+        const rec = sorted.find(r => r.year === y && r.month === m);
+        return rec ? rec.shipped_qty : 0;
+      };
 
-      const recentAvg = recent3.length > 0 ? recent3.reduce((s, r) => s + r.shipped_qty, 0) / recent3.length : 0;
-      const priorAvg = prior3.length > 0 ? prior3.reduce((s, r) => s + r.shipped_qty, 0) / prior3.length : 0;
+      const recentQty = recent3Months.reduce((s, m) => s + getQtyForMonth(m.year, m.month), 0);
+      const priorQty = prior3Months.reduce((s, m) => s + getQtyForMonth(m.year, m.month), 0);
+      const recentAvg = recent3Months.length > 0 ? recentQty / recent3Months.length : 0;
+      const priorAvg = prior3Months.length > 0 ? priorQty / prior3Months.length : 0;
 
-      const changePercent = priorAvg > 0 ? ((recentAvg - priorAvg) / priorAvg) * 100 : 0;
+      const changePercent = priorQty > 0 ? ((recentQty - priorQty) / priorQty) * 100 : 0;
 
-      // Determine status
+      // Calendar-based status determination
       let status: HealthStatus;
       const lastMonthNum = lastRecord.year * 12 + lastRecord.month;
-      const monthsInactive = latestMonthNum - lastMonthNum;
+      const monthsSinceActive = latestMonthNum - lastMonthNum;
 
-      if (sorted.length <= 2 && prior3.length === 0) {
+      // Check if ASIN only has data in the most recent 3 months (no history before)
+      const allRecordMonthNums = sorted.map(r => r.year * 12 + r.month);
+      const oldestPriorMonth = prior3Months.length > 0 ? prior3Months[0].num : latestMonthNum - 5;
+      const hasHistoryBeforeRecent = allRecordMonthNums.some(n => n <= oldestPriorMonth);
+
+      if (!hasHistoryBeforeRecent && prior3Months.length > 0 && priorQty === 0) {
         status = 'new';
-      } else if (monthsInactive >= 2 || (recent3.every(r => r.shipped_qty === 0) && priorAvg > 0)) {
+      } else if (monthsSinceActive >= 2 && recentQty === 0) {
         status = 'inactive';
+      } else if (recentQty === 0 && priorQty > 0) {
+        status = 'inactive';
+      } else if (prior3Months.length === 0) {
+        // Not enough history to compare
+        status = sorted.length <= 2 ? 'new' : 'stable';
       } else if (changePercent > 20) {
         status = 'growing';
       } else if (changePercent < -20) {
@@ -197,8 +254,6 @@ export function useAsinSalesHealth(selectedCountry: string) {
       } else {
         status = 'stable';
       }
-
-      const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
       return {
         asin,
@@ -214,7 +269,7 @@ export function useAsinSalesHealth(selectedCountry: string) {
         lastActiveMonth: `${monthNames[lastRecord.month]} ${lastRecord.year}`,
       };
     });
-  }, [sales, locks]);
+  }, [sales, calendarMonths]);
 
   const summary = useMemo(() => {
     const total = asinHealthData.length;
