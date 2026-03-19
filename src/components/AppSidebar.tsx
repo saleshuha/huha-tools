@@ -30,6 +30,7 @@ import { SidebarProgressIndicator } from "@/components/sidebar/SidebarProgressIn
 // Routes with their added dates — items within 90 days get a "New" badge
 const ROUTE_ADDED_DATES: Record<string, string> = {
   '/asin-sales-health': '2026-03-15',
+  '/stock-audit': '2026-03-19',
   '/asin-cost-history': '2026-02-10',
   '/amazon-returns-analysis': '2026-01-20',
   '/market-purchases': '2026-01-05',
