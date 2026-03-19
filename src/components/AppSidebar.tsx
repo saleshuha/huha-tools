@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote, Activity } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote, Activity, ClipboardCheck } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
