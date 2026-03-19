@@ -249,7 +249,7 @@ export function AppSidebar() {
   }
 
   const isInventorySectionActive = () => {
-    return isActive("/receive-stock") || isActive("/inventory") || isActive("/replenishment")
+    return isActive("/receive-stock") || isActive("/inventory") || isActive("/replenishment") || isActive("/stock-audit")
   }
 
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
