@@ -428,6 +428,30 @@ export function AppSidebar() {
                           </NavLink>
                         </SidebarMenuButton>
                       )}
+                      
+                      {/* Stock Audit */}
+                      {canAccessRoute('/stock-audit') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/stock-audit")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/stock-audit" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <ClipboardCheck className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Stock Audit
+                            </span>
+                            <NewBadge route="/stock-audit" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>
