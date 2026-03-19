@@ -1,100 +1,52 @@
 
 
-# Physical Stock Audit System
+## Bulk Push Local Inventory to Shopify (with Images)
 
-## Concept
+### What We'll Build
 
-A dedicated "Stock Audit" feature where you start an audit session, scan barcodes on physical items one by one (or in bulk), and when finalized, any inventory item NOT scanned gets its quantity set to 0. This gives you a clean, verified stock count.
+A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
 
-## How It Works
+### How It Works
+
+1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
+   - Accepts a list of SKUs (or "all not-matched")
+   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
+   - Queries `product_images` for matching ASIN image URLs
+   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
+   - Sets inventory at the configured location
+   - Returns success/failure counts
+
+2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
+   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
+   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
+   - "Push Selected to Shopify" button that triggers bulk creation
+   - Progress indicator and result summary toast
+
+### Data Flow
 
 ```text
-┌─────────────────────────────────────────────┐
-│  1. START AUDIT SESSION                     │
-│     - Creates a new session (name, date)    │
-│     - Locks session to current country      │
-│                                             │
-│  2. SCAN ITEMS                              │
-│     - Scan barcode → looks up serial_number │
-│       in asin_inventory + product_barcodes  │
-│     - Each scan increments verified count   │
-│     - Shows live progress (scanned / total) │
-│     - Duplicate scan warning                │
-│     - Manual search fallback for damaged    │
-│       labels                                │
-│                                             │
-│  3. REVIEW & FINALIZE                       │
-│     - Summary: Verified / Missing / Extra   │
-│     - Export missing items list as CSV       │
-│     - "Finalize Audit" button:              │
-│       → Verified items: qty = scanned count │
-│       → Unscanned items: qty = 0            │
-│       → Logs all changes to stock_history   │
-│       → Session marked as "completed"       │
-└─────────────────────────────────────────────┘
+asin_inventory (SKU, title, qty, ASIN)
+       ↓
+product_images (ASIN → image_url)
+       ↓
+Edge Function: bulk-create-from-inventory
+       ↓
+Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
+       ↓
+Shopify POST /inventory_levels/set.json (quantity at location)
 ```
 
-## Database Changes
+### Files to Modify
 
-### New table: `stock_audit_sessions`
-- `id` (uuid, PK)
-- `user_id` (uuid, references auth.users)
-- `country` (text)
-- `name` (text) — e.g., "March 2026 Full Audit"
-- `status` (enum: `in_progress`, `completed`, `cancelled`)
-- `started_at`, `completed_at` (timestamptz)
-- `total_system_items` (int) — snapshot of inventory count at start
-- `total_scanned` (int) — updated as scans happen
-- `total_missing` (int) — calculated at finalization
-- `created_at`, `updated_at`
+| File | Change |
+|------|--------|
+| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
+| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
 
-### New table: `stock_audit_scans`
-- `id` (uuid, PK)
-- `session_id` (uuid, FK → stock_audit_sessions)
-- `user_id` (uuid)
-- `inventory_item_id` (uuid, nullable FK → asin_inventory)
-- `scanned_barcode` (text) — raw scanned value
-- `matched_serial_number` (text, nullable) — resolved serial
-- `matched_asin` (text, nullable)
-- `scanned_quantity` (int, default 1) — for items scanned multiple times (multi-unit serials)
-- `match_status` (enum: `matched`, `unmatched`, `duplicate`)
-- `scanned_at` (timestamptz)
-
-## Barcode Resolution Logic
-
-When a barcode is scanned, resolve it in order:
-1. **Direct serial match**: Check `asin_inventory.serial_number` or `additional_serial_numbers`
-2. **Product barcode lookup**: Check `product_barcodes.barcode` → get ASIN → match to inventory
-3. **Unmatched**: Flag as unknown — user can manually link or skip
-
-## Frontend Components
-
-### New page: `/stock-audit`
-- Add route and sidebar navigation entry
-
-### Components:
-1. **StockAuditPage** — main page with session management
-2. **AuditSessionManager** — create/resume/view past sessions
-3. **AuditScanner** — barcode scanning interface (reuses existing `BarcodeScanner` component), with:
-   - Live scan count and progress bar
-   - Last scanned item display (ASIN, title, serial)
-   - Duplicate/unmatched alerts
-   - Manual serial number search input
-4. **AuditReviewPanel** — shows verified vs missing items in a table
-   - Tabs: "Scanned", "Missing", "Unmatched"
-   - Export CSV for missing items
-5. **AuditFinalizeDialog** — confirmation dialog that:
-   - Shows impact summary (X items verified, Y items will be zeroed)
-   - On confirm: updates `asin_inventory` quantities and logs to `stock_history`
-
-## Files to Create/Modify
-- **Create**: `src/pages/StockAudit.tsx`
-- **Create**: `src/components/stock-audit/AuditSessionManager.tsx`
-- **Create**: `src/components/stock-audit/AuditScanner.tsx`
-- **Create**: `src/components/stock-audit/AuditReviewPanel.tsx`
-- **Create**: `src/components/stock-audit/AuditFinalizeDialog.tsx`
-- **Create**: `src/hooks/useStockAudit.ts`
-- **Modify**: `src/App.tsx` — add route
-- **Modify**: sidebar nav — add "Stock Audit" entry
-- **DB Migration**: create `stock_audit_sessions` and `stock_audit_scans` tables with RLS policies
+### Key Details
+- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
+- Products are created with the `zurwa-warehouse` tag automatically
+- Only items with `is_active = true` and a non-null SKU are included
+- SKUs already existing in Shopify are excluded from the push list
+- Inventory quantity is set at the configured `location_id` after product creation
 

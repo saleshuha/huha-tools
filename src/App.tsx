@@ -79,6 +79,7 @@ import MarketPurchasePublic from "./pages/MarketPurchasePublic";
 import ShopifySyncPage from "./pages/ShopifySyncPage";
 import NoonFBPIPage from "./pages/NoonFBPIPage";
 import AsinSalesHealth from "./pages/AsinSalesHealth";
+import StockAudit from "./pages/StockAudit";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -346,6 +347,7 @@ const App = () => {
                          <Route path="/shopify-sync" element={<ShopifySyncPage />} />
                          <Route path="/noon-fbpi" element={<NoonFBPIPage />} />
                          <Route path="/asin-sales-health" element={<AsinSalesHealth />} />
+                         <Route path="/stock-audit" element={<StockAudit />} />
 
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />

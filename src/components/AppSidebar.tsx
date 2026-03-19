@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote, Activity } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info, Banknote, Activity, ClipboardCheck } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -30,6 +30,7 @@ import { SidebarProgressIndicator } from "@/components/sidebar/SidebarProgressIn
 // Routes with their added dates — items within 90 days get a "New" badge
 const ROUTE_ADDED_DATES: Record<string, string> = {
   '/asin-sales-health': '2026-03-15',
+  '/stock-audit': '2026-03-19',
   '/asin-cost-history': '2026-02-10',
   '/amazon-returns-analysis': '2026-01-20',
   '/market-purchases': '2026-01-05',
@@ -248,7 +249,7 @@ export function AppSidebar() {
   }
 
   const isInventorySectionActive = () => {
-    return isActive("/receive-stock") || isActive("/inventory") || isActive("/replenishment")
+    return isActive("/receive-stock") || isActive("/inventory") || isActive("/replenishment") || isActive("/stock-audit")
   }
 
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
@@ -331,7 +332,7 @@ export function AppSidebar() {
               ))}
 
               {/* Inventory Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/receive-stock') || canAccessRoute('/inventory') || canAccessRoute('/replenishment')) && (
+              {!isCollapsed && (canAccessRoute('/receive-stock') || canAccessRoute('/inventory') || canAccessRoute('/replenishment') || canAccessRoute('/stock-audit')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isInventoryOpen} onOpenChange={setIsInventoryOpen}>
                     <CollapsibleTrigger asChild>
@@ -424,6 +425,30 @@ export function AppSidebar() {
                               Sales & Replenishment
                             </span>
                             <NewBadge route="/replenishment" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+                      
+                      {/* Stock Audit */}
+                      {canAccessRoute('/stock-audit') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/stock-audit")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/stock-audit" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <ClipboardCheck className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Stock Audit
+                            </span>
+                            <NewBadge route="/stock-audit" />
                           </NavLink>
                         </SidebarMenuButton>
                       )}
