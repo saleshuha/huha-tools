@@ -332,7 +332,7 @@ export function AppSidebar() {
               ))}
 
               {/* Inventory Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/receive-stock') || canAccessRoute('/inventory') || canAccessRoute('/replenishment')) && (
+              {!isCollapsed && (canAccessRoute('/receive-stock') || canAccessRoute('/inventory') || canAccessRoute('/replenishment') || canAccessRoute('/stock-audit')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isInventoryOpen} onOpenChange={setIsInventoryOpen}>
                     <CollapsibleTrigger asChild>
