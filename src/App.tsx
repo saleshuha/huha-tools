@@ -79,6 +79,7 @@ import MarketPurchasePublic from "./pages/MarketPurchasePublic";
 import ShopifySyncPage from "./pages/ShopifySyncPage";
 import NoonFBPIPage from "./pages/NoonFBPIPage";
 import AsinSalesHealth from "./pages/AsinSalesHealth";
+import StockAudit from "./pages/StockAudit";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
