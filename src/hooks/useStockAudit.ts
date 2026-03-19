@@ -48,7 +48,7 @@ export function useStockAudit() {
   const [loading, setLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const { toast } = useToast();
-  const { country } = useCountry();
+  const { selectedCountry: country } = useCountry();
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);

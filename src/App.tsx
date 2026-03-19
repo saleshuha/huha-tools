@@ -347,6 +347,7 @@ const App = () => {
                          <Route path="/shopify-sync" element={<ShopifySyncPage />} />
                          <Route path="/noon-fbpi" element={<NoonFBPIPage />} />
                          <Route path="/asin-sales-health" element={<AsinSalesHealth />} />
+                         <Route path="/stock-audit" element={<StockAudit />} />
 
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
