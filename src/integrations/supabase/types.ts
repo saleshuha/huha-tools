@@ -4357,6 +4357,105 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_audit_scans: {
+        Row: {
+          id: string
+          inventory_item_id: string | null
+          match_status: Database["public"]["Enums"]["audit_scan_match_status"]
+          matched_asin: string | null
+          matched_serial_number: string | null
+          scanned_at: string
+          scanned_barcode: string
+          scanned_quantity: number
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          inventory_item_id?: string | null
+          match_status?: Database["public"]["Enums"]["audit_scan_match_status"]
+          matched_asin?: string | null
+          matched_serial_number?: string | null
+          scanned_at?: string
+          scanned_barcode: string
+          scanned_quantity?: number
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          inventory_item_id?: string | null
+          match_status?: Database["public"]["Enums"]["audit_scan_match_status"]
+          matched_asin?: string | null
+          matched_serial_number?: string | null
+          scanned_at?: string
+          scanned_barcode?: string
+          scanned_quantity?: number
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_audit_scans_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "asin_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_audit_scans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "stock_audit_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_audit_sessions: {
+        Row: {
+          completed_at: string | null
+          country: string
+          created_at: string
+          id: string
+          name: string
+          started_at: string
+          status: Database["public"]["Enums"]["audit_session_status"]
+          total_missing: number
+          total_scanned: number
+          total_system_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          name: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["audit_session_status"]
+          total_missing?: number
+          total_scanned?: number
+          total_system_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["audit_session_status"]
+          total_missing?: number
+          total_scanned?: number
+          total_system_items?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stock_changes: {
         Row: {
           approval_status: string | null
@@ -7136,6 +7235,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      audit_scan_match_status: "matched" | "unmatched" | "duplicate"
+      audit_session_status: "in_progress" | "completed" | "cancelled"
       country_code: "UAE" | "KSA"
       financial_record_type: "loan" | "expense" | "debt" | "other"
       inventory_status:
@@ -7298,6 +7399,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      audit_scan_match_status: ["matched", "unmatched", "duplicate"],
+      audit_session_status: ["in_progress", "completed", "cancelled"],
       country_code: ["UAE", "KSA"],
       financial_record_type: ["loan", "expense", "debt", "other"],
       inventory_status: [
