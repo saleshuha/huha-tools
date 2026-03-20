@@ -1,52 +1,63 @@
 
 
-## Bulk Push Local Inventory to Shopify (with Images)
+# Stock Audit: ASIN-Based Scanning with Quantity Tracking
 
-### What We'll Build
+## Current Problem
+The audit system scans by **serial number** (individual item tracking), but physical products have **ASIN barcodes**. Multiple units share the same ASIN, so we need to track **quantity per ASIN** — either by scanning repeatedly or entering qty manually.
 
-A new feature in the **Products tab** that lets you select in-stock inventory items from `asin_inventory` and create them as new Shopify products in bulk — pulling all available details (title, SKU, price, quantity) and product images from the `product_images` table.
+## Core Changes
 
-### How It Works
+### 1. Shift from Serial-Based to ASIN-Based Matching (`useStockAudit.ts`)
 
-1. **New Edge Function action `bulk-create-from-inventory`** in `shopify-sync/index.ts`:
-   - Accepts a list of SKUs (or "all not-matched")
-   - Queries `asin_inventory` for item details (title, SKU, quantity, status) grouped by SKU
-   - Queries `product_images` for matching ASIN image URLs
-   - For each item, calls Shopify `POST /admin/api/2024-01/products.json` with title, SKU, quantity (set via inventory_levels/set), images, and the `zurwa-warehouse` tag
-   - Sets inventory at the configured location
-   - Returns success/failure counts
+**Current**: `resolveBarcode()` looks up `serial_number` → matches one inventory row.
+**New**: `resolveBarcode()` looks up by **ASIN first** (direct match against `asin_inventory.asin`), then falls back to `product_barcodes.barcode → ASIN`. Returns all inventory items for that ASIN grouped together.
 
-2. **New UI in `ShopifyProductManager.tsx`** — "Push Inventory to Shopify" button/section:
-   - Fetches local inventory items that are **not yet matched** to any Shopify product (compares local SKUs vs existing Shopify SKUs)
-   - Displays a selectable table showing: image thumbnail, title, SKU, quantity
-   - "Push Selected to Shopify" button that triggers bulk creation
-   - Progress indicator and result summary toast
+**Quantity tracking**:
+- Group inventory by ASIN → compute `systemQty` (sum of all rows for that ASIN)
+- Track `scannedQty` per ASIN across all scans in the session
+- Each scan increments qty by 1 (repeat-scan mode) or by user-entered amount (manual-qty mode)
+- Duplicate detection changes: instead of blocking duplicates, we **accumulate** quantity. Only warn if scanned qty exceeds system qty.
 
-### Data Flow
+**Progress calculation**: Based on unique ASINs verified (scannedQty > 0) vs total unique ASINs in system.
 
-```text
-asin_inventory (SKU, title, qty, ASIN)
-       ↓
-product_images (ASIN → image_url)
-       ↓
-Edge Function: bulk-create-from-inventory
-       ↓
-Shopify POST /products.json (title, SKU, images, tags: "zurwa-warehouse")
-       ↓
-Shopify POST /inventory_levels/set.json (quantity at location)
-```
+### 2. Scanner UI Overhaul (`AuditScanner.tsx`)
 
-### Files to Modify
+- **Scan input**: Accept ASIN codes (not serial numbers). Update placeholder text.
+- **Quantity mode toggle**: Two modes side-by-side:
+  - **Multi-scan mode** (default): Each scan/submit adds +1 to that ASIN's count. Shows running tally.
+  - **Manual qty mode**: After scanning/entering ASIN, show a qty input field. User enters the count and submits.
+- **Last scan result card**: Show ASIN, product title, system qty, and **scanned qty so far** with a visual comparison (e.g., "5 / 10 scanned").
+- **Over-scan warning**: If scanned qty > system qty, show amber warning.
+- **Quick qty adjustment**: Allow +/- buttons on recent scans to correct mistakes.
 
-| File | Change |
-|------|--------|
-| `supabase/functions/shopify-sync/index.ts` | Add `bulk-create-from-inventory` action — fetches inventory + images from DB, creates Shopify products with images and sets inventory levels |
-| `src/components/shopify/ShopifyProductManager.tsx` | Add "Push Inventory to Shopify" section with unmatched items table, image previews, selection, and bulk push button |
+### 3. Review Panel Updates (`AuditReviewPanel.tsx`)
 
-### Key Details
-- Images are pulled from the existing `product_images` table (matched by ASIN) — no manual image URL entry needed
-- Products are created with the `zurwa-warehouse` tag automatically
-- Only items with `is_active = true` and a non-null SKU are included
-- SKUs already existing in Shopify are excluded from the push list
-- Inventory quantity is set at the configured `location_id` after product creation
+- **Scanned tab**: Group by ASIN, show columns: ASIN, Title, System Qty, Scanned Qty, Difference.
+- **Missing tab**: Show ASINs with 0 scans (completely unscanned) and partially scanned (scanned < system).
+- **Summary stats**: Show "Fully Verified", "Partially Scanned", "Not Scanned" counts.
+
+### 4. Finalization Logic Update (`useStockAudit.ts` → `finalizeAudit`)
+
+- For each ASIN: set inventory quantity = scanned quantity (not just 0/keep).
+- Unscanned ASINs → qty = 0.
+- Partially scanned ASINs → qty = scanned amount.
+
+### 5. Database: Update scan records
+
+Add/use `scanned_quantity` field on `stock_audit_scans` to store qty per scan entry. The existing column already supports this (default 1).
+
+### 6. UI Improvements
+
+- **Sound/vibration feedback** on successful scan (navigator.vibrate).
+- **Running totals bar** showing: X ASINs fully verified, Y partially, Z missing.
+- **Auto-focus** back to input after each scan for rapid scanning.
+- **Scan history** grouped by ASIN with expandable qty details.
+
+## Files Modified
+
+- **`src/hooks/useStockAudit.ts`** — ASIN-based resolution, qty accumulation, grouped data helpers, updated finalization
+- **`src/components/stock-audit/AuditScanner.tsx`** — qty mode toggle, ASIN-focused UI, over-scan warnings, quick adjust
+- **`src/components/stock-audit/AuditReviewPanel.tsx`** — grouped-by-ASIN tables, partial scan tracking
+- **`src/components/stock-audit/AuditFinalizeDialog.tsx`** — updated summary showing qty adjustments
+- **`src/pages/StockAudit.tsx`** — pass new props
 
