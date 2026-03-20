@@ -1,53 +1,103 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { BarcodeScanner } from '@/components/barcode/BarcodeScanner';
 import {
   Camera, Keyboard, CheckCircle2, AlertTriangle, XCircle,
-  Package, ScanBarcode, Search
+  Package, ScanBarcode, Search, Plus, Minus, Hash, Repeat
 } from 'lucide-react';
-import type { AuditSession, AuditScan, InventoryItem } from '@/hooks/useStockAudit';
+import type { AuditSession, AuditScan, AsinGroup } from '@/hooks/useStockAudit';
 
 interface AuditScannerProps {
   session: AuditSession;
   scans: AuditScan[];
+  asinGroups: AsinGroup[];
   scanLoading: boolean;
-  onScanBarcode: (barcode: string) => Promise<any>;
+  onScanBarcode: (barcode: string, quantity?: number) => Promise<any>;
+  onAdjustQty: (asin: string, newQty: number) => Promise<void>;
 }
 
-export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: AuditScannerProps) {
-  const [mode, setMode] = useState<'camera' | 'manual'>('manual');
+export function AuditScanner({
+  session, scans, asinGroups, scanLoading, onScanBarcode, onAdjustQty,
+}: AuditScannerProps) {
+  const [inputMode, setInputMode] = useState<'camera' | 'manual'>('manual');
+  const [qtyMode, setQtyMode] = useState<'multi-scan' | 'manual-qty'>('multi-scan');
   const [manualInput, setManualInput] = useState('');
-  const [lastResult, setLastResult] = useState<{ scan: AuditScan; item: InventoryItem | null; matchStatus: string } | null>(null);
+  const [manualQty, setManualQty] = useState('1');
+  const [pendingAsin, setPendingAsin] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<any>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleScan = useCallback(async (barcode: string) => {
-    const result = await onScanBarcode(barcode.trim());
+  // Auto-focus input after each scan
+  useEffect(() => {
+    if (inputMode === 'manual' && inputRef.current && !scanLoading) {
+      inputRef.current.focus();
+    }
+  }, [scanLoading, inputMode, lastResult]);
+
+  const handleScan = useCallback(async (barcode: string, qty: number = 1) => {
+    const result = await onScanBarcode(barcode.trim(), qty);
     if (result) {
       setLastResult(result);
+      setPendingAsin(null);
     }
-    // Re-enable camera after scan
     setCameraActive(false);
     setTimeout(() => setCameraActive(true), 500);
   }, [onScanBarcode]);
 
   const handleManualSubmit = () => {
     if (!manualInput.trim()) return;
-    handleScan(manualInput.trim());
+    if (qtyMode === 'manual-qty') {
+      // In manual-qty mode, first scan identifies the ASIN, then user enters qty
+      if (!pendingAsin) {
+        // Check if this ASIN exists before committing
+        setPendingAsin(manualInput.trim());
+        setManualInput('');
+        setManualQty('1');
+        return;
+      }
+    }
+    handleScan(manualInput.trim(), qtyMode === 'multi-scan' ? 1 : parseInt(manualQty) || 1);
     setManualInput('');
+    setManualQty('1');
   };
 
-  const matchedCount = scans.filter(s => s.match_status === 'matched').length;
-  const unmatchedCount = scans.filter(s => s.match_status === 'unmatched').length;
-  const duplicateCount = scans.filter(s => s.match_status === 'duplicate').length;
-  const progress = session.total_system_items > 0
-    ? Math.round((matchedCount / session.total_system_items) * 100)
-    : 0;
+  const handleQtySubmit = () => {
+    if (!pendingAsin) return;
+    const qty = parseInt(manualQty) || 1;
+    handleScan(pendingAsin, qty);
+    setManualQty('1');
+  };
 
+  const cancelPending = () => {
+    setPendingAsin(null);
+    setManualQty('1');
+  };
+
+  // Stats
+  const verifiedAsins = asinGroups.filter(g => g.scannedQty > 0);
+  const fullyVerified = asinGroups.filter(g => g.scannedQty >= g.systemQty && g.systemQty > 0);
+  const partiallyScanned = asinGroups.filter(g => g.scannedQty > 0 && g.scannedQty < g.systemQty);
+  const totalAsins = asinGroups.filter(g => g.systemQty > 0).length;
+  const progress = totalAsins > 0 ? Math.round((fullyVerified.length / totalAsins) * 100) : 0;
+  const unmatchedCount = scans.filter(s => s.match_status === 'unmatched').length;
   const isCompleted = session.status === 'completed';
+
+  // Recent scans grouped by ASIN
+  const recentAsinScans = asinGroups
+    .filter(g => g.scannedQty > 0)
+    .sort((a, b) => {
+      const aLatest = scans.find(s => s.matched_asin === a.asin)?.scanned_at || '';
+      const bLatest = scans.find(s => s.matched_asin === b.asin)?.scanned_at || '';
+      return bLatest.localeCompare(aLatest);
+    })
+    .slice(0, 20);
 
   return (
     <div className="space-y-4">
@@ -57,20 +107,20 @@ export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: Aud
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Audit Progress</span>
             <span className="text-sm text-muted-foreground">
-              {matchedCount} / {session.total_system_items} items verified
+              {fullyVerified.length} / {totalAsins} ASINs fully verified
             </span>
           </div>
           <Progress value={progress} className="h-3" />
-          <div className="flex gap-4 mt-3 text-xs">
-            <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="flex items-center gap-1.5 text-xs">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-muted-foreground">Matched: <strong className="text-foreground">{matchedCount}</strong></span>
+              <span className="text-muted-foreground">Full: <strong className="text-foreground">{fullyVerified.length}</strong></span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-xs">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-muted-foreground">Duplicates: <strong className="text-foreground">{duplicateCount}</strong></span>
+              <span className="text-muted-foreground">Partial: <strong className="text-foreground">{partiallyScanned.length}</strong></span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-xs">
               <XCircle className="h-3.5 w-3.5 text-rose-500" />
               <span className="text-muted-foreground">Unmatched: <strong className="text-foreground">{unmatchedCount}</strong></span>
             </div>
@@ -90,16 +140,16 @@ export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: Aud
               <div className="flex gap-1">
                 <Button
                   size="sm"
-                  variant={mode === 'manual' ? 'default' : 'outline'}
-                  onClick={() => { setMode('manual'); setCameraActive(false); }}
+                  variant={inputMode === 'manual' ? 'default' : 'outline'}
+                  onClick={() => { setInputMode('manual'); setCameraActive(false); }}
                 >
                   <Keyboard className="h-4 w-4 mr-1" />
                   Manual
                 </Button>
                 <Button
                   size="sm"
-                  variant={mode === 'camera' ? 'default' : 'outline'}
-                  onClick={() => { setMode('camera'); setCameraActive(true); }}
+                  variant={inputMode === 'camera' ? 'default' : 'outline'}
+                  onClick={() => { setInputMode('camera'); setCameraActive(true); }}
                 >
                   <Camera className="h-4 w-4 mr-1" />
                   Camera
@@ -107,25 +157,100 @@ export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: Aud
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            {mode === 'manual' ? (
+          <CardContent className="space-y-3">
+            {/* Quantity Mode Toggle */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-xs font-medium cursor-pointer">
+                  {qtyMode === 'multi-scan' ? 'Multi-scan: each scan = +1' : 'Manual qty: enter count after scan'}
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Repeat</span>
+                <Switch
+                  checked={qtyMode === 'manual-qty'}
+                  onCheckedChange={(checked) => {
+                    setQtyMode(checked ? 'manual-qty' : 'multi-scan');
+                    setPendingAsin(null);
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">Input</span>
+              </div>
+            </div>
+
+            {/* Pending ASIN qty input (manual-qty mode) */}
+            {pendingAsin && qtyMode === 'manual-qty' && (
+              <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">Enter quantity for:</span>
+                    <span className="ml-2 font-mono text-sm text-primary">{pendingAsin}</span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={cancelPending}>
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => setManualQty(String(Math.max(1, (parseInt(manualQty) || 1) - 1)))}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={manualQty}
+                    onChange={e => setManualQty(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleQtySubmit()}
+                    className="w-24 text-center font-bold text-lg"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => setManualQty(String((parseInt(manualQty) || 1) + 1))}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={handleQtySubmit} disabled={scanLoading}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Confirm
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Main input */}
+            {inputMode === 'manual' ? (
               <div className="flex gap-2">
                 <Input
-                  placeholder="Type or scan serial number / barcode..."
+                  ref={inputRef}
+                  placeholder="Scan or type ASIN barcode..."
                   value={manualInput}
                   onChange={e => setManualInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-                  disabled={scanLoading}
+                  disabled={scanLoading || (qtyMode === 'manual-qty' && !!pendingAsin)}
                   autoFocus
                 />
-                <Button onClick={handleManualSubmit} disabled={scanLoading || !manualInput.trim()}>
+                <Button
+                  onClick={handleManualSubmit}
+                  disabled={scanLoading || !manualInput.trim() || (qtyMode === 'manual-qty' && !!pendingAsin)}
+                >
                   <Search className="h-4 w-4 mr-1" />
-                  {scanLoading ? 'Scanning...' : 'Submit'}
+                  {scanLoading ? 'Scanning...' : qtyMode === 'manual-qty' ? 'Look Up' : 'Scan'}
                 </Button>
               </div>
             ) : (
               <BarcodeScanner
-                onScan={(barcode) => handleScan(barcode)}
+                onScan={(barcode) => {
+                  if (qtyMode === 'manual-qty') {
+                    setPendingAsin(barcode);
+                    setCameraActive(false);
+                  } else {
+                    handleScan(barcode);
+                  }
+                }}
                 active={cameraActive}
                 className="max-w-md mx-auto"
               />
@@ -138,28 +263,44 @@ export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: Aud
       {lastResult && (
         <Card className={
           lastResult.matchStatus === 'matched'
-            ? 'border-emerald-500/50 bg-emerald-500/5'
-            : lastResult.matchStatus === 'duplicate'
+            ? lastResult.isOverScan
               ? 'border-amber-500/50 bg-amber-500/5'
-              : 'border-rose-500/50 bg-rose-500/5'
+              : 'border-emerald-500/50 bg-emerald-500/5'
+            : 'border-rose-500/50 bg-rose-500/5'
         }>
           <CardContent className="py-3">
             <div className="flex items-center gap-3">
-              {lastResult.matchStatus === 'matched' && <CheckCircle2 className="h-6 w-6 text-emerald-500" />}
-              {lastResult.matchStatus === 'duplicate' && <AlertTriangle className="h-6 w-6 text-amber-500" />}
-              {lastResult.matchStatus === 'unmatched' && <XCircle className="h-6 w-6 text-rose-500" />}
-              <div className="flex-1">
+              {lastResult.matchStatus === 'matched' && !lastResult.isOverScan && (
+                <CheckCircle2 className="h-6 w-6 text-emerald-500 flex-shrink-0" />
+              )}
+              {lastResult.matchStatus === 'matched' && lastResult.isOverScan && (
+                <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />
+              )}
+              {lastResult.matchStatus === 'unmatched' && (
+                <XCircle className="h-6 w-6 text-rose-500 flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">
-                  {lastResult.matchStatus === 'matched' && 'Item Verified ✓'}
-                  {lastResult.matchStatus === 'duplicate' && 'Duplicate Scan!'}
+                  {lastResult.matchStatus === 'matched' && !lastResult.isOverScan && 'Item Scanned ✓'}
+                  {lastResult.matchStatus === 'matched' && lastResult.isOverScan && '⚠️ Over-scanned!'}
                   {lastResult.matchStatus === 'unmatched' && 'Not Found in Inventory'}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Barcode: {lastResult.scan.scanned_barcode}
-                </div>
-                {lastResult.item && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {lastResult.item.title} • {lastResult.item.asin} • SN: {lastResult.item.serial_number}
+                {lastResult.asin && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {lastResult.title || lastResult.asin}
+                  </div>
+                )}
+                {lastResult.matchStatus === 'matched' && (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge variant={lastResult.scannedQty >= lastResult.systemQty ? 'default' : 'secondary'} className="text-xs">
+                      <Hash className="h-3 w-3 mr-0.5" />
+                      {lastResult.scannedQty} / {lastResult.systemQty} scanned
+                    </Badge>
+                    {lastResult.isOverScan && (
+                      <span className="text-xs text-amber-600 font-medium">
+                        +{lastResult.scannedQty - lastResult.systemQty} extra
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -168,39 +309,69 @@ export function AuditScanner({ session, scans, scanLoading, onScanBarcode }: Aud
         </Card>
       )}
 
-      {/* Recent Scans */}
+      {/* Recent Scans - Grouped by ASIN */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Recent Scans
-            <Badge variant="outline" className="ml-auto">{scans.length} total</Badge>
+            Scanned ASINs
+            <Badge variant="outline" className="ml-auto">{verifiedAsins.length} ASINs</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {scans.length === 0 ? (
+          {recentAsinScans.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground text-sm">
               No scans yet. Start scanning items!
             </div>
           ) : (
-            <div className="max-h-[300px] overflow-y-auto space-y-1.5">
-              {scans.slice(0, 50).map(scan => (
-                <div
-                  key={scan.id}
-                  className="flex items-center gap-2 text-xs py-1.5 px-2 rounded bg-muted/30"
-                >
-                  {scan.match_status === 'matched' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />}
-                  {scan.match_status === 'duplicate' && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
-                  {scan.match_status === 'unmatched' && <XCircle className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />}
-                  <span className="font-mono flex-1 truncate">{scan.scanned_barcode}</span>
-                  {scan.matched_asin && (
-                    <span className="text-muted-foreground truncate max-w-[200px]">{scan.matched_asin}</span>
-                  )}
-                  <span className="text-muted-foreground flex-shrink-0">
-                    {new Date(scan.scanned_at).toLocaleTimeString()}
-                  </span>
-                </div>
-              ))}
+            <div className="max-h-[350px] overflow-y-auto space-y-1.5">
+              {recentAsinScans.map(group => {
+                const isOver = group.scannedQty > group.systemQty;
+                const isFull = group.scannedQty >= group.systemQty;
+                return (
+                  <div
+                    key={group.asin}
+                    className={`flex items-center gap-2 text-xs py-2 px-3 rounded-lg border ${
+                      isOver ? 'border-amber-500/30 bg-amber-500/5' :
+                      isFull ? 'border-emerald-500/30 bg-emerald-500/5' :
+                      'border-border bg-muted/30'
+                    }`}
+                  >
+                    {isFull && !isOver && <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                    {isOver && <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />}
+                    {!isFull && <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono truncate">{group.asin}</div>
+                      {group.title && (
+                        <div className="text-muted-foreground truncate">{group.title}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {!isCompleted && (
+                        <>
+                          <Button
+                            variant="ghost" size="icon" className="h-6 w-6"
+                            onClick={() => onAdjustQty(group.asin, Math.max(0, group.scannedQty - 1))}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                      <Badge variant={isFull ? 'default' : 'secondary'} className="min-w-[60px] justify-center">
+                        {group.scannedQty} / {group.systemQty}
+                      </Badge>
+                      {!isCompleted && (
+                        <Button
+                          variant="ghost" size="icon" className="h-6 w-6"
+                          onClick={() => onAdjustQty(group.asin, group.scannedQty + 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

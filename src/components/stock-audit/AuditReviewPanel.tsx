@@ -7,54 +7,58 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
-import { CheckCircle2, XCircle, AlertTriangle, Download, Search } from 'lucide-react';
-import type { AuditScan, InventoryItem } from '@/hooks/useStockAudit';
+import { CheckCircle2, XCircle, AlertTriangle, Download, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import type { AuditScan, AsinGroup } from '@/hooks/useStockAudit';
 
 interface AuditReviewPanelProps {
-  verifiedItems: InventoryItem[];
-  missingItems: InventoryItem[];
+  verifiedAsins: AsinGroup[];
+  fullyVerified: AsinGroup[];
+  partiallyScanned: AsinGroup[];
+  missingAsins: AsinGroup[];
   unmatchedScans: AuditScan[];
-  totalSystemItems: number;
+  totalSystemAsins: number;
 }
 
 export function AuditReviewPanel({
-  verifiedItems,
-  missingItems,
+  verifiedAsins,
+  fullyVerified,
+  partiallyScanned,
+  missingAsins,
   unmatchedScans,
-  totalSystemItems,
+  totalSystemAsins,
 }: AuditReviewPanelProps) {
   const [search, setSearch] = useState('');
 
-  const filterItems = (items: InventoryItem[]) => {
-    if (!search) return items;
+  const filterGroups = (groups: AsinGroup[]) => {
+    if (!search) return groups;
     const q = search.toLowerCase();
-    return items.filter(i =>
-      i.serial_number.toLowerCase().includes(q) ||
-      i.asin.toLowerCase().includes(q) ||
-      (i.title?.toLowerCase().includes(q)) ||
-      (i.sku?.toLowerCase().includes(q))
+    return groups.filter(g =>
+      g.asin.toLowerCase().includes(q) ||
+      (g.title?.toLowerCase().includes(q)) ||
+      (g.sku?.toLowerCase().includes(q))
     );
   };
 
-  const filteredVerified = useMemo(() => filterItems(verifiedItems), [verifiedItems, search]);
-  const filteredMissing = useMemo(() => filterItems(missingItems), [missingItems, search]);
+  const filteredVerified = useMemo(() => filterGroups(verifiedAsins), [verifiedAsins, search]);
+  const filteredMissing = useMemo(() => filterGroups(missingAsins), [missingAsins, search]);
+  const filteredPartial = useMemo(() => filterGroups(partiallyScanned), [partiallyScanned, search]);
 
   const exportMissingCSV = () => {
-    const headers = ['Serial Number', 'ASIN', 'SKU', 'Title', 'Quantity'];
-    const rows = missingItems.map(i => [
-      i.serial_number, i.asin, i.sku || '', i.title || '', i.quantity
+    const headers = ['ASIN', 'SKU', 'Title', 'System Qty', 'Scanned Qty', 'Difference'];
+    const rows = [...missingAsins, ...partiallyScanned].map(g => [
+      g.asin, g.sku || '', g.title || '', g.systemQty, g.scannedQty, g.scannedQty - g.systemQty,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `missing-items-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `audit-discrepancies-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const ItemsTable = ({ items, emptyMsg }: { items: InventoryItem[]; emptyMsg: string }) => (
+  const AsinTable = ({ items, emptyMsg, showDiff = false }: { items: AsinGroup[]; emptyMsg: string; showDiff?: boolean }) => (
     items.length === 0 ? (
       <div className="text-center py-8 text-muted-foreground text-sm">{emptyMsg}</div>
     ) : (
@@ -62,23 +66,38 @@ export function AuditReviewPanel({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Serial Number</TableHead>
               <TableHead>ASIN</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Title</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">System</TableHead>
+              <TableHead className="text-right">Scanned</TableHead>
+              {showDiff && <TableHead className="text-right">Diff</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map(item => (
-              <TableRow key={item.id}>
-                <TableCell className="font-mono text-xs">{item.serial_number}</TableCell>
-                <TableCell className="text-xs">{item.asin}</TableCell>
-                <TableCell className="text-xs">{item.sku || '-'}</TableCell>
-                <TableCell className="text-xs max-w-[300px] truncate">{item.title || '-'}</TableCell>
-                <TableCell className="text-right">{item.quantity}</TableCell>
-              </TableRow>
-            ))}
+            {items.map(group => {
+              const diff = group.scannedQty - group.systemQty;
+              return (
+                <TableRow key={group.asin}>
+                  <TableCell className="font-mono text-xs">{group.asin}</TableCell>
+                  <TableCell className="text-xs">{group.sku || '-'}</TableCell>
+                  <TableCell className="text-xs max-w-[250px] truncate">{group.title || '-'}</TableCell>
+                  <TableCell className="text-right">{group.systemQty}</TableCell>
+                  <TableCell className="text-right font-medium">{group.scannedQty}</TableCell>
+                  {showDiff && (
+                    <TableCell className="text-right">
+                      <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+                        diff === 0 ? 'text-emerald-600' : diff > 0 ? 'text-amber-600' : 'text-rose-600'
+                      }`}>
+                        {diff > 0 && <TrendingUp className="h-3 w-3" />}
+                        {diff < 0 && <TrendingDown className="h-3 w-3" />}
+                        {diff > 0 ? '+' : ''}{diff}
+                      </span>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -94,7 +113,7 @@ export function AuditReviewPanel({
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search items..."
+                placeholder="Search ASINs..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9 w-[200px] h-9"
@@ -104,15 +123,31 @@ export function AuditReviewPanel({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="text-center p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <div className="text-lg font-bold text-emerald-600">{fullyVerified.length}</div>
+            <div className="text-xs text-muted-foreground">Fully Verified</div>
+          </div>
+          <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="text-lg font-bold text-amber-600">{partiallyScanned.length}</div>
+            <div className="text-xs text-muted-foreground">Partial</div>
+          </div>
+          <div className="text-center p-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
+            <div className="text-lg font-bold text-rose-600">{missingAsins.length}</div>
+            <div className="text-xs text-muted-foreground">Not Scanned</div>
+          </div>
+        </div>
+
         <Tabs defaultValue="verified">
           <TabsList className="mb-3">
             <TabsTrigger value="verified" className="gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Scanned ({verifiedItems.length})
+              Scanned ({verifiedAsins.length})
             </TabsTrigger>
             <TabsTrigger value="missing" className="gap-1.5">
               <XCircle className="h-3.5 w-3.5 text-rose-500" />
-              Missing ({missingItems.length})
+              Missing ({missingAsins.length + partiallyScanned.length})
             </TabsTrigger>
             <TabsTrigger value="unmatched" className="gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -121,17 +156,35 @@ export function AuditReviewPanel({
           </TabsList>
 
           <TabsContent value="verified">
-            <ItemsTable items={filteredVerified} emptyMsg="No verified items yet" />
+            <AsinTable items={filteredVerified} emptyMsg="No verified ASINs yet" showDiff />
           </TabsContent>
 
           <TabsContent value="missing">
             <div className="mb-3 flex justify-end">
-              <Button size="sm" variant="outline" onClick={exportMissingCSV} disabled={missingItems.length === 0}>
+              <Button
+                size="sm" variant="outline" onClick={exportMissingCSV}
+                disabled={missingAsins.length === 0 && partiallyScanned.length === 0}
+              >
                 <Download className="h-4 w-4 mr-1" />
                 Export CSV
               </Button>
             </div>
-            <ItemsTable items={filteredMissing} emptyMsg="No missing items — everything is accounted for!" />
+            {filteredPartial.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  Partially Scanned
+                </h4>
+                <AsinTable items={filteredPartial} emptyMsg="" showDiff />
+              </div>
+            )}
+            <div>
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <XCircle className="h-3.5 w-3.5 text-rose-500" />
+                Not Scanned at All
+              </h4>
+              <AsinTable items={filteredMissing} emptyMsg="Everything is accounted for!" showDiff />
+            </div>
           </TabsContent>
 
           <TabsContent value="unmatched">

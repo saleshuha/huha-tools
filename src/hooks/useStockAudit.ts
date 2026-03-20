@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCountry } from '@/contexts/CountryContext';
@@ -40,6 +40,15 @@ export interface InventoryItem {
   is_active: boolean;
 }
 
+export interface AsinGroup {
+  asin: string;
+  title: string | null;
+  sku: string | null;
+  systemQty: number;
+  scannedQty: number;
+  itemIds: string[];
+}
+
 export function useStockAudit() {
   const [sessions, setSessions] = useState<AuditSession[]>([]);
   const [activeSession, setActiveSession] = useState<AuditSession | null>(null);
@@ -49,6 +58,37 @@ export function useStockAudit() {
   const [scanLoading, setScanLoading] = useState(false);
   const { toast } = useToast();
   const { selectedCountry: country } = useCountry();
+
+  // Group inventory by ASIN with system quantities
+  const asinGroups = useMemo(() => {
+    const groups = new Map<string, AsinGroup>();
+    for (const item of inventoryItems) {
+      const existing = groups.get(item.asin);
+      if (existing) {
+        existing.systemQty += item.quantity;
+        existing.itemIds.push(item.id);
+      } else {
+        groups.set(item.asin, {
+          asin: item.asin,
+          title: item.title,
+          sku: item.sku,
+          systemQty: item.quantity,
+          scannedQty: 0,
+          itemIds: [item.id],
+        });
+      }
+    }
+    // Calculate scanned qty per ASIN
+    for (const scan of scans) {
+      if (scan.matched_asin && scan.match_status === 'matched') {
+        const group = groups.get(scan.matched_asin);
+        if (group) {
+          group.scannedQty += scan.scanned_quantity || 1;
+        }
+      }
+    }
+    return groups;
+  }, [inventoryItems, scans]);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -72,14 +112,9 @@ export function useStockAudit() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Count active inventory items for this country
-      const { count, error: countErr } = await supabase
-        .from('asin_inventory')
-        .select('*', { count: 'exact', head: true })
-        .eq('country', country)
-        .eq('is_active', true)
-        .gt('quantity', 0);
-      if (countErr) throw countErr;
+      // Count unique ASINs with active stock
+      const items = await loadInventoryItems(country);
+      const uniqueAsins = new Set(items.filter(i => i.quantity > 0).map(i => i.asin));
 
       const { data, error } = await supabase
         .from('stock_audit_sessions')
@@ -87,7 +122,7 @@ export function useStockAudit() {
           user_id: user.id,
           name,
           country,
-          total_system_items: count || 0,
+          total_system_items: uniqueAsins.size,
         })
         .select()
         .single();
@@ -98,10 +133,7 @@ export function useStockAudit() {
       setSessions(prev => [session, ...prev]);
       setScans([]);
 
-      // Load inventory items for matching
-      await loadInventoryItems(country);
-
-      toast({ title: 'Audit Started', description: `Session "${name}" created with ${count || 0} system items` });
+      toast({ title: 'Audit Started', description: `Session "${name}" created with ${uniqueAsins.size} unique ASINs` });
       return session;
     } catch (err: any) {
       toast({ title: 'Error creating session', description: err.message, variant: 'destructive' });
@@ -112,7 +144,6 @@ export function useStockAudit() {
   }, [country, toast]);
 
   const loadInventoryItems = async (c: string) => {
-    // Batch fetch all inventory items
     const all: InventoryItem[] = [];
     let from = 0;
     const batchSize = 1000;
@@ -146,7 +177,6 @@ export function useStockAudit() {
       const s = session as unknown as AuditSession;
       setActiveSession(s);
 
-      // Load scans
       const allScans: AuditScan[] = [];
       let from = 0;
       while (true) {
@@ -173,23 +203,16 @@ export function useStockAudit() {
     }
   }, [toast]);
 
-  const resolveBarcode = useCallback((barcode: string): { item: InventoryItem | null; matchType: string } => {
-    // 1. Direct serial number match
-    const directMatch = inventoryItems.find(
-      i => i.serial_number === barcode
-    );
-    if (directMatch) return { item: directMatch, matchType: 'serial' };
+  // Resolve barcode: ASIN-first, then product_barcodes fallback
+  const resolveBarcode = useCallback((barcode: string): { asin: string | null; title: string | null } => {
+    // 1. Direct ASIN match
+    const directMatch = inventoryItems.find(i => i.asin === barcode);
+    if (directMatch) return { asin: directMatch.asin, title: directMatch.title };
 
-    // 2. Additional serial numbers
-    const additionalMatch = inventoryItems.find(
-      i => i.additional_serial_numbers?.includes(barcode)
-    );
-    if (additionalMatch) return { item: additionalMatch, matchType: 'additional_serial' };
-
-    return { item: null, matchType: 'none' };
+    return { asin: null, title: null };
   }, [inventoryItems]);
 
-  const scanBarcode = useCallback(async (barcode: string) => {
+  const scanBarcode = useCallback(async (barcode: string, quantity: number = 1) => {
     if (!activeSession) return null;
     setScanLoading(true);
 
@@ -197,47 +220,40 @@ export function useStockAudit() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Check for duplicate scan in this session
-      const isDuplicate = scans.some(
-        s => s.scanned_barcode === barcode && s.match_status !== 'unmatched'
-      );
+      // Resolve barcode to ASIN
+      let { asin, title } = resolveBarcode(barcode);
 
-      // Resolve barcode
-      const { item } = resolveBarcode(barcode);
-
-      // If not found in inventory, check product_barcodes table
-      let resolvedItem = item;
-      if (!resolvedItem) {
+      // Fallback: check product_barcodes table
+      if (!asin) {
         const { data: barcodeData } = await supabase
           .from('product_barcodes')
           .select('asin, sku_code')
           .eq('barcode', barcode)
           .limit(1);
 
-        if (barcodeData && barcodeData.length > 0) {
-          const pb = barcodeData[0];
-          // Find inventory item by ASIN
-          if (pb.asin) {
-            resolvedItem = inventoryItems.find(i => i.asin === pb.asin) || null;
+        if (barcodeData && barcodeData.length > 0 && barcodeData[0].asin) {
+          const found = inventoryItems.find(i => i.asin === barcodeData[0].asin);
+          if (found) {
+            asin = found.asin;
+            title = found.title;
           }
         }
       }
 
-      const matchStatus: 'matched' | 'unmatched' | 'duplicate' = isDuplicate
-        ? 'duplicate'
-        : resolvedItem
-          ? 'matched'
-          : 'unmatched';
+      const matchStatus: 'matched' | 'unmatched' = asin ? 'matched' : 'unmatched';
+
+      // Get first inventory item for this ASIN (for inventory_item_id reference)
+      const firstItem = asin ? inventoryItems.find(i => i.asin === asin) : null;
 
       const scanRecord = {
         session_id: activeSession.id,
         user_id: user.id,
         scanned_barcode: barcode,
-        inventory_item_id: resolvedItem?.id || null,
-        matched_serial_number: resolvedItem?.serial_number || null,
-        matched_asin: resolvedItem?.asin || null,
+        inventory_item_id: firstItem?.id || null,
+        matched_serial_number: firstItem?.serial_number || null,
+        matched_asin: asin,
         match_status: matchStatus,
-        scanned_quantity: 1,
+        scanned_quantity: quantity,
       };
 
       const { data, error } = await supabase
@@ -250,17 +266,49 @@ export function useStockAudit() {
       const newScan = data as unknown as AuditScan;
       setScans(prev => [newScan, ...prev]);
 
-      // Update session total_scanned
-      if (matchStatus === 'matched') {
-        const newTotal = (activeSession.total_scanned || 0) + 1;
-        await supabase
-          .from('stock_audit_sessions')
-          .update({ total_scanned: newTotal, updated_at: new Date().toISOString() })
-          .eq('id', activeSession.id);
-        setActiveSession(prev => prev ? { ...prev, total_scanned: newTotal } : null);
+      // Calculate new scanned qty for this ASIN
+      let totalScannedForAsin = quantity;
+      if (asin) {
+        totalScannedForAsin = scans
+          .filter(s => s.matched_asin === asin && s.match_status === 'matched')
+          .reduce((sum, s) => sum + (s.scanned_quantity || 1), 0) + quantity;
       }
 
-      return { scan: newScan, item: resolvedItem, matchStatus };
+      // Get system qty for this ASIN
+      const systemQty = asin
+        ? inventoryItems.filter(i => i.asin === asin).reduce((sum, i) => sum + i.quantity, 0)
+        : 0;
+
+      const isOverScan = totalScannedForAsin > systemQty;
+
+      // Vibration feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(matchStatus === 'matched' ? 100 : [100, 50, 100]);
+      }
+
+      // Update session scanned count (unique ASINs with scans)
+      if (matchStatus === 'matched') {
+        const scannedAsins = new Set(
+          [...scans, newScan]
+            .filter(s => s.match_status === 'matched' && s.matched_asin)
+            .map(s => s.matched_asin!)
+        );
+        await supabase
+          .from('stock_audit_sessions')
+          .update({ total_scanned: scannedAsins.size, updated_at: new Date().toISOString() })
+          .eq('id', activeSession.id);
+        setActiveSession(prev => prev ? { ...prev, total_scanned: scannedAsins.size } : null);
+      }
+
+      return {
+        scan: newScan,
+        asin,
+        title,
+        matchStatus,
+        scannedQty: totalScannedForAsin,
+        systemQty,
+        isOverScan,
+      };
     } catch (err: any) {
       toast({ title: 'Scan Error', description: err.message, variant: 'destructive' });
       return null;
@@ -269,25 +317,101 @@ export function useStockAudit() {
     }
   }, [activeSession, scans, resolveBarcode, inventoryItems, toast]);
 
-  const getScannedItemIds = useCallback(() => {
-    const ids = new Set<string>();
-    scans.forEach(s => {
-      if (s.match_status === 'matched' && s.inventory_item_id) {
-        ids.add(s.inventory_item_id);
+  // Adjust quantity for a specific ASIN (add +/- scans)
+  const adjustAsinQty = useCallback(async (asin: string, newTotalQty: number) => {
+    if (!activeSession) return;
+    
+    const currentQty = scans
+      .filter(s => s.matched_asin === asin && s.match_status === 'matched')
+      .reduce((sum, s) => sum + (s.scanned_quantity || 1), 0);
+
+    const diff = newTotalQty - currentQty;
+    if (diff === 0) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const firstItem = inventoryItems.find(i => i.asin === asin);
+
+      if (diff > 0) {
+        // Add a scan with the difference
+        const { data, error } = await supabase
+          .from('stock_audit_scans')
+          .insert({
+            session_id: activeSession.id,
+            user_id: user.id,
+            scanned_barcode: asin,
+            inventory_item_id: firstItem?.id || null,
+            matched_serial_number: firstItem?.serial_number || null,
+            matched_asin: asin,
+            match_status: 'matched' as any,
+            scanned_quantity: diff,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        setScans(prev => [data as unknown as AuditScan, ...prev]);
+      } else {
+        // Remove scans to reduce qty (remove from most recent)
+        let toRemove = Math.abs(diff);
+        const asinScans = scans
+          .filter(s => s.matched_asin === asin && s.match_status === 'matched')
+          .sort((a, b) => new Date(b.scanned_at).getTime() - new Date(a.scanned_at).getTime());
+
+        const idsToDelete: string[] = [];
+        for (const scan of asinScans) {
+          if (toRemove <= 0) break;
+          if (scan.scanned_quantity <= toRemove) {
+            idsToDelete.push(scan.id);
+            toRemove -= scan.scanned_quantity;
+          } else {
+            // Partially reduce this scan
+            await supabase
+              .from('stock_audit_scans')
+              .update({ scanned_quantity: scan.scanned_quantity - toRemove })
+              .eq('id', scan.id);
+            toRemove = 0;
+          }
+        }
+
+        if (idsToDelete.length > 0) {
+          await supabase.from('stock_audit_scans').delete().in('id', idsToDelete);
+        }
+
+        // Reload scans
+        const { data: updatedScans } = await supabase
+          .from('stock_audit_scans')
+          .select('*')
+          .eq('session_id', activeSession.id)
+          .order('scanned_at', { ascending: false });
+        setScans((updatedScans || []) as unknown as AuditScan[]);
       }
-    });
-    return ids;
-  }, [scans]);
+    } catch (err: any) {
+      toast({ title: 'Adjustment Error', description: err.message, variant: 'destructive' });
+    }
+  }, [activeSession, scans, inventoryItems, toast]);
 
-  const getMissingItems = useCallback(() => {
-    const scannedIds = getScannedItemIds();
-    return inventoryItems.filter(i => i.quantity > 0 && !scannedIds.has(i.id));
-  }, [inventoryItems, getScannedItemIds]);
+  // Get grouped ASIN data for review
+  const getAsinGroups = useCallback((): AsinGroup[] => {
+    return Array.from(asinGroups.values());
+  }, [asinGroups]);
 
-  const getVerifiedItems = useCallback(() => {
-    const scannedIds = getScannedItemIds();
-    return inventoryItems.filter(i => scannedIds.has(i.id));
-  }, [inventoryItems, getScannedItemIds]);
+  const getVerifiedAsins = useCallback((): AsinGroup[] => {
+    return Array.from(asinGroups.values()).filter(g => g.scannedQty > 0);
+  }, [asinGroups]);
+
+  const getFullyVerifiedAsins = useCallback((): AsinGroup[] => {
+    return Array.from(asinGroups.values()).filter(g => g.scannedQty >= g.systemQty && g.systemQty > 0);
+  }, [asinGroups]);
+
+  const getPartiallyScannedAsins = useCallback((): AsinGroup[] => {
+    return Array.from(asinGroups.values()).filter(g => g.scannedQty > 0 && g.scannedQty < g.systemQty);
+  }, [asinGroups]);
+
+  const getMissingAsins = useCallback((): AsinGroup[] => {
+    return Array.from(asinGroups.values()).filter(g => g.scannedQty === 0 && g.systemQty > 0);
+  }, [asinGroups]);
 
   const getUnmatchedScans = useCallback(() => {
     return scans.filter(s => s.match_status === 'unmatched');
@@ -301,19 +425,37 @@ export function useStockAudit() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const scannedIds = getScannedItemIds();
-      const missing = getMissingItems();
+      const groups = Array.from(asinGroups.values());
 
-      // Zero out missing items in batches
-      const missingIds = missing.map(i => i.id);
-      for (let i = 0; i < missingIds.length; i += 50) {
-        const batch = missingIds.slice(i, i + 50);
-        const { error } = await supabase
-          .from('asin_inventory')
-          .update({ quantity: 0, updated_at: new Date().toISOString() })
-          .in('id', batch);
-        if (error) throw error;
+      // For each ASIN group, update inventory quantities
+      for (const group of groups) {
+        if (group.scannedQty !== group.systemQty) {
+          // Distribute scanned qty across inventory items for this ASIN
+          let remaining = group.scannedQty;
+          for (const itemId of group.itemIds) {
+            const item = inventoryItems.find(i => i.id === itemId);
+            if (!item) continue;
+
+            if (remaining <= 0) {
+              // Zero out this item
+              await supabase
+                .from('asin_inventory')
+                .update({ quantity: 0, updated_at: new Date().toISOString() })
+                .eq('id', itemId);
+            } else {
+              const assignQty = Math.min(remaining, item.quantity > 0 ? item.quantity : remaining);
+              await supabase
+                .from('asin_inventory')
+                .update({ quantity: assignQty, updated_at: new Date().toISOString() })
+                .eq('id', itemId);
+              remaining -= assignQty;
+            }
+          }
+        }
       }
+
+      const verified = groups.filter(g => g.scannedQty > 0);
+      const missing = groups.filter(g => g.scannedQty === 0 && g.systemQty > 0);
 
       // Update session as completed
       const { error: sessionErr } = await supabase
@@ -322,7 +464,7 @@ export function useStockAudit() {
           status: 'completed' as any,
           completed_at: new Date().toISOString(),
           total_missing: missing.length,
-          total_scanned: scannedIds.size,
+          total_scanned: verified.length,
           updated_at: new Date().toISOString(),
         })
         .eq('id', activeSession.id);
@@ -333,12 +475,12 @@ export function useStockAudit() {
         status: 'completed',
         completed_at: new Date().toISOString(),
         total_missing: missing.length,
-        total_scanned: scannedIds.size,
+        total_scanned: verified.length,
       } : null);
 
       toast({
         title: 'Audit Finalized',
-        description: `${scannedIds.size} items verified, ${missing.length} items zeroed out`,
+        description: `${verified.length} ASINs verified, ${missing.length} ASINs zeroed out`,
       });
       return true;
     } catch (err: any) {
@@ -347,7 +489,7 @@ export function useStockAudit() {
     } finally {
       setLoading(false);
     }
-  }, [activeSession, getScannedItemIds, getMissingItems, toast]);
+  }, [activeSession, asinGroups, inventoryItems, toast]);
 
   const cancelSession = useCallback(async () => {
     if (!activeSession) return;
@@ -380,9 +522,12 @@ export function useStockAudit() {
     createSession,
     resumeSession,
     scanBarcode,
-    getScannedItemIds,
-    getMissingItems,
-    getVerifiedItems,
+    adjustAsinQty,
+    getAsinGroups,
+    getVerifiedAsins,
+    getFullyVerifiedAsins,
+    getPartiallyScannedAsins,
+    getMissingAsins,
     getUnmatchedScans,
     finalizeAudit,
     cancelSession,

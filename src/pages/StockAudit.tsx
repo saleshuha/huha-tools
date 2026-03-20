@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockAudit } from '@/hooks/useStockAudit';
 import { AuditSessionManager } from '@/components/stock-audit/AuditSessionManager';
@@ -25,17 +24,25 @@ export default function StockAudit() {
     createSession,
     resumeSession,
     scanBarcode,
-    getMissingItems,
-    getVerifiedItems,
+    adjustAsinQty,
+    getAsinGroups,
+    getVerifiedAsins,
+    getFullyVerifiedAsins,
+    getPartiallyScannedAsins,
+    getMissingAsins,
     getUnmatchedScans,
     finalizeAudit,
     cancelSession,
     closeSession,
   } = useStockAudit();
 
-  const verifiedItems = getVerifiedItems();
-  const missingItems = getMissingItems();
+  const asinGroups = getAsinGroups();
+  const verifiedAsins = getVerifiedAsins();
+  const fullyVerified = getFullyVerifiedAsins();
+  const partiallyScanned = getPartiallyScannedAsins();
+  const missingAsins = getMissingAsins();
   const unmatchedScans = getUnmatchedScans();
+  const totalSystemAsins = asinGroups.filter(g => g.systemQty > 0).length;
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -68,9 +75,10 @@ export default function StockAudit() {
                 Cancel
               </Button>
               <AuditFinalizeDialog
-                verifiedCount={verifiedItems.length}
-                missingCount={missingItems.length}
-                totalSystem={activeSession.total_system_items}
+                fullyVerified={fullyVerified}
+                partiallyScanned={partiallyScanned}
+                missingAsins={missingAsins}
+                totalSystemAsins={totalSystemAsins}
                 loading={loading}
                 onFinalize={finalizeAudit}
               />
@@ -93,16 +101,20 @@ export default function StockAudit() {
               <AuditScanner
                 session={activeSession}
                 scans={scans}
+                asinGroups={asinGroups}
                 scanLoading={scanLoading}
                 onScanBarcode={scanBarcode}
+                onAdjustQty={adjustAsinQty}
               />
             </div>
             <div>
               <AuditReviewPanel
-                verifiedItems={verifiedItems}
-                missingItems={missingItems}
+                verifiedAsins={verifiedAsins}
+                fullyVerified={fullyVerified}
+                partiallyScanned={partiallyScanned}
+                missingAsins={missingAsins}
                 unmatchedScans={unmatchedScans}
-                totalSystemItems={activeSession.total_system_items}
+                totalSystemAsins={totalSystemAsins}
               />
             </div>
           </div>
