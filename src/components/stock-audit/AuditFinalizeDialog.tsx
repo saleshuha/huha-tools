@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AlertTriangle, CheckCircle2, XCircle, TrendingDown } from 'lucide-react';
 import type { AsinGroup } from '@/hooks/useStockAudit';
 
@@ -16,6 +18,8 @@ interface AuditFinalizeDialogProps {
   onFinalize: () => Promise<boolean>;
 }
 
+const CONFIRM_TEXT = 'FINALIZE';
+
 export function AuditFinalizeDialog({
   fullyVerified,
   partiallyScanned,
@@ -24,12 +28,15 @@ export function AuditFinalizeDialog({
   loading,
   onFinalize,
 }: AuditFinalizeDialogProps) {
+  const [confirmInput, setConfirmInput] = useState('');
+  const isConfirmed = confirmInput.trim().toUpperCase() === CONFIRM_TEXT;
+
   const totalQtyReduced = [...partiallyScanned, ...missingAsins].reduce(
     (sum, g) => sum + (g.systemQty - g.scannedQty), 0
   );
 
   return (
-    <AlertDialog>
+    <AlertDialog onOpenChange={() => setConfirmInput('')}>
       <AlertDialogTrigger asChild>
         <Button variant="destructive" size="lg" disabled={loading}>
           <CheckCircle2 className="h-5 w-5 mr-2" />
@@ -78,6 +85,19 @@ export function AuditFinalizeDialog({
               <p className="text-sm text-rose-600 font-medium">
                 ⚠️ {totalQtyReduced} total units will be reduced across {missingAsins.length + partiallyScanned.length} ASINs. This cannot be undone automatically.
               </p>
+
+              <div className="space-y-2 pt-1">
+                <p className="text-sm font-medium text-foreground">
+                  Type <span className="font-mono font-bold text-destructive">{CONFIRM_TEXT}</span> to confirm:
+                </p>
+                <Input
+                  value={confirmInput}
+                  onChange={e => setConfirmInput(e.target.value)}
+                  placeholder={CONFIRM_TEXT}
+                  className="font-mono"
+                  autoComplete="off"
+                />
+              </div>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -89,7 +109,7 @@ export function AuditFinalizeDialog({
               onFinalize();
             }}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            disabled={loading}
+            disabled={loading || !isConfirmed}
           >
             {loading ? 'Finalizing...' : 'Yes, Finalize Audit'}
           </AlertDialogAction>
