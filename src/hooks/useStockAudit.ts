@@ -203,11 +203,24 @@ export function useStockAudit() {
     }
   }, [toast]);
 
-  // Resolve barcode: ASIN-first, then product_barcodes fallback
+  // Resolve barcode: ASIN → SKU → Serial Number, then product_barcodes fallback
   const resolveBarcode = useCallback((barcode: string): { asin: string | null; title: string | null } => {
+    const normalised = barcode.trim();
+
     // 1. Direct ASIN match
-    const directMatch = inventoryItems.find(i => i.asin === barcode);
-    if (directMatch) return { asin: directMatch.asin, title: directMatch.title };
+    const asinMatch = inventoryItems.find(i => i.asin === normalised);
+    if (asinMatch) return { asin: asinMatch.asin, title: asinMatch.title };
+
+    // 2. SKU match
+    const skuMatch = inventoryItems.find(i => i.sku && i.sku === normalised);
+    if (skuMatch) return { asin: skuMatch.asin, title: skuMatch.title };
+
+    // 3. Serial number match (primary or additional)
+    const serialMatch = inventoryItems.find(i =>
+      i.serial_number === normalised ||
+      (i.additional_serial_numbers && i.additional_serial_numbers.includes(normalised))
+    );
+    if (serialMatch) return { asin: serialMatch.asin, title: serialMatch.title };
 
     return { asin: null, title: null };
   }, [inventoryItems]);
