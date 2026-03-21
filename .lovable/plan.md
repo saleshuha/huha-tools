@@ -1,63 +1,43 @@
 
 
-# Stock Audit: ASIN-Based Scanning with Quantity Tracking
+# Stock Audit: Multi-Search, Prominent Scan Feedback & UI Polish
 
-## Current Problem
-The audit system scans by **serial number** (individual item tracking), but physical products have **ASIN barcodes**. Multiple units share the same ASIN, so we need to track **quantity per ASIN** — either by scanning repeatedly or entering qty manually.
+## Changes
 
-## Core Changes
+### 1. Search bar supports ASIN, SKU, and Serial Number (`AuditScanner.tsx`)
+- Update placeholder to "Scan or type ASIN, SKU, or Serial Number..."
+- Update `resolveBarcode` in `useStockAudit.ts` to check:
+  1. Direct ASIN match (`asin === barcode`)
+  2. SKU match (`sku === barcode`)
+  3. Serial number match (`serial_number === barcode` or in `additional_serial_numbers`)
+  4. Fallback to `product_barcodes` table
+- When matched by SKU or serial, resolve to the parent ASIN and proceed as before
 
-### 1. Shift from Serial-Based to ASIN-Based Matching (`useStockAudit.ts`)
+### 2. Prominent last-scan result (`AuditScanner.tsx`)
+- Make the "Last Scan Result" card larger and more visually striking:
+  - Bigger icon, larger text for ASIN and title
+  - Large qty badge (e.g., "5 / 10") with a circular progress indicator
+  - Animate entry with a scale/fade transition
+- Move it directly above the scanned list for visibility
 
-**Current**: `resolveBarcode()` looks up `serial_number` → matches one inventory row.
-**New**: `resolveBarcode()` looks up by **ASIN first** (direct match against `asin_inventory.asin`), then falls back to `product_barcodes.barcode → ASIN`. Returns all inventory items for that ASIN grouped together.
+### 3. Highlight recently-scanned row in the scanned ASINs list (`AuditScanner.tsx`)
+- Track `lastScannedAsin` state
+- When a row's ASIN matches the last scan, apply a pulsing highlight animation (ring + bg glow) that fades after ~3 seconds
+- Auto-scroll the list to bring the highlighted row into view
 
-**Quantity tracking**:
-- Group inventory by ASIN → compute `systemQty` (sum of all rows for that ASIN)
-- Track `scannedQty` per ASIN across all scans in the session
-- Each scan increments qty by 1 (repeat-scan mode) or by user-entered amount (manual-qty mode)
-- Duplicate detection changes: instead of blocking duplicates, we **accumulate** quantity. Only warn if scanned qty exceeds system qty.
+### 4. Better qty controls in scanned list (`AuditScanner.tsx`)
+- Make +/- buttons slightly larger and more tappable
+- Show a small inline input between +/- that allows direct qty editing (click the badge to toggle to input mode)
+- Add a subtle color gradient on the qty badge based on completion percentage
 
-**Progress calculation**: Based on unique ASINs verified (scannedQty > 0) vs total unique ASINs in system.
-
-### 2. Scanner UI Overhaul (`AuditScanner.tsx`)
-
-- **Scan input**: Accept ASIN codes (not serial numbers). Update placeholder text.
-- **Quantity mode toggle**: Two modes side-by-side:
-  - **Multi-scan mode** (default): Each scan/submit adds +1 to that ASIN's count. Shows running tally.
-  - **Manual qty mode**: After scanning/entering ASIN, show a qty input field. User enters the count and submits.
-- **Last scan result card**: Show ASIN, product title, system qty, and **scanned qty so far** with a visual comparison (e.g., "5 / 10 scanned").
-- **Over-scan warning**: If scanned qty > system qty, show amber warning.
-- **Quick qty adjustment**: Allow +/- buttons on recent scans to correct mistakes.
-
-### 3. Review Panel Updates (`AuditReviewPanel.tsx`)
-
-- **Scanned tab**: Group by ASIN, show columns: ASIN, Title, System Qty, Scanned Qty, Difference.
-- **Missing tab**: Show ASINs with 0 scans (completely unscanned) and partially scanned (scanned < system).
-- **Summary stats**: Show "Fully Verified", "Partially Scanned", "Not Scanned" counts.
-
-### 4. Finalization Logic Update (`useStockAudit.ts` → `finalizeAudit`)
-
-- For each ASIN: set inventory quantity = scanned quantity (not just 0/keep).
-- Unscanned ASINs → qty = 0.
-- Partially scanned ASINs → qty = scanned amount.
-
-### 5. Database: Update scan records
-
-Add/use `scanned_quantity` field on `stock_audit_scans` to store qty per scan entry. The existing column already supports this (default 1).
-
-### 6. UI Improvements
-
-- **Sound/vibration feedback** on successful scan (navigator.vibrate).
-- **Running totals bar** showing: X ASINs fully verified, Y partially, Z missing.
-- **Auto-focus** back to input after each scan for rapid scanning.
-- **Scan history** grouped by ASIN with expandable qty details.
+### 5. UI polish across all components
+- **Scanner card**: Add subtle gradient header, cleaner spacing
+- **Progress card**: Use a segmented progress bar (green for full, amber for partial, remaining gray)
+- **Review panel search**: Update placeholder to "Search by ASIN, SKU, or title..."
+- **Scanned list**: Zebra striping, slightly larger row height for touch friendliness
 
 ## Files Modified
-
-- **`src/hooks/useStockAudit.ts`** — ASIN-based resolution, qty accumulation, grouped data helpers, updated finalization
-- **`src/components/stock-audit/AuditScanner.tsx`** — qty mode toggle, ASIN-focused UI, over-scan warnings, quick adjust
-- **`src/components/stock-audit/AuditReviewPanel.tsx`** — grouped-by-ASIN tables, partial scan tracking
-- **`src/components/stock-audit/AuditFinalizeDialog.tsx`** — updated summary showing qty adjustments
-- **`src/pages/StockAudit.tsx`** — pass new props
+- `src/hooks/useStockAudit.ts` — expand `resolveBarcode` to match SKU and serial numbers
+- `src/components/stock-audit/AuditScanner.tsx` — prominent scan result, row highlighting, qty UX, search placeholder
+- `src/components/stock-audit/AuditReviewPanel.tsx` — search placeholder update
 
