@@ -154,28 +154,11 @@ export function AuditScanner({
           <div className="flex-1 bg-muted" />
         </div>
         <CardContent className="py-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between">
             <span className="text-sm font-semibold">Audit Progress</span>
             <span className="text-sm text-muted-foreground font-mono">
               {fullyVerified.length} / {totalAsins} ASINs
             </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col items-center p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500 mb-1" />
-              <span className="text-lg font-bold text-emerald-600">{fullyVerified.length}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Verified</span>
-            </div>
-            <div className="flex flex-col items-center p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle className="h-5 w-5 text-amber-500 mb-1" />
-              <span className="text-lg font-bold text-amber-600">{partiallyScanned.length}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Partial</span>
-            </div>
-            <div className="flex flex-col items-center p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-              <XCircle className="h-5 w-5 text-rose-500 mb-1" />
-              <span className="text-lg font-bold text-rose-600">{unmatchedCount}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Unmatched</span>
-            </div>
           </div>
         </CardContent>
       </Card>
