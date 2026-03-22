@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download, ChevronLeft, ChevronRight, Star, Skull, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
 
@@ -19,32 +19,53 @@ interface Props {
 }
 
 const STATUS_CONFIG: Record<HealthStatus, { label: string; icon: any; badgeClass: string }> = {
+  star: { label: 'Star', icon: Star, badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
   growing: { label: 'Growing', icon: TrendingUp, badgeClass: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
   stable: { label: 'Stable', icon: Minus, badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
   declining: { label: 'Declining', icon: TrendingDown, badgeClass: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
-  inactive: { label: 'Inactive', icon: AlertTriangle, badgeClass: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  at_risk: { label: 'At Risk', icon: AlertTriangle, badgeClass: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  low_mover: { label: 'Low Mover', icon: Zap, badgeClass: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400' },
+  dead: { label: 'Dead', icon: Skull, badgeClass: 'bg-gray-200 text-gray-500 dark:bg-gray-800/40 dark:text-gray-500' },
   new: { label: 'New', icon: Sparkles, badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
 };
 
 const ALL_STATUSES = Object.keys(STATUS_CONFIG) as HealthStatus[];
 
 const ROW_HIGHLIGHT: Record<HealthStatus, string> = {
+  star: 'bg-emerald-50/40 dark:bg-emerald-950/10',
   growing: 'bg-green-50/50 dark:bg-green-950/10',
   declining: 'bg-orange-50/50 dark:bg-orange-950/10',
-  inactive: 'bg-red-50/30 dark:bg-red-950/10',
+  at_risk: 'bg-red-50/30 dark:bg-red-950/10',
   stable: '',
+  low_mover: '',
+  dead: 'bg-muted/30',
   new: '',
 };
 
 const PAGE_SIZES = [25, 50, 100];
 
-type SortKey = 'asin' | 'status' | 'recentQty' | 'priorQty' | 'changePercent' | 'totalShipped';
+type SortKey = 'asin' | 'status' | 'velocity' | 'peak' | 'healthScore' | 'changePercent' | 'totalShipped' | 'gap';
+
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 70
+    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+    : score >= 40
+      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+  return <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold ${color}`}>{score}</span>;
+}
+
+function TrendArrow({ slope }: { slope: number }) {
+  if (slope > 0.3) return <span className="text-green-600 text-[10px] font-medium">▲ {slope.toFixed(1)}</span>;
+  if (slope < -0.3) return <span className="text-orange-600 text-[10px] font-medium">▼ {slope.toFixed(1)}</span>;
+  return <span className="text-muted-foreground text-[10px]">— {slope.toFixed(1)}</span>;
+}
 
 export function SalesHealthDashboard({ data, loading }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('changePercent');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<SortKey>('healthScore');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [exportStatuses, setExportStatuses] = useState<Set<HealthStatus>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -64,17 +85,8 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     return found ? found.qty : 0;
   };
 
-  const getRecentPrior = (item: AsinHealth) => {
-    const recent3 = last12Months.slice(-3);
-    const prior3 = last12Months.slice(-6, -3);
-    const recentQty = recent3.reduce((s, m) => s + getQty(item, m.year, m.month), 0);
-    const priorQty = prior3.reduce((s, m) => s + getQty(item, m.year, m.month), 0);
-    return { recentQty, priorQty };
-  };
-
   const maxQty = useMemo(() => Math.max(...data.flatMap(d => d.monthlyData.map(m => m.qty)), 1), [data]);
 
-  // Status counts for filter badges
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: data.length };
     ALL_STATUSES.forEach(s => { counts[s] = data.filter(d => d.status === s).length; });
@@ -82,7 +94,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   }, [data]);
 
   const filtered = useMemo(() => {
-    let result = data.map(item => ({ ...item, ...getRecentPrior(item) }));
+    let result = [...data];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(r => r.asin.toLowerCase().includes(q) || r.title?.toLowerCase().includes(q) || r.sku?.toLowerCase().includes(q));
@@ -90,20 +102,21 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     if (statusFilter !== 'all') {
       result = result.filter(r => r.status === statusFilter);
     }
-    result = [...result].sort((a, b) => {
+    result.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'asin') cmp = a.asin.localeCompare(b.asin);
       else if (sortKey === 'status') cmp = a.status.localeCompare(b.status);
-      else if (sortKey === 'recentQty') cmp = a.recentQty - b.recentQty;
-      else if (sortKey === 'priorQty') cmp = a.priorQty - b.priorQty;
+      else if (sortKey === 'velocity') cmp = a.salesVelocity - b.salesVelocity;
+      else if (sortKey === 'peak') cmp = a.peakMonthlyAvg - b.peakMonthlyAvg;
+      else if (sortKey === 'healthScore') cmp = a.healthScore - b.healthScore;
       else if (sortKey === 'changePercent') cmp = a.changePercent - b.changePercent;
       else if (sortKey === 'totalShipped') cmp = a.totalShipped - b.totalShipped;
+      else if (sortKey === 'gap') cmp = a.monthsSinceLastSale - b.monthsSinceLastSale;
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return result;
-  }, [data, search, statusFilter, sortKey, sortDir, last12Months]);
+  }, [data, search, statusFilter, sortKey, sortDir]);
 
-  // Reset page when filters change
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   if (safePage !== page) setPage(safePage);
@@ -129,9 +142,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
   const handleExport = useCallback(() => {
     const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
-    const exportData = data
-      .map(item => ({ ...item, ...getRecentPrior(item) }))
-      .filter(item => statusesToExport.has(item.status));
+    const exportData = data.filter(item => statusesToExport.has(item.status));
 
     if (exportData.length === 0) {
       toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
@@ -139,7 +150,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     }
 
     const monthHeaders = last12Months.map(m => `${MONTH_LABELS[m.month]} ${m.year}`);
-    const headers = ['ASIN', 'SKU', 'Title', 'Status', ...monthHeaders, 'Prior 3mo', 'Recent 3mo', 'Change %', 'Total Shipped', 'Last Active'];
+    const headers = ['ASIN', 'SKU', 'Title', 'Status', 'Score', 'Velocity', 'Peak', 'Active', 'Gap', 'Trend', ...monthHeaders, 'Change %', 'Total Shipped', 'Last Active'];
 
     const rows = exportData.map(item => {
       const monthlyQtys = last12Months.map(m => getQty(item, m.year, m.month));
@@ -148,9 +159,13 @@ export function SalesHealthDashboard({ data, loading }: Props) {
         item.sku || '',
         `"${(item.title || '').replace(/"/g, '""')}"`,
         item.status,
+        item.healthScore,
+        item.salesVelocity,
+        item.peakMonthlyAvg,
+        `${item.monthsActive}/${item.totalMonths}`,
+        item.monthsSinceLastSale,
+        item.trendSlope,
         ...monthlyQtys,
-        item.priorQty,
-        item.recentQty,
         `${item.changePercent.toFixed(1)}%`,
         item.totalShipped,
         item.lastActiveMonth,
@@ -206,7 +221,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
               />
             </div>
             <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status ({statusCounts.all})</SelectItem>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => (
@@ -215,7 +230,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
               </SelectContent>
             </Select>
 
-            {/* Export Popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
@@ -272,19 +286,27 @@ export function SalesHealthDashboard({ data, loading }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs cursor-pointer" onClick={() => toggleSort('asin')}>
+                <TableHead className="text-xs cursor-pointer sticky left-0 bg-background z-10" onClick={() => toggleSort('asin')}>
                   Product <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
                 <TableHead className="text-xs cursor-pointer" onClick={() => toggleSort('status')}>
                   Status <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('healthScore')}>
+                  Score <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('velocity')}>
+                  Velocity <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('peak')}>
+                  Peak <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
+                <TableHead className="text-xs text-center">Active</TableHead>
+                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('gap')}>
+                  Gap <ArrowUpDown className="h-3 w-3 inline" />
+                </TableHead>
+                <TableHead className="text-xs text-center">Trend</TableHead>
                 <TableHead className="text-xs">Monthly Shipped (12mo)</TableHead>
-                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('priorQty')}>
-                  Prior 3mo <ArrowUpDown className="h-3 w-3 inline" />
-                </TableHead>
-                <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('recentQty')}>
-                  Recent 3mo <ArrowUpDown className="h-3 w-3 inline" />
-                </TableHead>
                 <TableHead className="text-xs text-right cursor-pointer" onClick={() => toggleSort('changePercent')}>
                   Δ% <ArrowUpDown className="h-3 w-3 inline" />
                 </TableHead>
@@ -307,7 +329,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
                 return (
                   <TableRow key={item.asin} className={rowHighlight}>
-                    <TableCell className="py-2 max-w-[220px]">
+                    <TableCell className="py-2 max-w-[220px] sticky left-0 bg-background z-10">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono font-medium text-foreground">{item.asin}</span>
@@ -325,17 +347,34 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                         <Icon className="h-3 w-3" /> {cfg.label}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <ScoreBadge score={item.healthScore} />
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-mono">{item.salesVelocity.toFixed(1)}</TableCell>
+                    <TableCell className="text-xs text-right font-mono">{item.peakMonthlyAvg.toFixed(1)}</TableCell>
+                    <TableCell className="text-xs text-center font-mono">
+                      <span className={item.monthsActive / item.totalMonths > 0.6 ? 'text-green-600' : item.monthsActive / item.totalMonths < 0.3 ? 'text-red-600' : 'text-foreground'}>
+                        {item.monthsActive}/{item.totalMonths}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-mono">
+                      <span className={item.monthsSinceLastSale === 0 ? 'text-green-600' : item.monthsSinceLastSale >= 3 ? 'text-red-600' : 'text-orange-600'}>
+                        {item.monthsSinceLastSale}mo
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <TrendArrow slope={item.trendSlope} />
+                    </TableCell>
                     <TableCell className="p-1">
                       <div className="flex flex-col gap-1">
                         <div className="grid grid-cols-6 gap-x-0 gap-y-0 min-w-[240px]">
                           {last12Months.map((m, i) => {
                             const qty = getQty(item, m.year, m.month);
-                            const isRecent = i >= last12Months.length - 3;
                             const isQuarterEnd = (i + 1) % 3 === 0 && i < last12Months.length - 1;
                             return (
                               <div
                                 key={`${m.year}-${m.month}`}
-                                className={`flex flex-col items-center px-1 py-0.5 ${isRecent ? 'bg-primary/5 rounded' : ''} ${isQuarterEnd ? 'border-r border-border' : ''}`}
+                                className={`flex flex-col items-center px-1 py-0.5 ${isQuarterEnd ? 'border-r border-border' : ''}`}
                               >
                                 <span className="text-[9px] text-muted-foreground leading-none">{MONTH_LABELS[m.month]}</span>
                                 <span className={`text-[10px] font-mono leading-tight ${qty === 0 ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>{qty}</span>
@@ -349,9 +388,11 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                             const h = Math.max(1, (qty / maxQty) * 16);
                             const barColor = qty === 0
                               ? 'bg-muted'
+                              : item.status === 'star' ? 'bg-emerald-500'
                               : item.status === 'growing' ? 'bg-green-500'
                               : item.status === 'declining' ? 'bg-orange-500'
-                              : item.status === 'inactive' ? 'bg-destructive'
+                              : item.status === 'at_risk' ? 'bg-red-500'
+                              : item.status === 'dead' || item.status === 'low_mover' ? 'bg-muted-foreground'
                               : 'bg-primary';
                             return (
                               <div
@@ -364,8 +405,6 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-right font-mono">{item.priorQty}</TableCell>
-                    <TableCell className="text-xs text-right font-mono font-medium">{item.recentQty}</TableCell>
                     <TableCell className={`text-xs text-right font-medium rounded ${deltaClass} ${item.changePercent > 0 ? 'text-green-600' : item.changePercent < 0 ? 'text-orange-600' : ''}`}>
                       {item.changePercent > 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
                     </TableCell>
