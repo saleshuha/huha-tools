@@ -23,7 +23,7 @@ export interface UploadLock {
   locked_at: string;
 }
 
-export type HealthStatus = 'growing' | 'stable' | 'declining' | 'inactive' | 'new';
+export type HealthStatus = 'star' | 'growing' | 'stable' | 'declining' | 'at_risk' | 'low_mover' | 'new' | 'dead';
 
 export interface AsinHealth {
   asin: string;
@@ -32,11 +32,17 @@ export interface AsinHealth {
   country: string;
   status: HealthStatus;
   monthlyData: { year: number; month: number; qty: number }[];
-  recentAvg: number;
-  priorAvg: number;
-  changePercent: number;
   totalShipped: number;
   lastActiveMonth: string;
+  // Advanced metrics
+  salesVelocity: number;
+  peakMonthlyAvg: number;
+  monthsActive: number;
+  totalMonths: number;
+  monthsSinceLastSale: number;
+  trendSlope: number;
+  healthScore: number;
+  changePercent: number;
 }
 
 // Batch-fetch all rows, bypassing the 1000-row default limit
@@ -69,6 +75,36 @@ async function fetchAllRows<T extends { id: string }>(
   return all;
 }
 
+// Linear regression slope over an array of values
+function linearSlope(values: number[]): number {
+  const n = values.length;
+  if (n < 2) return 0;
+  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumXX += i * i;
+  }
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return 0;
+  return (n * sumXY - sumX * sumY) / denom;
+}
+
+// Best 3-month rolling average
+function peakRollingAvg(qtys: number[], window = 3): number {
+  if (qtys.length < window) {
+    return qtys.length > 0 ? qtys.reduce((a, b) => a + b, 0) / qtys.length : 0;
+  }
+  let best = 0;
+  for (let i = 0; i <= qtys.length - window; i++) {
+    let sum = 0;
+    for (let j = i; j < i + window; j++) sum += qtys[j];
+    best = Math.max(best, sum / window);
+  }
+  return best;
+}
+
 export function useAsinSalesHealth(selectedCountry: string) {
   const [sales, setSales] = useState<MonthlySale[]>([]);
   const [locks, setLocks] = useState<UploadLock[]>([]);
@@ -81,7 +117,6 @@ export function useAsinSalesHealth(selectedCountry: string) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Batch-fetch sales (may exceed 1000 rows)
       const salesData = await fetchAllRows<MonthlySale>(() =>
         supabase
           .from('amazon_monthly_sales')
@@ -92,7 +127,6 @@ export function useAsinSalesHealth(selectedCountry: string) {
           .order('id', { ascending: true })
       );
 
-      // Locks are always small, single fetch is fine
       const { data: locksData, error: locksErr } = await supabase
         .from('amazon_monthly_upload_locks')
         .select('*')
@@ -181,26 +215,21 @@ export function useAsinSalesHealth(selectedCountry: string) {
     toast({ title: 'Month Unlocked', description: `Data for ${month}/${year} removed` });
   };
 
-  // Build calendar months from locks for consistent health calculations
+  // Build calendar months from locks
   const calendarMonths = useMemo(() => {
     if (locks.length === 0) return [];
-    const sorted = locks
+    return locks
       .map(l => ({ year: l.year, month: l.month, num: l.year * 12 + l.month }))
       .sort((a, b) => a.num - b.num);
-    return sorted;
   }, [locks]);
 
-  // Calculate health per ASIN using calendar-based logic
+  // Advanced health classification
   const asinHealthData = useMemo((): AsinHealth[] => {
     if (sales.length === 0 || calendarMonths.length === 0) return [];
 
     const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // Use the last 6 calendar months from locks for recent/prior calculation
-    const last6 = calendarMonths.slice(-6);
-    const recent3Months = last6.slice(-3);
-    const prior3Months = last6.length >= 6 ? last6.slice(0, 3) : [];
     const latestMonthNum = calendarMonths[calendarMonths.length - 1].num;
+    const earliestMonthNum = calendarMonths[0].num;
 
     // Group by ASIN
     const asinMap = new Map<string, MonthlySale[]>();
@@ -209,76 +238,144 @@ export function useAsinSalesHealth(selectedCountry: string) {
       asinMap.get(s.asin)!.push(s);
     });
 
-    return Array.from(asinMap.entries()).map(([asin, records]) => {
+    // First pass: compute metrics for all ASINs
+    const allItems: (Omit<AsinHealth, 'status' | 'healthScore'> & { rawVelocity: number })[] = [];
+
+    for (const [asin, records] of asinMap.entries()) {
       const sorted = records.sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
       const lastRecord = sorted[sorted.length - 1];
+      const firstRecord = sorted[0];
+
+      // Build full monthly timeline
+      const firstMonthNum = firstRecord.year * 12 + firstRecord.month;
+      const totalMonths = latestMonthNum - firstMonthNum + 1;
+
+      // Create qty array aligned to calendar
+      const qtyByMonth = new Map<number, number>();
+      sorted.forEach(r => {
+        const num = r.year * 12 + r.month;
+        qtyByMonth.set(num, (qtyByMonth.get(num) || 0) + r.shipped_qty);
+      });
+
+      // Full timeline qtys
+      const fullQtys: number[] = [];
+      for (let n = firstMonthNum; n <= latestMonthNum; n++) {
+        fullQtys.push(qtyByMonth.get(n) || 0);
+      }
+
       const monthlyData = sorted.map(r => ({ year: r.year, month: r.month, qty: r.shipped_qty }));
-      const totalShipped = sorted.reduce((s, r) => s + r.shipped_qty, 0);
+      const totalShipped = fullQtys.reduce((a, b) => a + b, 0);
+      const monthsActive = fullQtys.filter(q => q > 0).length;
 
-      // Calendar-based recent and prior qty
-      const getQtyForMonth = (y: number, m: number) => {
-        const rec = sorted.find(r => r.year === y && r.month === m);
-        return rec ? rec.shipped_qty : 0;
-      };
+      // Last sale month
+      let lastSaleMonthNum = firstMonthNum;
+      for (let n = latestMonthNum; n >= firstMonthNum; n--) {
+        if ((qtyByMonth.get(n) || 0) > 0) { lastSaleMonthNum = n; break; }
+      }
+      const monthsSinceLastSale = latestMonthNum - lastSaleMonthNum;
 
-      const recentQty = recent3Months.reduce((s, m) => s + getQtyForMonth(m.year, m.month), 0);
-      const priorQty = prior3Months.reduce((s, m) => s + getQtyForMonth(m.year, m.month), 0);
-      const recentAvg = recent3Months.length > 0 ? recentQty / recent3Months.length : 0;
-      const priorAvg = prior3Months.length > 0 ? priorQty / prior3Months.length : 0;
+      const salesVelocity = totalMonths > 0 ? totalShipped / totalMonths : 0;
+      const peak = peakRollingAvg(fullQtys, 3);
 
-      const changePercent = priorQty > 0 ? ((recentQty - priorQty) / priorQty) * 100 : 0;
+      // Trend: slope over last 6 months
+      const last6Qtys = fullQtys.slice(-Math.min(6, fullQtys.length));
+      const slope = linearSlope(last6Qtys);
 
-      // Calendar-based status determination
+      // Change percent (recent 3 vs prior 3)
+      const recent3Qtys = fullQtys.slice(-Math.min(3, fullQtys.length));
+      const prior3Qtys = fullQtys.length >= 6 ? fullQtys.slice(-6, -3) : [];
+      const recentSum = recent3Qtys.reduce((a, b) => a + b, 0);
+      const priorSum = prior3Qtys.reduce((a, b) => a + b, 0);
+      const changePercent = priorSum > 0 ? ((recentSum - priorSum) / priorSum) * 100 : 0;
+
+      const lastMonth = lastRecord.month;
+      const lastYear = lastRecord.year;
+
+      allItems.push({
+        asin,
+        sku: lastRecord.sku,
+        title: lastRecord.title,
+        country: lastRecord.country,
+        monthlyData,
+        totalShipped,
+        lastActiveMonth: `${monthNames[lastMonth]} ${lastYear}`,
+        salesVelocity: Math.round(salesVelocity * 100) / 100,
+        peakMonthlyAvg: Math.round(peak * 100) / 100,
+        monthsActive,
+        totalMonths,
+        monthsSinceLastSale,
+        trendSlope: Math.round(slope * 100) / 100,
+        changePercent: Math.round(changePercent * 10) / 10,
+        rawVelocity: salesVelocity,
+      });
+    }
+
+    // Compute velocity percentile threshold (top 20%)
+    const velocities = allItems.map(i => i.rawVelocity).filter(v => v > 0).sort((a, b) => a - b);
+    const p80Index = Math.floor(velocities.length * 0.8);
+    const velocityP80 = velocities.length > 0 ? velocities[Math.min(p80Index, velocities.length - 1)] : 1;
+
+    // Second pass: classify and score
+    return allItems.map(item => {
+      const { monthsActive, totalMonths, monthsSinceLastSale, peakMonthlyAvg, rawVelocity, trendSlope, totalShipped } = item;
+
+      // Classification
       let status: HealthStatus;
-      const lastMonthNum = lastRecord.year * 12 + lastRecord.month;
-      const monthsSinceActive = latestMonthNum - lastMonthNum;
 
-      // Check if ASIN only has data in the most recent 3 months (no history before)
-      const allRecordMonthNums = sorted.map(r => r.year * 12 + r.month);
-      const oldestPriorMonth = prior3Months.length > 0 ? prior3Months[0].num : latestMonthNum - 5;
-      const hasHistoryBeforeRecent = allRecordMonthNums.some(n => n <= oldestPriorMonth);
+      const isRecentlyAppeared = totalMonths <= 3;
+      const isLowVolume = totalShipped < 5 && monthsActive <= 2;
+      const isDead = monthsSinceLastSale >= 4 && peakMonthlyAvg < 3;
+      const isAtRisk = monthsSinceLastSale >= 2 && peakMonthlyAvg >= 3;
+      const isStar = rawVelocity >= velocityP80 && trendSlope >= 0 && monthsSinceLastSale <= 1;
+      const isGrowing = trendSlope > 0.3 && rawVelocity > 1;
+      const isDeclining = trendSlope < -0.3 && peakMonthlyAvg >= 2;
 
-      if (!hasHistoryBeforeRecent && prior3Months.length > 0 && priorQty === 0) {
+      if (isRecentlyAppeared && monthsActive <= 2) {
         status = 'new';
-      } else if (monthsSinceActive >= 2 && recentQty === 0) {
-        status = 'inactive';
-      } else if (recentQty === 0 && priorQty > 0) {
-        status = 'inactive';
-      } else if (prior3Months.length === 0) {
-        // Not enough history to compare
-        status = sorted.length <= 2 ? 'new' : 'stable';
-      } else if (changePercent > 20) {
+      } else if (isLowVolume) {
+        status = 'low_mover';
+      } else if (isDead) {
+        status = 'dead';
+      } else if (isAtRisk) {
+        status = 'at_risk';
+      } else if (isStar) {
+        status = 'star';
+      } else if (isGrowing) {
         status = 'growing';
-      } else if (changePercent < -20) {
+      } else if (isDeclining) {
         status = 'declining';
       } else {
         status = 'stable';
       }
 
+      // Health Score (0-100)
+      const activeRatio = totalMonths > 0 ? monthsActive / totalMonths : 0;
+      const gapFactor = Math.max(0, 1 - (monthsSinceLastSale / 6));
+      const velocityNorm = Math.min(rawVelocity / (velocityP80 || 1), 2) / 2; // cap at 1
+      const trendFactor = Math.min(Math.max((trendSlope + 2) / 4, 0), 1); // normalize -2..2 to 0..1
+
+      const healthScore = Math.round(
+        (velocityNorm * 35 + activeRatio * 25 + gapFactor * 25 + trendFactor * 15) * 100
+      ) / 100;
+      const clampedScore = Math.min(100, Math.max(0, Math.round(healthScore)));
+
       return {
-        asin,
-        sku: lastRecord.sku,
-        title: lastRecord.title,
-        country: lastRecord.country,
+        ...item,
         status,
-        monthlyData,
-        recentAvg,
-        priorAvg,
-        changePercent,
-        totalShipped,
-        lastActiveMonth: `${monthNames[lastRecord.month]} ${lastRecord.year}`,
-      };
+        healthScore: clampedScore,
+        rawVelocity: undefined as any, // strip internal field
+      } as AsinHealth;
     });
   }, [sales, calendarMonths]);
 
   const summary = useMemo(() => {
     const total = asinHealthData.length;
-    const growing = asinHealthData.filter(a => a.status === 'growing').length;
-    const stable = asinHealthData.filter(a => a.status === 'stable').length;
+    const active = asinHealthData.filter(a => a.monthsSinceLastSale <= 1).length;
+    const growing = asinHealthData.filter(a => a.status === 'growing' || a.status === 'star').length;
     const declining = asinHealthData.filter(a => a.status === 'declining').length;
-    const inactive = asinHealthData.filter(a => a.status === 'inactive').length;
-    const newAsins = asinHealthData.filter(a => a.status === 'new').length;
-    return { total, growing, stable, declining, inactive, newAsins };
+    const atRisk = asinHealthData.filter(a => a.status === 'at_risk').length;
+    const lowDead = asinHealthData.filter(a => a.status === 'low_mover' || a.status === 'dead').length;
+    return { total, active, growing, declining, atRisk, lowDead };
   }, [asinHealthData]);
 
   return {

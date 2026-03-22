@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { AsinHealth } from '@/hooks/useAsinSalesHealth';
 
 interface Props {
@@ -6,7 +5,16 @@ interface Props {
   maxQty: number;
 }
 
-const MONTH_NAMES = ['', 'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+const STATUS_COLORS: Record<string, string> = {
+  star: 'bg-emerald-500',
+  growing: 'bg-green-500',
+  stable: 'bg-primary',
+  declining: 'bg-orange-500',
+  at_risk: 'bg-red-500',
+  low_mover: 'bg-muted-foreground',
+  dead: 'bg-muted-foreground',
+  new: 'bg-purple-500',
+};
 
 export function AsinTrendChart({ data, maxQty }: Props) {
   const bars = data.monthlyData.slice(-12);
@@ -16,13 +24,13 @@ export function AsinTrendChart({ data, maxQty }: Props) {
     <div className="flex items-end gap-[2px] h-8">
       {bars.map((m, i) => {
         const height = Math.max(2, (m.qty / localMax) * 32);
-        const color = m.qty === 0 ? 'bg-muted' : data.status === 'growing' ? 'bg-green-500' : data.status === 'declining' ? 'bg-orange-500' : data.status === 'inactive' ? 'bg-destructive' : 'bg-primary';
+        const color = m.qty === 0 ? 'bg-muted' : (STATUS_COLORS[data.status] || 'bg-primary');
         return (
           <div
             key={i}
             className={`w-2 rounded-t ${color} transition-all`}
             style={{ height: `${height}px` }}
-            title={`${MONTH_NAMES[m.month]} ${m.year}: ${m.qty}`}
+            title={`${m.month}/${m.year}: ${m.qty}`}
           />
         );
       })}

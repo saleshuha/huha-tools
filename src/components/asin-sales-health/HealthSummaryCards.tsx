@@ -1,15 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Package } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Activity, Skull } from 'lucide-react';
 
 interface Props {
   summary: {
     total: number;
+    active: number;
     growing: number;
-    stable: number;
     declining: number;
-    inactive: number;
-    newAsins: number;
+    atRisk: number;
+    lowDead: number;
   };
 }
 
@@ -18,11 +17,11 @@ export function HealthSummaryCards({ summary }: Props) {
 
   const cards = [
     { label: 'Total ASINs', value: summary.total, icon: Package, color: 'text-foreground', progressColor: 'bg-foreground', pct: 100 },
-    { label: 'Growing', value: summary.growing, icon: TrendingUp, color: 'text-green-600', progressColor: 'bg-green-500', pct: pct(summary.growing) },
-    { label: 'Stable', value: summary.stable, icon: Minus, color: 'text-blue-600', progressColor: 'bg-blue-500', pct: pct(summary.stable) },
+    { label: 'Active', value: summary.active, icon: Activity, color: 'text-green-600', progressColor: 'bg-green-500', pct: pct(summary.active) },
+    { label: 'Growing', value: summary.growing, icon: TrendingUp, color: 'text-emerald-600', progressColor: 'bg-emerald-500', pct: pct(summary.growing) },
     { label: 'Declining', value: summary.declining, icon: TrendingDown, color: 'text-orange-600', progressColor: 'bg-orange-500', pct: pct(summary.declining) },
-    { label: 'Inactive', value: summary.inactive, icon: AlertTriangle, color: 'text-destructive', progressColor: 'bg-destructive', pct: pct(summary.inactive) },
-    { label: 'New', value: summary.newAsins, icon: Sparkles, color: 'text-purple-600', progressColor: 'bg-purple-500', pct: pct(summary.newAsins) },
+    { label: 'At Risk', value: summary.atRisk, icon: AlertTriangle, color: 'text-red-600', progressColor: 'bg-red-500', pct: pct(summary.atRisk) },
+    { label: 'Low / Dead', value: summary.lowDead, icon: Skull, color: 'text-muted-foreground', progressColor: 'bg-muted-foreground', pct: pct(summary.lowDead) },
   ];
 
   return (
