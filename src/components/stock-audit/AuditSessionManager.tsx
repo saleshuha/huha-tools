@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Play, Clock, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
+import { Plus, Play, Clock, CheckCircle2, XCircle, ClipboardList, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import type { AuditSession } from '@/hooks/useStockAudit';
 
@@ -13,6 +13,7 @@ interface AuditSessionManagerProps {
   onCreateSession: (name: string) => Promise<any>;
   onResumeSession: (id: string) => Promise<void>;
   onFetchSessions: () => Promise<void>;
+  onReapplyAudit?: (sessionId: string, sessionName: string, sessionCountry: string) => Promise<boolean>;
 }
 
 export function AuditSessionManager({
@@ -21,6 +22,7 @@ export function AuditSessionManager({
   onCreateSession,
   onResumeSession,
   onFetchSessions,
+  onReapplyAudit,
 }: AuditSessionManagerProps) {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -111,9 +113,17 @@ export function AuditSessionManager({
                     </Button>
                   )}
                   {session.status === 'completed' && (
-                    <Button size="sm" variant="outline" onClick={() => onResumeSession(session.id)}>
-                      View
-                    </Button>
+                    <div className="flex gap-2">
+                      {onReapplyAudit && (
+                        <Button size="sm" variant="outline" className="text-violet-700 border-violet-300 hover:bg-violet-50" onClick={() => onReapplyAudit(session.id, session.name, session.country)}>
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Re-apply
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => onResumeSession(session.id)}>
+                        View
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
