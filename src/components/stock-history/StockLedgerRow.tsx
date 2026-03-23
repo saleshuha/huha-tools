@@ -15,6 +15,7 @@ const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
   damage: { label: 'Damage', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   adjustment: { label: 'Adjust', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
   fulfillment: { label: 'Fulfilled', className: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
+  stock_audit: { label: 'Audit', className: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
 };
 
 interface StockLedgerRowProps {

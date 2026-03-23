@@ -430,45 +430,127 @@ export function useStockAudit() {
     return scans.filter(s => s.match_status === 'unmatched');
   }, [scans]);
 
+  // Core logic: apply audit quantities to inventory and create stock_changes records
+  const applyAuditToInventory = useCallback(async (sessionId: string, sessionName: string, sessionCountry: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Load current inventory for the country
+    const items = await loadInventoryItems(sessionCountry);
+
+    // Load all scans for the session
+    const allScans: AuditScan[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('stock_audit_scans')
+        .select('*')
+        .eq('session_id', sessionId)
+        .range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allScans.push(...(data as unknown as AuditScan[]));
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+
+    // Build ASIN groups from current inventory
+    const groups = new Map<string, { asin: string; title: string | null; sku: string | null; systemQty: number; scannedQty: number; itemIds: string[] }>();
+    for (const item of items) {
+      const existing = groups.get(item.asin);
+      if (existing) {
+        existing.systemQty += item.quantity;
+        existing.itemIds.push(item.id);
+      } else {
+        groups.set(item.asin, {
+          asin: item.asin,
+          title: item.title,
+          sku: item.sku,
+          systemQty: item.quantity,
+          scannedQty: 0,
+          itemIds: [item.id],
+        });
+      }
+    }
+
+    // Calculate scanned qty per ASIN
+    for (const scan of allScans) {
+      if (scan.matched_asin && scan.match_status === 'matched') {
+        const group = groups.get(scan.matched_asin);
+        if (group) {
+          group.scannedQty += scan.scanned_quantity || 1;
+        }
+      }
+    }
+
+    const batchId = crypto.randomUUID();
+    let updatedCount = 0;
+    let zeroedCount = 0;
+
+    // Process every ASIN group
+    for (const group of groups.values()) {
+      const targetQty = group.scannedQty; // Unscanned items get 0
+
+      if (targetQty === group.systemQty) continue; // No change needed
+
+      // Set first inventory row to targetQty, zero out the rest
+      for (let i = 0; i < group.itemIds.length; i++) {
+        const itemId = group.itemIds[i];
+        const item = items.find(it => it.id === itemId);
+        if (!item) continue;
+
+        const newQty = i === 0 ? targetQty : 0;
+        const prevQty = item.quantity;
+
+        if (newQty === prevQty) continue;
+
+        // Update inventory
+        await supabase
+          .from('asin_inventory')
+          .update({ quantity: newQty, updated_at: new Date().toISOString() })
+          .eq('id', itemId);
+
+        // Create stock_changes record
+        await supabase
+          .from('stock_changes')
+          .insert({
+            inventory_id: itemId,
+            inventory_type: 'asin_inventory',
+            user_id: user.id,
+            asin: group.asin,
+            serial_number: item.serial_number,
+            sku_number: group.sku,
+            previous_quantity: prevQty,
+            new_quantity: newQty,
+            change_amount: newQty - prevQty,
+            reference_type: 'stock_audit',
+            reference_id: sessionId,
+            reference_number: sessionName,
+            change_reason: targetQty === 0
+              ? `Audit: item not found during physical count`
+              : `Audit: physical count = ${group.scannedQty}, system was ${group.systemQty}`,
+            batch_id: batchId,
+            source_type: 'manual',
+          } as any);
+      }
+
+      if (targetQty === 0) zeroedCount++;
+      else updatedCount++;
+    }
+
+    return { groups, updatedCount, zeroedCount, totalScans: allScans.length };
+  }, []);
+
   const finalizeAudit = useCallback(async () => {
     if (!activeSession) return false;
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const result = await applyAuditToInventory(activeSession.id, activeSession.name, activeSession.country);
+      const groups = result.groups;
 
-      const groups = Array.from(asinGroups.values());
-
-      // For each ASIN group, update inventory quantities
-      for (const group of groups) {
-        if (group.scannedQty !== group.systemQty) {
-          // Distribute scanned qty across inventory items for this ASIN
-          let remaining = group.scannedQty;
-          for (const itemId of group.itemIds) {
-            const item = inventoryItems.find(i => i.id === itemId);
-            if (!item) continue;
-
-            if (remaining <= 0) {
-              // Zero out this item
-              await supabase
-                .from('asin_inventory')
-                .update({ quantity: 0, updated_at: new Date().toISOString() })
-                .eq('id', itemId);
-            } else {
-              const assignQty = Math.min(remaining, item.quantity > 0 ? item.quantity : remaining);
-              await supabase
-                .from('asin_inventory')
-                .update({ quantity: assignQty, updated_at: new Date().toISOString() })
-                .eq('id', itemId);
-              remaining -= assignQty;
-            }
-          }
-        }
-      }
-
-      const verified = groups.filter(g => g.scannedQty > 0);
-      const missing = groups.filter(g => g.scannedQty === 0 && g.systemQty > 0);
+      const verified = Array.from(groups.values()).filter(g => g.scannedQty > 0);
+      const missing = Array.from(groups.values()).filter(g => g.scannedQty === 0 && g.systemQty > 0);
 
       // Update session as completed
       const { error: sessionErr } = await supabase
@@ -493,7 +575,7 @@ export function useStockAudit() {
 
       toast({
         title: 'Audit Finalized',
-        description: `${verified.length} ASINs verified, ${missing.length} ASINs zeroed out`,
+        description: `${verified.length} ASINs verified, ${missing.length} zeroed. ${result.updatedCount + result.zeroedCount} inventory records updated.`,
       });
       return true;
     } catch (err: any) {
@@ -502,7 +584,24 @@ export function useStockAudit() {
     } finally {
       setLoading(false);
     }
-  }, [activeSession, asinGroups, inventoryItems, toast]);
+  }, [activeSession, applyAuditToInventory, toast]);
+
+  const reapplyAudit = useCallback(async (sessionId: string, sessionName: string, sessionCountry: string) => {
+    setLoading(true);
+    try {
+      const result = await applyAuditToInventory(sessionId, sessionName, sessionCountry);
+      toast({
+        title: 'Audit Re-applied',
+        description: `${result.updatedCount} ASINs adjusted, ${result.zeroedCount} zeroed out.`,
+      });
+      return true;
+    } catch (err: any) {
+      toast({ title: 'Re-apply Error', description: err.message, variant: 'destructive' });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [applyAuditToInventory, toast]);
 
   const cancelSession = useCallback(async () => {
     if (!activeSession) return;
@@ -543,6 +642,7 @@ export function useStockAudit() {
     getMissingAsins,
     getUnmatchedScans,
     finalizeAudit,
+    reapplyAudit,
     cancelSession,
     closeSession,
   };
