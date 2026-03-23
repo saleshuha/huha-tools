@@ -152,7 +152,7 @@ export function useStockAudit() {
         .from('asin_inventory')
         .select('id, serial_number, additional_serial_numbers, asin, sku, title, quantity, status, is_active')
         .eq('country', c)
-        .eq('is_active', true)
+        // Include ALL rows (active + inactive) so audit can zero out inactive duplicates
         .range(from, from + batchSize - 1);
       if (error) throw error;
       if (!data || data.length === 0) break;
