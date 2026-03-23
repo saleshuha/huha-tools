@@ -1,48 +1,39 @@
 
 
-# Fix Stock Audit Finalization & Add Audit Trail
+# Fix Stock Audit: Inactive Rows + Missing History
 
-## Problems Found
+## Issues Found
 
-1. **Inventory not reflecting audit data**: 55 ASINs have current quantities that don't match their scanned quantities from the completed audit. The finalization logic has a bug in quantity distribution — when an ASIN has multiple inventory rows, the assignment logic (`Math.min(remaining, item.quantity)`) doesn't properly handle over-scans (where scannedQty > systemQty).
+### 1. Two ASINs still have wrong quantities
+- **B0DYGKYDBF**: scanned=9, but inventory shows 9 (active) + 11 (inactive) = 20 total. Should be 9.
+- **B0DYGB6182**: scanned=2, but inventory shows 2 (active) + 2 (inactive) = 4 total. Should be 2.
+- **Root cause**: `loadInventoryItems` filters `.eq('is_active', true)`, so the audit never sees or touches inactive rows. Those inactive rows retain their old quantities.
 
-2. **No audit trail**: Zero `stock_changes` records exist with `reference_type = 'stock_audit'`. The finalization only updates `asin_inventory.quantity` without logging the change, so the stock ledger has no record of what happened.
+### 2. No audit history in stock_changes
+- The `stock_changes` table has 0 records with `reference_type = 'stock_audit'`. The reapply ran but the `if (targetQty === group.systemQty) continue` line skipped items where the active row already matched the scanned qty (because the active row was already correct — it's the invisible inactive rows causing the total mismatch).
 
-3. **Unscanned items not zeroed**: Items that weren't scanned during the audit should have been set to 0, but some still have stock — the `group.scannedQty !== group.systemQty` condition skips groups that happen to match, but the real issue is the flawed distribution across inventory rows.
+### 3. Unscanned items zeroing — works correctly
+- Query confirms 0 ASINs with qty > 0 that weren't in the audit (excluding the inactive row issue).
 
-## Plan
+## Fix Plan
 
-### 1. Fix `finalizeAudit` in `useStockAudit.ts`
+### File: `src/hooks/useStockAudit.ts`
 
-Rewrite the finalization logic to:
-- **For each ASIN group** (whether scanned or not):
-  - Calculate the target quantity (scannedQty for scanned items, 0 for unscanned)
-  - Update `asin_inventory` quantity — for simplicity, set the **first** item to the target qty and all others to 0
-  - Insert a `stock_changes` record with `reference_type: 'stock_audit'` for every ASIN where quantity changed, capturing `previous_quantity`, `new_quantity`, `change_amount`, and linking `reference_id` to the audit session
+**Change `loadInventoryItems`**: Remove the `.eq('is_active', true)` filter so the audit sees ALL inventory rows for the country. This ensures inactive duplicate rows get zeroed out during finalization.
 
-### 2. Add "Re-apply Audit" capability
+**Change `applyAuditToInventory`**: After processing, also zero out any inactive rows that still have quantity > 0. Specifically:
+- Load ALL items (active + inactive) for the country
+- When building groups, include inactive item IDs
+- The existing logic (first row gets target qty, rest get 0) will naturally zero out the inactive duplicates
 
-Add a function `reapplyAudit` that can be triggered from a completed session to re-push the audit quantities to inventory:
-- Reads all scans for the session
-- Groups by ASIN, calculates scanned totals
-- Updates `asin_inventory` and creates `stock_changes` records
-- This fixes the current broken state
+**Add stock_changes records**: The existing insert logic is correct but was being skipped because `targetQty === group.systemQty` (only counting active rows). With inactive rows included in `systemQty`, the comparison will now detect the actual discrepancy and create the audit trail records.
 
-### 3. Add `stock_audit` to Stock Ledger display
+### Summary of changes
 
-In `StockLedgerRow.tsx`, add the new reference type:
-```
-stock_audit: { label: 'Audit', className: 'bg-violet-100 text-violet-700 ...' }
-```
+1. **`loadInventoryItems`** — Remove `is_active` filter (1 line change)
+2. **`applyAuditToInventory`** — Use its own load call that also omits `is_active` filter (already calls `loadInventoryItems` so this is automatic)
+3. After fix, user triggers "Re-apply" once more to fix the 2 remaining ASINs and generate the missing `stock_audit` history entries
 
-### 4. Add "Re-apply" button on completed sessions
-
-In `AuditSessionManager.tsx`, add a button on completed sessions to re-push audit data to inventory.
-
-## Files Modified
-
-- **`src/hooks/useStockAudit.ts`** — Fix `finalizeAudit` to properly set quantities and create `stock_changes` records; add `reapplyAudit` function
-- **`src/components/stock-history/StockLedgerRow.tsx`** — Add `stock_audit` type config
-- **`src/components/stock-audit/AuditSessionManager.tsx`** — Add re-apply button for completed sessions
-- **`src/pages/StockAudit.tsx`** — Wire up `reapplyAudit`
+### Files Modified
+- **`src/hooks/useStockAudit.ts`** — Remove `is_active` filter from `loadInventoryItems` to include all inventory rows in audit processing
 
