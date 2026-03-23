@@ -32,6 +32,7 @@ export default function StockAudit() {
     getMissingAsins,
     getUnmatchedScans,
     finalizeAudit,
+    reapplyAudit,
     cancelSession,
     closeSession,
   } = useStockAudit();
@@ -94,6 +95,7 @@ export default function StockAudit() {
             onCreateSession={createSession}
             onResumeSession={resumeSession}
             onFetchSessions={fetchSessions}
+            onReapplyAudit={reapplyAudit}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
