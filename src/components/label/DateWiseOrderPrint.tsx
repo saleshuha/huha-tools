@@ -36,7 +36,7 @@ interface OrderToProcess {
 export const DateWiseOrderPrint: React.FC = () => {
   const { document: labelDoc, dataset, loadDataset } = useLabelDoc();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('week');
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [dateFilterType, setDateFilterType] = useState<'upload_date' | 'order_date'>('upload_date');
   const [orders, setOrders] = useState<OrderToProcess[]>([]);
