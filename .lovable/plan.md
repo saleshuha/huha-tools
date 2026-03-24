@@ -1,39 +1,49 @@
 
 
-# Fix Stock Audit: Inactive Rows + Missing History
+# Fix: Order Print Query Timeout
 
-## Issues Found
+## Root Cause
 
-### 1. Two ASINs still have wrong quantities
-- **B0DYGKYDBF**: scanned=9, but inventory shows 9 (active) + 11 (inactive) = 20 total. Should be 9.
-- **B0DYGB6182**: scanned=2, but inventory shows 2 (active) + 2 (inactive) = 4 total. Should be 2.
-- **Root cause**: `loadInventoryItems` filters `.eq('is_active', true)`, so the audit never sees or touches inactive rows. Those inactive rows retain their old quantities.
+The `get_printable_orders` database function times out because:
+- The JOIN condition uses `upper(trim(pei.identifier)) = upper(trim(o.sku))` which prevents any index from being used
+- For 156 orders × 32,229 print_eligible_items = **5 million row comparisons** per query
+- EXPLAIN ANALYZE confirms: **10.5 seconds** execution time, sequential scan on `print_eligible_items` every loop
 
-### 2. No audit history in stock_changes
-- The `stock_changes` table has 0 records with `reference_type = 'stock_audit'`. The reapply ran but the `if (targetQty === group.systemQty) continue` line skipped items where the active row already matched the scanned qty (because the active row was already correct — it's the invisible inactive rows causing the total mismatch).
+## Fix
 
-### 3. Unscanned items zeroing — works correctly
-- Query confirms 0 ASINs with qty > 0 that weren't in the audit (excluding the inactive row issue).
+### 1. Create a functional index on `print_eligible_items`
+Add an index on `upper(trim(identifier))` so the JOIN can use it efficiently:
 
-## Fix Plan
+```sql
+CREATE INDEX idx_pei_upper_trim_identifier 
+ON print_eligible_items (user_id, upper(trim(identifier))) 
+WHERE is_active = true;
+```
 
-### File: `src/hooks/useStockAudit.ts`
+### 2. Create a matching index on `order_imports`
+```sql
+CREATE INDEX idx_oi_user_created_upper_sku 
+ON order_imports (user_id, created_at, upper(trim(sku)));
+```
 
-**Change `loadInventoryItems`**: Remove the `.eq('is_active', true)` filter so the audit sees ALL inventory rows for the country. This ensures inactive duplicate rows get zeroed out during finalization.
+### 3. Rewrite the RPC function to use a subquery instead of LEFT JOIN
+Replace the expensive LEFT JOIN with an `EXISTS` subquery, which allows early termination once a match is found (instead of scanning all 32K rows):
 
-**Change `applyAuditToInventory`**: After processing, also zero out any inactive rows that still have quantity > 0. Specifically:
-- Load ALL items (active + inactive) for the country
-- When building groups, include inactive item IDs
-- The existing logic (first row gets target qty, rest get 0) will naturally zero out the inactive duplicates
+```sql
+SELECT ...,
+  EXISTS (
+    SELECT 1 FROM print_eligible_items pei
+    WHERE pei.user_id = o.user_id
+      AND upper(trim(pei.identifier)) = upper(trim(o.sku))
+      AND pei.is_active = true
+      AND (lower(pei.type) = 'sku' OR pei.type IS NULL)
+  ) AS printable
+FROM order_imports o
+WHERE ...
+```
 
-**Add stock_changes records**: The existing insert logic is correct but was being skipped because `targetQty === group.systemQty` (only counting active rows). With inactive rows included in `systemQty`, the comparison will now detect the actual discrepancy and create the audit trail records.
+This should reduce the query from ~10s to <100ms.
 
-### Summary of changes
-
-1. **`loadInventoryItems`** — Remove `is_active` filter (1 line change)
-2. **`applyAuditToInventory`** — Use its own load call that also omits `is_active` filter (already calls `loadInventoryItems` so this is automatic)
-3. After fix, user triggers "Re-apply" once more to fix the 2 remaining ASINs and generate the missing `stock_audit` history entries
-
-### Files Modified
-- **`src/hooks/useStockAudit.ts`** — Remove `is_active` filter from `loadInventoryItems` to include all inventory rows in audit processing
+## Files Modified
+- **Database migration**: Create functional indexes + rewrite `get_printable_orders` function
 
