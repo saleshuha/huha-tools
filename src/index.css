@@ -21,34 +21,34 @@
 
 @layer base {
   :root {
-    /* Base Colors - FreshUI Theme */
-    --background: 60 4% 95%;
-    --foreground: 24 9% 10%;
+    /* Base Colors - Clean Indigo Theme */
+    --background: 220 14% 96%;
+    --foreground: 222 47% 11%;
 
-    /* Clean white surfaces */
-    --card: 60 9% 97%;
-    --card-foreground: 24 9% 10%;
+    /* Pure white card surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 20 5% 90%;
-    --popover-foreground: 24 9% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary Colors - Fresh Blue */
-    --primary: 37 92% 50%;
-    --primary-foreground: 47 100% 96%;
-    --primary-light: 210 100% 60%;
-    --primary-dark: 210 100% 40%;
+    /* Primary Colors - Indigo */
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 239 84% 74%;
+    --primary-dark: 239 84% 56%;
 
-    /* Secondary Colors - Light Gray */
-    --secondary: 24 5% 44%;
-    --secondary-foreground: 60 9% 97%;
+    /* Secondary Colors - Cool Gray */
+    --secondary: 215 16% 47%;
+    --secondary-foreground: 0 0% 100%;
 
     /* Muted Colors */
-    --muted: 23 5% 82%;
-    --muted-foreground: 24 9% 10%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 215 16% 47%;
 
     /* Accent Colors */
-    --accent: 47 100% 96%;
-    --accent-foreground: 37 92% 50%;
+    --accent: 239 84% 96%;
+    --accent-foreground: 239 84% 67%;
 
     /* Enhanced color palette */
     --emerald: 142 76% 40%;
@@ -81,17 +81,17 @@
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 85% 97%;
 
-    /* UI Component Colors - FreshUI */
-    --border: 23 5% 82%;
-    --input: 23 5% 82%;
-    --ring: 37 92% 50%;
+    /* UI Component Colors */
+    --border: 220 13% 87%;
+    --input: 220 13% 87%;
+    --ring: 239 84% 67%;
 
     --radius: 1rem;
 
-    /* Gradients - FreshUI Clean */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(210 100% 45%));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(210 20% 90%));
-    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(210 20% 98%));
+    /* Gradients - Indigo */
+    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%), hsl(252 82% 58%));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(220 14% 93%));
+    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(220 14% 98%));
     --gradient-emerald: linear-gradient(135deg, hsl(var(--emerald)), hsl(var(--emerald-light)));
     --gradient-sky: linear-gradient(135deg, hsl(var(--sky)), hsl(var(--sky-light)));
     --gradient-cyan: linear-gradient(135deg, hsl(var(--cyan)), hsl(var(--cyan-light)));
@@ -116,21 +116,21 @@
     /* Theme Config Variables */
     --header-min-h: 120px;
 
-    /* Sidebar colors - FreshUI */
-    --sidebar-background: 210 17% 98%;
-    --sidebar-foreground: 24 9% 10%;
-    --sidebar-primary: 37 92% 50%;
-    --sidebar-primary-foreground: 47 100% 96%;
-    --sidebar-accent: 24 5% 44%;
-    --sidebar-accent-foreground: 60 9% 97%;
-    --sidebar-border: 23 5% 82%;
-    --sidebar-ring: 37 92% 50%;
-    --chart-1: 45 96% 64%;
-    --chart-2: 47 95% 53%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 37 92% 50%;
-    --chart-5: 24 5% 44%;
-    --sidebar: 60 9% 97%;
+    /* Sidebar colors - Dark Navy */
+    --sidebar-background: 232 47% 15%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 239 84% 74%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 232 40% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 232 40% 22%;
+    --sidebar-ring: 239 84% 67%;
+    --chart-1: 239 84% 67%;
+    --chart-2: 252 82% 58%;
+    --chart-3: 199 89% 48%;
+    --chart-4: 142 76% 40%;
+    --chart-5: 215 16% 47%;
+    --sidebar: 232 47% 15%;
     --font-sans: 'Source Sans Pro', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
     --font-serif: 'Source Serif Pro', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
     --font-mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
@@ -147,29 +147,29 @@
   }
 
   .dark {
-    /* Base Colors - FreshUI Dark */
-    --background: 24 9% 10%;
-    --foreground: 60 9% 97%;
+    /* Base Colors - Dark Indigo */
+    --background: 222 47% 8%;
+    --foreground: 210 20% 95%;
 
-    --card: 12 6% 15%;
-    --card-foreground: 60 9% 97%;
+    --card: 222 47% 12%;
+    --card-foreground: 210 20% 95%;
 
-    --popover: 30 6% 25%;
-    --popover-foreground: 60 9% 97%;
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 20% 95%;
 
-    --primary: 43 96% 56%;
-    --primary-foreground: 20 91% 14%;
-    --primary-light: 210 100% 65%;
-    --primary-dark: 210 100% 45%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 239 84% 74%;
+    --primary-dark: 239 84% 56%;
 
-    --secondary: 24 5% 44%;
-    --secondary-foreground: 60 9% 97%;
+    --secondary: 215 16% 40%;
+    --secondary-foreground: 210 20% 95%;
 
-    --muted: 24 5% 44%;
-    --muted-foreground: 60 9% 97%;
+    --muted: 222 47% 18%;
+    --muted-foreground: 215 16% 65%;
 
-    --accent: 25 83% 14%;
-    --accent-foreground: 47 95% 53%;
+    --accent: 239 60% 18%;
+    --accent-foreground: 239 84% 74%;
 
     /* Enhanced dark theme colors */
     --emerald: 142 76% 45%;
@@ -201,24 +201,24 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 85% 97%;
 
-    --border: 33 5% 32%;
-    --input: 33 5% 32%;
-    --ring: 43 96% 56%;
+    --border: 222 30% 22%;
+    --input: 222 30% 22%;
+    --ring: 239 84% 67%;
 
-    --sidebar-background: 210 25% 6%;
-    --sidebar-foreground: 60 9% 97%;
-    --sidebar-primary: 43 96% 56%;
-    --sidebar-primary-foreground: 20 91% 14%;
-    --sidebar-accent: 47 95% 53%;
-    --sidebar-accent-foreground: 25 83% 14%;
-    --sidebar-border: 33 5% 32%;
-    --sidebar-ring: 43 96% 56%;
-    --chart-1: 45 96% 64%;
-    --chart-2: 48 96% 76%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 37 92% 50%;
-    --chart-5: 33 5% 32%;
-    --sidebar: 12 6% 15%;
+    --sidebar-background: 232 47% 10%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 239 84% 74%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 232 40% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 232 40% 18%;
+    --sidebar-ring: 239 84% 67%;
+    --chart-1: 239 84% 67%;
+    --chart-2: 252 82% 68%;
+    --chart-3: 199 89% 53%;
+    --chart-4: 142 76% 45%;
+    --chart-5: 215 16% 40%;
+    --sidebar: 232 47% 10%;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);

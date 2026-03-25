@@ -7,7 +7,7 @@ export interface ThemeColor {
 }
 
 export const themeColors: ThemeColor[] = [
-  { name: 'Blue', primary: '217 91% 60%', primaryGlow: '217 91% 75%' },
+  { name: 'Indigo', primary: '239 84% 67%', primaryGlow: '239 84% 74%' },
   { name: 'Purple', primary: '262 83% 58%', primaryGlow: '262 83% 73%' },
   { name: 'Green', primary: '142 76% 36%', primaryGlow: '142 76% 51%' },
   { name: 'Orange', primary: '24 95% 53%', primaryGlow: '24 95% 68%' },
