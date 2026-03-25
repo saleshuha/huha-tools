@@ -1,39 +1,86 @@
 
 
-# Fix: Orders Not Showing in Print View
+# Theme Overhaul: RCFinder-Style Design
 
-## Root Cause — Two Bugs
+## What Changes
 
-### Bug 1: Broken `order_date` filter (critical)
-The `order_place_date` column stores dates as human-readable text: `"23 Mar 2026, 12:00:02 PM GMT"`. The function compares with `to_char(start_date, 'YYYY-MM-DD')` → `"2026-03-23"`. These string formats are incompatible — comparison NEVER produces correct results.
+Transform the current amber/gold theme with light sidebar into a modern dark-sidebar + purple/indigo accent theme inspired by rcfinder.lovable.app.
 
-### Bug 2: Default "today" shows empty results
-Default date range is "today" but latest orders were uploaded yesterday. User sees "No orders found" on page load.
+**No features or functionality will be changed** — only visual styling.
 
-## Fix
+## Visual Differences
 
-### 1. Database migration: Fix `get_printable_orders` function
-
-Rewrite the `order_date` CASE branch to properly parse the human-readable date string using `to_timestamp()`:
-
-```sql
-WHEN date_filter_type = 'order_date' THEN
-  o.order_place_date IS NOT NULL AND
-  to_timestamp(o.order_place_date, 'FMDD Mon YYYY, FMHH12:MI:SS AM TZ')::date >= start_date::date AND
-  to_timestamp(o.order_place_date, 'FMDD Mon YYYY, FMHH12:MI:SS AM TZ')::date <= end_date::date
+```text
+CURRENT                          TARGET (rcfinder-style)
+─────────────────────────────    ─────────────────────────────
+Light beige sidebar              Dark navy/indigo sidebar
+Amber/gold primary (#D4A017)     Indigo/purple primary (#6366f1)
+Warm beige background            Clean light gray background
+Gold gradients                   Subtle purple accents
+Light card borders               White cards with soft shadows
 ```
 
-This converts `"23 Mar 2026, 12:00:02 PM GMT"` to a proper timestamp before comparing dates.
+## Changes by File
 
-### 2. Client-side: Default to "week" range instead of "today"
+### 1. `src/index.css` — Color System (CSS Variables)
 
-In `DateWiseOrderPrint.tsx`, change the default `dateRange` state from `'today'` to `'week'` so the initial load captures recent uploads:
+**Light mode `:root`:**
+- `--background`: Change from warm beige (`60 4% 95%`) to clean light gray (`220 14% 96%`)
+- `--foreground`: Keep dark for contrast
+- `--card`: Pure white (`0 0% 100%`)
+- `--primary`: Indigo (`239 84% 67%`) instead of amber
+- `--primary-foreground`: White
+- `--accent`: Soft indigo tint
+- `--ring`: Match primary indigo
+- `--border`: Cool gray instead of warm
+- `--muted`: Cool gray tones
 
-```typescript
-const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('week');
-```
+**Sidebar variables (light mode):**
+- `--sidebar-background`: Dark navy (`232 47% 15%`) — the key rcfinder look
+- `--sidebar-foreground`: White (`0 0% 100%`)
+- `--sidebar-primary`: Lighter indigo for active items
+- `--sidebar-accent`: Navy highlight for hover
+- `--sidebar-border`: Dark navy border
+
+**Dark mode `.dark`:**
+- Similar adjustments, keeping the dark sidebar consistent
+- Primary stays indigo-toned
+
+**Gradients:** Update `--gradient-primary` to use indigo tones
+
+### 2. `src/components/AppSidebar.tsx` — Sidebar Styling
+
+- Active state: Change from `bg-primary/90` to a lighter indigo highlight style matching rcfinder (`bg-white/10` or `bg-indigo-500/20` with white text)
+- Hover state: Subtle `bg-white/5` instead of current accent-based hover
+- Section group labels: Lighter opacity white text
+- Footer: Match dark sidebar styling
+- The collapsible sections and navigation structure stay exactly the same
+
+### 3. `src/App.tsx` — Top Header Bar
+
+- Header background: Keep clean white (`bg-background`)  
+- No structural changes, just inherits new color variables
+
+### 4. `src/hooks/useAccentTheme.ts` — Default Theme
+
+- Change default theme from `Blue` to match the new indigo primary so the accent theme widget stays consistent
+
+### 5. `src/components/ui/huha-header-01.tsx` — Page Headers
+
+- Check if page headers use hardcoded gradient colors and update to use CSS variable-based gradients (indigo tones)
+
+### What stays the same
+- All navigation items, routes, permissions logic
+- All page components and their features
+- Collapsible sidebar sections
+- Theme configuration system (ThemeConfigContext)
+- Dark mode toggle
+- All database/API interactions
+- Every feature on every page
 
 ## Files Modified
-- **Database migration** — Fix `order_place_date` comparison in `get_printable_orders`
-- **`src/components/label/DateWiseOrderPrint.tsx`** — Change default date range to 'week'
+- `src/index.css` — CSS variables for colors, sidebar, gradients
+- `src/components/AppSidebar.tsx` — Sidebar active/hover styling classes
+- `src/App.tsx` — Minor header class adjustments if needed
+- `src/hooks/useAccentTheme.ts` — Default accent color
 
