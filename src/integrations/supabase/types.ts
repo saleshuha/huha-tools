@@ -777,6 +777,72 @@ export type Database = {
         }
         Relationships: []
       }
+      external_sync_config: {
+        Row: {
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          sync_enabled: boolean
+          updated_at: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id: string
+          webhook_url?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      external_sync_log: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          items_count: number | null
+          payload: Json | null
+          response: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_count?: number | null
+          payload?: Json | null
+          response?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_count?: number | null
+          payload?: Json | null
+          response?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fba_inventory: {
         Row: {
           asin: string
