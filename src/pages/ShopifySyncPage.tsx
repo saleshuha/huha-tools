@@ -6,7 +6,9 @@ import { ShopifyInventorySync } from "@/components/shopify/ShopifyInventorySync"
 import { ShopifySyncHistory } from "@/components/shopify/ShopifySyncHistory";
 import { ShopifyProductManager } from "@/components/shopify/ShopifyProductManager";
 import { ShopifyPushInventory } from "@/components/shopify/ShopifyPushInventory";
-import { Store, CheckCircle, XCircle } from "lucide-react";
+import { ExternalSyncSettings } from "@/components/external-sync/ExternalSyncSettings";
+import { ExternalSyncDashboard } from "@/components/external-sync/ExternalSyncDashboard";
+import { Store, CheckCircle, XCircle, Globe } from "lucide-react";
 
 export default function ShopifySyncPage() {
   const [config, setConfig] = useState<any>(null);
@@ -83,6 +85,10 @@ export default function ShopifySyncPage() {
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="app-sync" className="flex items-center gap-1">
+            <Globe className="h-3.5 w-3.5" />
+            App Sync
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sync">
@@ -100,6 +106,11 @@ export default function ShopifySyncPage() {
 
         <TabsContent value="history">
           <ShopifySyncHistory />
+        </TabsContent>
+
+        <TabsContent value="app-sync" className="space-y-4">
+          <ExternalSyncSettings />
+          <ExternalSyncDashboard />
         </TabsContent>
       </Tabs>
     </div>
