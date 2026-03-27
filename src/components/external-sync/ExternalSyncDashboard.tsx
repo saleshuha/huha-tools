@@ -5,14 +5,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
-import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw, Database, Send, PackageCheck, Clock } from "lucide-react";
 import { ExternalSyncHistory } from "./ExternalSyncHistory";
+
+type SyncPhase = "idle" | "authenticating" | "fetching-config" | "loading-inventory" | "aggregating" | "pushing" | "finalizing" | "done" | "error";
+
+const PHASE_CONFIG: Record<SyncPhase, { label: string; detail: string; progress: number }> = {
+  idle: { label: "", detail: "", progress: 0 },
+  authenticating: { label: "Authenticating", detail: "Verifying your session...", progress: 5 },
+  "fetching-config": { label: "Loading Config", detail: "Fetching sync configuration...", progress: 15 },
+  "loading-inventory": { label: "Loading Inventory", detail: "Reading inventory data from database...", progress: 30 },
+  aggregating: { label: "Aggregating", detail: "Grouping items by ASIN and calculating quantities...", progress: 50 },
+  pushing: { label: "Pushing to External App", detail: "Sending product batches to the external app...", progress: 70 },
+  finalizing: { label: "Finalizing", detail: "Updating sync timestamps and logging results...", progress: 90 },
+  done: { label: "Complete", detail: "Sync finished!", progress: 100 },
+  error: { label: "Error", detail: "Something went wrong", progress: 0 },
+};
 
 export function ExternalSyncDashboard() {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
   const [syncing, setSyncing] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<SyncPhase>("idle");
   const [syncResult, setSyncResult] = useState<{
     status: string;
     successCount: number;
@@ -20,10 +34,21 @@ export function ExternalSyncDashboard() {
     totalItems: number;
   } | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   useEffect(() => {
     loadLastSync();
   }, []);
+
+  // Elapsed time timer
+  useEffect(() => {
+    if (!syncing || !startTime) return;
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [syncing, startTime]);
 
   const loadLastSync = async () => {
     try {
@@ -44,13 +69,16 @@ export function ExternalSyncDashboard() {
 
   const pushAllInventory = async () => {
     setSyncing(true);
-    setProgress(10);
+    setPhase("authenticating");
     setSyncResult(null);
+    setElapsedTime(0);
+    setStartTime(Date.now());
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // Get webhook URL from config
+      setPhase("fetching-config");
       const { data: configData } = await supabase
         .from("external_sync_config" as any)
         .select("webhook_url")
@@ -60,7 +88,11 @@ export function ExternalSyncDashboard() {
       const webhookUrl = (configData as any)?.webhook_url ||
         "https://crcrrejwzouyysadrrpv.supabase.co/functions/v1/product-sync";
 
-      setProgress(30);
+      setPhase("loading-inventory");
+      // Small delay so user sees the phase
+      await new Promise((r) => setTimeout(r, 300));
+
+      setPhase("pushing");
 
       const res = await fetch(
         `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/external-app-sync`,
@@ -78,9 +110,9 @@ export function ExternalSyncDashboard() {
         }
       );
 
-      setProgress(90);
+      setPhase("finalizing");
       const result = await res.json();
-      setProgress(100);
+      setPhase("done");
 
       setSyncResult({
         status: result.status || (result.success ? "success" : "failed"),
@@ -100,12 +132,33 @@ export function ExternalSyncDashboard() {
         });
       }
     } catch (err: any) {
+      setPhase("error");
       toast({ title: "Sync failed", description: err.message, variant: "destructive" });
       setSyncResult({ status: "failed", successCount: 0, failCount: 0, totalItems: 0 });
     } finally {
       setSyncing(false);
+      setStartTime(null);
     }
   };
+
+  const currentPhase = PHASE_CONFIG[phase];
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  const getPhaseIcon = (p: SyncPhase) => {
+    switch (p) {
+      case "authenticating": return <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />;
+      case "fetching-config": return <Database className="h-3.5 w-3.5 text-primary animate-pulse" />;
+      case "loading-inventory": return <Database className="h-3.5 w-3.5 text-primary animate-pulse" />;
+      case "aggregating": return <PackageCheck className="h-3.5 w-3.5 text-primary animate-pulse" />;
+      case "pushing": return <Send className="h-3.5 w-3.5 text-primary animate-pulse" />;
+      case "finalizing": return <Clock className="h-3.5 w-3.5 text-primary animate-pulse" />;
+      case "done": return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
+      case "error": return <AlertTriangle className="h-3.5 w-3.5 text-destructive" />;
+      default: return null;
+    }
+  };
+
+  const phases: SyncPhase[] = ["authenticating", "fetching-config", "loading-inventory", "pushing", "finalizing", "done"];
 
   return (
     <div className="space-y-4">
@@ -130,16 +183,76 @@ export function ExternalSyncDashboard() {
               )}
               {syncing ? "Syncing..." : "Push All Inventory"}
             </Button>
-            {lastSyncedAt && (
+            {lastSyncedAt && !syncing && (
               <span className="text-sm text-muted-foreground">
                 Last sync: {new Date(lastSyncedAt).toLocaleString()}
               </span>
             )}
           </div>
 
-          {syncing && <Progress value={progress} className="h-2" />}
+          {/* Detailed sync progress */}
+          {(syncing || phase === "done" || phase === "error") && phase !== "idle" && (
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              {/* Header with phase label + elapsed time */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getPhaseIcon(phase)}
+                  <span className="text-sm font-medium">{currentPhase.label}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {formatTime(elapsedTime)}
+                </div>
+              </div>
 
-          {syncResult && (
+              {/* Progress bar */}
+              <Progress value={currentPhase.progress} className="h-2" />
+
+              {/* Phase detail text */}
+              <p className="text-xs text-muted-foreground">{currentPhase.detail}</p>
+
+              {/* Step indicators */}
+              <div className="grid grid-cols-6 gap-1 pt-1">
+                {phases.map((p) => {
+                  const phaseIdx = phases.indexOf(p);
+                  const currentIdx = phases.indexOf(phase);
+                  const isCompleted = phase !== "idle" && phase !== "error" && phaseIdx < currentIdx;
+                  const isCurrent = p === phase;
+                  const isPending = phaseIdx > currentIdx || phase === "error";
+
+                  return (
+                    <div key={p} className="flex flex-col items-center gap-1">
+                      <div
+                        className={`h-1.5 w-full rounded-full transition-colors ${
+                          isCompleted
+                            ? "bg-green-500"
+                            : isCurrent
+                            ? "bg-primary animate-pulse"
+                            : isPending
+                            ? "bg-muted"
+                            : "bg-muted"
+                        }`}
+                      />
+                      <span
+                        className={`text-[10px] leading-tight text-center ${
+                          isCompleted
+                            ? "text-green-500 font-medium"
+                            : isCurrent
+                            ? "text-primary font-medium"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {PHASE_CONFIG[p].label.split(" ")[0]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Final result card */}
+          {syncResult && !syncing && (
             <div
               className={`flex items-center gap-3 rounded-lg border p-3 ${
                 syncResult.status === "success"
@@ -164,7 +277,7 @@ export function ExternalSyncDashboard() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {syncResult.successCount} succeeded · {syncResult.failCount} failed ·{" "}
-                  {syncResult.totalItems} total
+                  {syncResult.totalItems} total · completed in {formatTime(elapsedTime)}
                 </p>
               </div>
             </div>
