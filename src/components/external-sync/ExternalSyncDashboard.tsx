@@ -218,7 +218,7 @@ export function ExternalSyncDashboard() {
                   const currentIdx = phases.indexOf(phase);
                   const isCompleted = phase !== "idle" && phase !== "error" && phaseIdx < currentIdx;
                   const isCurrent = p === phase;
-                  const isPending = phaseIdx > currentIdx || phase === "error";
+                  const isPending = phaseIdx > currentIdx || phase === ("error" as SyncPhase);
 
                   return (
                     <div key={p} className="flex flex-col items-center gap-1">
