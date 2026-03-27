@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub;
 
     const body = await req.json();
-    const { action, webhookUrl, products, asin, country } = body;
+    const { action, webhookUrl, product, asin, sku, country } = body;
 
     const targetUrl =
       webhookUrl || "https://crcrrejwzouyysadrrpv.supabase.co/functions/v1/product-sync";
@@ -92,15 +92,17 @@ Deno.serve(async (req) => {
     };
 
     // ──── TEST CONNECTION ────
+    // Send empty bulk_upsert to verify auth works
     if (action === "test-connection") {
-      const result = await forwardToWebhook({ action: "ping" });
-      await logOperation("test-connection", result.ok ? "success" : "failed", 0, result.ok ? undefined : JSON.stringify(result.data));
-      return new Response(JSON.stringify({ success: result.ok, ...result }), {
+      const result = await forwardToWebhook({ action: "bulk_upsert", products: [] });
+      const success = result.ok || result.status === 200;
+      await logOperation("test-connection", success ? "success" : "failed", 0, success ? undefined : JSON.stringify(result.data));
+      return new Response(JSON.stringify({ success, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ──── SYNC INVENTORY (bulk push) ────
+    // ──── SYNC INVENTORY (bulk push via bulk_upsert) ────
     if (action === "sync-inventory") {
       const selectedCountry = country || "KSA";
       // Fetch all active inventory for this user + country
@@ -139,10 +141,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      const productsPayload = Array.from(asinMap.values());
+      const aggregated = Array.from(asinMap.values());
 
-      // Send in batches of 50
-      const batchSize = 50;
+      // Map to external API schema
+      const productsPayload = aggregated.map((item) => ({
+        name: item.title || item.asin,
+        slug: item.asin.toLowerCase(),
+        sku: item.sku || item.asin,
+        status: "active",
+        inventory: { quantity: item.quantity },
+      }));
+
+      // Send in batches of 100 (API limit)
+      const batchSize = 100;
       let successCount = 0;
       let failCount = 0;
       const errors: string[] = [];
@@ -150,7 +161,7 @@ Deno.serve(async (req) => {
       for (let i = 0; i < productsPayload.length; i += batchSize) {
         const batch = productsPayload.slice(i, i + batchSize);
         const result = await forwardToWebhook({
-          action: "sync_inventory",
+          action: "bulk_upsert",
           products: batch,
         });
         if (result.ok) {
@@ -185,19 +196,52 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ──── CREATE / UPDATE PRODUCT ────
-    if (action === "create-product" || action === "update-product") {
-      if (!products || !Array.isArray(products) || products.length === 0) {
-        return new Response(JSON.stringify({ error: "products array required" }), {
+    // ──── UPSERT PRODUCT (create or update) ────
+    if (action === "upsert-product") {
+      if (!product || typeof product !== "object") {
+        return new Response(JSON.stringify({ error: "product object required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Ensure required fields
+      const payload = {
+        action: "upsert_product",
+        product: {
+          name: product.name || product.title || product.asin,
+          slug: product.slug || (product.asin ? product.asin.toLowerCase() : undefined),
+          sku: product.sku || product.asin,
+          description: product.description || undefined,
+          status: product.status || "active",
+          retail_price: product.retail_price || undefined,
+          cost_price: product.cost_price || undefined,
+          inventory: product.inventory || (product.quantity !== undefined ? { quantity: product.quantity } : undefined),
+          images: product.images || undefined,
+        },
+      };
+      const result = await forwardToWebhook(payload);
+      await logOperation("upsert-product", result.ok ? "success" : "failed", 1, result.ok ? undefined : JSON.stringify(result.data), payload, result.data);
+      return new Response(JSON.stringify({ success: result.ok, ...result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ──── UPDATE INVENTORY ────
+    if (action === "update-inventory") {
+      const targetSku = sku || asin;
+      if (!targetSku) {
+        return new Response(JSON.stringify({ error: "sku required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const result = await forwardToWebhook({
-        action: action === "create-product" ? "create_product" : "update_product",
-        products,
+        action: "update_inventory",
+        sku: targetSku,
+        quantity: body.quantity ?? 0,
+        variant_sku: body.variant_sku || undefined,
       });
-      await logOperation(action, result.ok ? "success" : "failed", products.length, result.ok ? undefined : JSON.stringify(result.data), { products }, result.data);
+      await logOperation("update-inventory", result.ok ? "success" : "failed", 1, result.ok ? undefined : JSON.stringify(result.data), { sku: targetSku, quantity: body.quantity }, result.data);
       return new Response(JSON.stringify({ success: result.ok, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -205,14 +249,15 @@ Deno.serve(async (req) => {
 
     // ──── DELETE PRODUCT ────
     if (action === "delete-product") {
-      if (!asin) {
-        return new Response(JSON.stringify({ error: "asin required" }), {
+      const targetSku = sku || asin;
+      if (!targetSku) {
+        return new Response(JSON.stringify({ error: "sku required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const result = await forwardToWebhook({ action: "delete_product", asin });
-      await logOperation("delete-product", result.ok ? "success" : "failed", 1, result.ok ? undefined : JSON.stringify(result.data), { asin }, result.data);
+      const result = await forwardToWebhook({ action: "delete_product", sku: targetSku });
+      await logOperation("delete-product", result.ok ? "success" : "failed", 1, result.ok ? undefined : JSON.stringify(result.data), { sku: targetSku }, result.data);
       return new Response(JSON.stringify({ success: result.ok, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
