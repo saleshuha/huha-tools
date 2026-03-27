@@ -35,18 +35,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    // Validate user via getUser
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
 
     const body = await req.json();
-    const { action, webhookUrl, product, asin, sku, country } = body;
+    const { action, webhookUrl, product, sku, country } = body;
 
     const targetUrl =
       webhookUrl || "https://crcrrejwzouyysadrrpv.supabase.co/functions/v1/product-sync";
@@ -92,7 +92,6 @@ Deno.serve(async (req) => {
     };
 
     // ──── TEST CONNECTION ────
-    // Send empty bulk_upsert to verify auth works
     if (action === "test-connection") {
       const result = await forwardToWebhook({ action: "bulk_upsert", products: [] });
       const success = result.ok || result.status === 200;
@@ -102,101 +101,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ──── SYNC INVENTORY (bulk push via bulk_upsert) ────
-    if (action === "sync-inventory") {
-      const selectedCountry = country || "KSA";
-      // Fetch all active inventory for this user + country
-      let allItems: any[] = [];
-      let from = 0;
-      const chunkSize = 1000;
-      while (true) {
-        const { data, error } = await supabase
-          .from("asin_inventory")
-          .select("asin, sku, title, quantity, status, serial_number")
-          .eq("user_id", userId)
-          .eq("country", selectedCountry)
-          .or("is_active.is.null,is_active.eq.true")
-          .range(from, from + chunkSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allItems = allItems.concat(data);
-        if (data.length < chunkSize) break;
-        from += chunkSize;
-      }
-
-      // Aggregate by ASIN (sum quantities)
-      const asinMap = new Map<string, { asin: string; sku: string; title: string; quantity: number; status: string }>();
-      for (const item of allItems) {
-        const existing = asinMap.get(item.asin);
-        if (existing) {
-          existing.quantity += item.quantity || 0;
-        } else {
-          asinMap.set(item.asin, {
-            asin: item.asin,
-            sku: item.sku || "",
-            title: item.title || "",
-            quantity: item.quantity || 0,
-            status: item.status || "in-stock",
-          });
-        }
-      }
-
-      const aggregated = Array.from(asinMap.values());
-
-      // Map to external API schema
-      const productsPayload = aggregated.map((item) => ({
-        name: item.title || item.asin,
-        slug: item.asin.toLowerCase(),
-        sku: item.sku || item.asin,
-        status: "active",
-        inventory: { quantity: item.quantity },
-      }));
-
-      // Send in batches of 100 (API limit)
-      const batchSize = 100;
-      let successCount = 0;
-      let failCount = 0;
-      const errors: string[] = [];
-
-      for (let i = 0; i < productsPayload.length; i += batchSize) {
-        const batch = productsPayload.slice(i, i + batchSize);
-        const result = await forwardToWebhook({
-          action: "bulk_upsert",
-          products: batch,
-        });
-        if (result.ok) {
-          successCount += batch.length;
-        } else {
-          failCount += batch.length;
-          errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${JSON.stringify(result.data)}`);
-        }
-      }
-
-      const finalStatus = failCount === 0 ? "success" : successCount > 0 ? "partial" : "failed";
-      await logOperation(
-        "sync-inventory",
-        finalStatus,
-        productsPayload.length,
-        errors.length > 0 ? errors.join("; ") : undefined,
-        { totalItems: productsPayload.length, country: selectedCountry },
-        { successCount, failCount }
-      );
-
-      // Update last_synced_at
-      if (successCount > 0) {
-        await supabase
-          .from("external_sync_config")
-          .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq("user_id", userId);
-      }
-
-      return new Response(
-        JSON.stringify({ success: finalStatus !== "failed", status: finalStatus, successCount, failCount, totalItems: productsPayload.length, errors }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ──── UPSERT PRODUCT (create or update) ────
+    // ──── UPSERT PRODUCT (single product push) ────
     if (action === "upsert-product") {
       if (!product || typeof product !== "object") {
         return new Response(JSON.stringify({ error: "product object required" }), {
@@ -204,7 +109,6 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Ensure required fields
       const payload = {
         action: "upsert_product",
         product: {
@@ -228,7 +132,7 @@ Deno.serve(async (req) => {
 
     // ──── UPDATE INVENTORY ────
     if (action === "update-inventory") {
-      const targetSku = sku || asin;
+      const targetSku = sku || body.asin;
       if (!targetSku) {
         return new Response(JSON.stringify({ error: "sku required" }), {
           status: 400,
@@ -249,7 +153,7 @@ Deno.serve(async (req) => {
 
     // ──── DELETE PRODUCT ────
     if (action === "delete-product") {
-      const targetSku = sku || asin;
+      const targetSku = sku || body.asin;
       if (!targetSku) {
         return new Response(JSON.stringify({ error: "sku required" }), {
           status: 400,

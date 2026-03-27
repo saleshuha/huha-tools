@@ -1,41 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
-import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw, Database, Send, PackageCheck, Clock } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw, Database, Send, PackageCheck, Clock, XCircle } from "lucide-react";
 import { ExternalSyncHistory } from "./ExternalSyncHistory";
 
-type SyncPhase = "idle" | "authenticating" | "fetching-config" | "loading-inventory" | "aggregating" | "pushing" | "finalizing" | "done" | "error";
-
-const PHASE_CONFIG: Record<SyncPhase, { label: string; detail: string; progress: number }> = {
-  idle: { label: "", detail: "", progress: 0 },
-  authenticating: { label: "Authenticating", detail: "Verifying your session...", progress: 5 },
-  "fetching-config": { label: "Loading Config", detail: "Fetching sync configuration...", progress: 15 },
-  "loading-inventory": { label: "Loading Inventory", detail: "Reading inventory data from database...", progress: 30 },
-  aggregating: { label: "Aggregating", detail: "Grouping items by ASIN and calculating quantities...", progress: 50 },
-  pushing: { label: "Pushing to External App", detail: "Sending product batches to the external app...", progress: 70 },
-  finalizing: { label: "Finalizing", detail: "Updating sync timestamps and logging results...", progress: 90 },
-  done: { label: "Complete", detail: "Sync finished!", progress: 100 },
-  error: { label: "Error", detail: "Something went wrong", progress: 0 },
-};
+interface AggregatedProduct {
+  asin: string;
+  sku: string;
+  title: string;
+  quantity: number;
+}
 
 export function ExternalSyncDashboard() {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
   const [syncing, setSyncing] = useState(false);
-  const [phase, setPhase] = useState<SyncPhase>("idle");
-  const [syncResult, setSyncResult] = useState<{
-    status: string;
-    successCount: number;
-    failCount: number;
-    totalItems: number;
-  } | null>(null);
+  const [phase, setPhase] = useState<string>("idle");
+  const [phaseDetail, setPhaseDetail] = useState("");
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [currentItem, setCurrentItem] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [successCount, setSuccessCount] = useState(0);
+  const [failCount, setFailCount] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [startTime, setStartTime] = useState<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const [syncDone, setSyncDone] = useState(false);
+  const [failedItems, setFailedItems] = useState<string[]>([]);
 
   useEffect(() => {
     loadLastSync();
@@ -43,12 +38,14 @@ export function ExternalSyncDashboard() {
 
   // Elapsed time timer
   useEffect(() => {
-    if (!syncing || !startTime) return;
+    if (!syncing) return;
     const interval = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      if (startTimeRef.current) {
+        setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [syncing, startTime]);
+  }, [syncing]);
 
   const loadLastSync = async () => {
     try {
@@ -69,16 +66,23 @@ export function ExternalSyncDashboard() {
 
   const pushAllInventory = async () => {
     setSyncing(true);
-    setPhase("authenticating");
-    setSyncResult(null);
+    setSyncDone(false);
+    setPhase("loading");
+    setPhaseDetail("Loading inventory from database...");
+    setProgressPercent(0);
+    setCurrentItem(0);
+    setTotalItems(0);
+    setSuccessCount(0);
+    setFailCount(0);
     setElapsedTime(0);
-    setStartTime(Date.now());
+    setFailedItems([]);
+    startTimeRef.current = Date.now();
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      setPhase("fetching-config");
+      // Get webhook URL from config
       const { data: configData } = await supabase
         .from("external_sync_config" as any)
         .select("webhook_url")
@@ -88,77 +92,163 @@ export function ExternalSyncDashboard() {
       const webhookUrl = (configData as any)?.webhook_url ||
         "https://crcrrejwzouyysadrrpv.supabase.co/functions/v1/product-sync";
 
-      setPhase("loading-inventory");
-      // Small delay so user sees the phase
-      await new Promise((r) => setTimeout(r, 300));
+      // Load all inventory items client-side
+      setPhaseDetail("Fetching inventory items...");
+      const country = selectedCountry || "KSA";
+      let allItems: any[] = [];
+      let from = 0;
+      const chunkSize = 1000;
 
-      setPhase("pushing");
+      while (true) {
+        const { data, error } = await supabase
+          .from("asin_inventory")
+          .select("asin, sku, title, quantity, status")
+          .eq("user_id", session.user.id)
+          .eq("country", country)
+          .or("is_active.is.null,is_active.eq.true")
+          .range(from, from + chunkSize - 1);
 
-      const res = await fetch(
-        `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/external-app-sync`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            action: "sync-inventory",
-            webhookUrl,
-            country: selectedCountry || "KSA",
-          }),
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allItems = allItems.concat(data);
+        if (data.length < chunkSize) break;
+        from += chunkSize;
+      }
+
+      // Aggregate by ASIN
+      setPhase("aggregating");
+      setPhaseDetail(`Aggregating ${allItems.length} inventory rows by ASIN...`);
+      setProgressPercent(10);
+
+      const asinMap = new Map<string, AggregatedProduct>();
+      for (const item of allItems) {
+        const existing = asinMap.get(item.asin);
+        if (existing) {
+          existing.quantity += item.quantity || 0;
+        } else {
+          asinMap.set(item.asin, {
+            asin: item.asin,
+            sku: item.sku || item.asin,
+            title: item.title || item.asin,
+            quantity: item.quantity || 0,
+          });
         }
+      }
+
+      const products = Array.from(asinMap.values());
+      setTotalItems(products.length);
+      setPhase("pushing");
+      setPhaseDetail(`Pushing ${products.length} products one by one...`);
+      setProgressPercent(15);
+
+      // Push each product one-by-one via the edge function
+      let succeeded = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        setCurrentItem(i + 1);
+        setPhaseDetail(`Syncing ${i + 1}/${products.length}: ${p.title?.substring(0, 40) || p.asin}...`);
+        setProgressPercent(15 + Math.round((i / products.length) * 80));
+
+        try {
+          const res = await fetch(
+            `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/external-app-sync`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                action: "upsert-product",
+                webhookUrl,
+                product: {
+                  name: p.title || p.asin,
+                  asin: p.asin,
+                  sku: p.sku || p.asin,
+                  quantity: p.quantity,
+                  status: "active",
+                },
+              }),
+            }
+          );
+
+          const result = await res.json();
+          if (result.success) {
+            succeeded++;
+          } else {
+            failed++;
+            errors.push(`${p.asin}: ${JSON.stringify(result.data?.error || result.error || "Unknown error")}`);
+          }
+        } catch (err: any) {
+          failed++;
+          errors.push(`${p.asin}: ${err.message}`);
+        }
+
+        setSuccessCount(succeeded);
+        setFailCount(failed);
+      }
+
+      setFailedItems(errors);
+
+      // Update last_synced_at
+      if (succeeded > 0) {
+        setPhase("finalizing");
+        setPhaseDetail("Updating sync timestamp...");
+        setProgressPercent(97);
+
+        await supabase
+          .from("external_sync_config" as any)
+          .update({
+            last_synced_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("user_id", session.user.id);
+
+        await loadLastSync();
+      }
+
+      setProgressPercent(100);
+      setPhase("done");
+      setPhaseDetail(
+        failed === 0
+          ? `All ${succeeded} products synced successfully!`
+          : `${succeeded} succeeded, ${failed} failed`
       );
 
-      setPhase("finalizing");
-      const result = await res.json();
-      setPhase("done");
-
-      setSyncResult({
-        status: result.status || (result.success ? "success" : "failed"),
-        successCount: result.successCount || 0,
-        failCount: result.failCount || 0,
-        totalItems: result.totalItems || 0,
+      toast({
+        title: failed === 0 ? "Sync complete!" : "Sync completed with errors",
+        description: `${succeeded} products synced, ${failed} failed out of ${products.length}`,
+        variant: failed === 0 ? "default" : "destructive",
       });
-
-      if (result.success) {
-        toast({ title: "Sync complete", description: `${result.successCount} items pushed successfully.` });
-        await loadLastSync();
-      } else {
-        toast({
-          title: "Sync had issues",
-          description: `${result.failCount} items failed. Check logs for details.`,
-          variant: "destructive",
-        });
-      }
     } catch (err: any) {
       setPhase("error");
+      setPhaseDetail(err.message);
       toast({ title: "Sync failed", description: err.message, variant: "destructive" });
-      setSyncResult({ status: "failed", successCount: 0, failCount: 0, totalItems: 0 });
     } finally {
       setSyncing(false);
-      setStartTime(null);
+      setSyncDone(true);
+      startTimeRef.current = null;
     }
   };
 
-  const currentPhase = PHASE_CONFIG[phase];
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const getPhaseIcon = (p: SyncPhase) => {
-    switch (p) {
-      case "authenticating": return <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />;
-      case "fetching-config": return <Database className="h-3.5 w-3.5 text-primary animate-pulse" />;
-      case "loading-inventory": return <Database className="h-3.5 w-3.5 text-primary animate-pulse" />;
-      case "aggregating": return <PackageCheck className="h-3.5 w-3.5 text-primary animate-pulse" />;
-      case "pushing": return <Send className="h-3.5 w-3.5 text-primary animate-pulse" />;
-      case "finalizing": return <Clock className="h-3.5 w-3.5 text-primary animate-pulse" />;
-      case "done": return <CheckCircle className="h-3.5 w-3.5 text-green-500" />;
-      case "error": return <AlertTriangle className="h-3.5 w-3.5 text-destructive" />;
-      default: return null;
+  const getPhaseIcon = () => {
+    switch (phase) {
+      case "loading": return <Database className="h-4 w-4 animate-pulse text-primary" />;
+      case "aggregating": return <PackageCheck className="h-4 w-4 animate-pulse text-primary" />;
+      case "pushing": return <Send className="h-4 w-4 animate-pulse text-primary" />;
+      case "finalizing": return <Clock className="h-4 w-4 animate-pulse text-primary" />;
+      case "done": return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "error": return <XCircle className="h-4 w-4 text-destructive" />;
+      default: return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
     }
   };
 
-  const phases: SyncPhase[] = ["authenticating", "fetching-config", "loading-inventory", "pushing", "finalizing", "done"];
+  const showProgress = syncing || syncDone;
 
   return (
     <div className="space-y-4">
@@ -169,8 +259,8 @@ export function ExternalSyncDashboard() {
             Push Inventory
           </CardTitle>
           <CardDescription>
-            Push all active {selectedCountry || "KSA"} inventory to the external app. Items are
-            aggregated by ASIN and sent in batches.
+            Push all active {selectedCountry || "KSA"} inventory to the external app. Each product
+            is synced individually for reliability.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -190,96 +280,73 @@ export function ExternalSyncDashboard() {
             )}
           </div>
 
-          {/* Detailed sync progress */}
-          {(syncing || phase === "done" || phase === "error") && phase !== "idle" && (
+          {/* Detailed progress panel */}
+          {showProgress && phase !== "idle" && (
             <div className="rounded-lg border bg-card p-4 space-y-3">
-              {/* Header with phase label + elapsed time */}
+              {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {getPhaseIcon(phase)}
-                  <span className="text-sm font-medium">{currentPhase.label}</span>
+                  {getPhaseIcon()}
+                  <span className="text-sm font-medium capitalize">
+                    {phase === "done" ? "Complete" : phase === "error" ? "Error" : phase.replace("-", " ")}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {formatTime(elapsedTime)}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {totalItems > 0 && (
+                    <span>{currentItem} / {totalItems} products</span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(elapsedTime)}
+                  </span>
                 </div>
               </div>
 
               {/* Progress bar */}
-              <Progress value={currentPhase.progress} className="h-2" />
+              <Progress value={progressPercent} className="h-2.5" />
 
-              {/* Phase detail text */}
-              <p className="text-xs text-muted-foreground">{currentPhase.detail}</p>
+              {/* Detail text */}
+              <p className="text-xs text-muted-foreground">{phaseDetail}</p>
 
-              {/* Step indicators */}
-              <div className="grid grid-cols-6 gap-1 pt-1">
-                {phases.map((p) => {
-                  const phaseIdx = phases.indexOf(p);
-                  const currentIdx = phases.indexOf(phase as typeof phases[number]);
-                  const isCompleted = currentIdx >= 0 && phaseIdx < currentIdx;
-                  const isCurrent = p === phase;
-                  const isPending = !isCompleted && !isCurrent;
-
-                  return (
-                    <div key={p} className="flex flex-col items-center gap-1">
-                      <div
-                        className={`h-1.5 w-full rounded-full transition-colors ${
-                          isCompleted
-                            ? "bg-green-500"
-                            : isCurrent
-                            ? "bg-primary animate-pulse"
-                            : isPending
-                            ? "bg-muted"
-                            : "bg-muted"
-                        }`}
-                      />
-                      <span
-                        className={`text-[10px] leading-tight text-center ${
-                          isCompleted
-                            ? "text-green-500 font-medium"
-                            : isCurrent
-                            ? "text-primary font-medium"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {PHASE_CONFIG[p].label.split(" ")[0]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Final result card */}
-          {syncResult && !syncing && (
-            <div
-              className={`flex items-center gap-3 rounded-lg border p-3 ${
-                syncResult.status === "success"
-                  ? "border-green-500/30 bg-green-500/10"
-                  : syncResult.status === "partial"
-                  ? "border-yellow-500/30 bg-yellow-500/10"
-                  : "border-red-500/30 bg-red-500/10"
-              }`}
-            >
-              {syncResult.status === "success" ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              {/* Live counters */}
+              {(phase === "pushing" || phase === "done" || phase === "error") && totalItems > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="rounded-md border border-green-500/20 bg-green-500/5 p-2 text-center">
+                    <p className="text-lg font-bold text-green-500">{successCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Succeeded</p>
+                  </div>
+                  <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2 text-center">
+                    <p className="text-lg font-bold text-red-500">{failCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Failed</p>
+                  </div>
+                  <div className="rounded-md border p-2 text-center">
+                    <p className="text-lg font-bold text-foreground">{totalItems}</p>
+                    <p className="text-[10px] text-muted-foreground">Total</p>
+                  </div>
+                </div>
               )}
-              <div>
-                <p className="text-sm font-medium">
-                  {syncResult.status === "success"
-                    ? "All items synced!"
-                    : syncResult.status === "partial"
-                    ? "Partial sync"
-                    : "Sync failed"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {syncResult.successCount} succeeded · {syncResult.failCount} failed ·{" "}
-                  {syncResult.totalItems} total · completed in {formatTime(elapsedTime)}
-                </p>
-              </div>
+
+              {/* Failed items list */}
+              {failedItems.length > 0 && !syncing && (
+                <div className="mt-2 max-h-32 overflow-y-auto rounded border border-red-500/20 bg-red-500/5 p-2">
+                  <p className="text-xs font-medium text-red-400 mb-1">Failed items:</p>
+                  {failedItems.slice(0, 20).map((err, i) => (
+                    <p key={i} className="text-[10px] text-muted-foreground truncate">{err}</p>
+                  ))}
+                  {failedItems.length > 20 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      ...and {failedItems.length - 20} more
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Final summary */}
+              {phase === "done" && !syncing && (
+                <div className="text-xs text-muted-foreground pt-1 border-t">
+                  Completed in {formatTime(elapsedTime)} · {successCount} synced · {failCount} failed
+                </div>
+              )}
             </div>
           )}
         </CardContent>
