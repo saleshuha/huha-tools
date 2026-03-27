@@ -215,10 +215,10 @@ export function ExternalSyncDashboard() {
               <div className="grid grid-cols-6 gap-1 pt-1">
                 {phases.map((p) => {
                   const phaseIdx = phases.indexOf(p);
-                  const currentIdx = phases.indexOf(phase);
-                  const isCompleted = phase !== "idle" && phase !== "error" && phaseIdx < currentIdx;
+                  const currentIdx = phases.indexOf(phase as typeof phases[number]);
+                  const isCompleted = currentIdx >= 0 && phaseIdx < currentIdx;
                   const isCurrent = p === phase;
-                  const isPending = phaseIdx > currentIdx || phase === ("error" as SyncPhase);
+                  const isPending = !isCompleted && !isCurrent;
 
                   return (
                     <div key={p} className="flex flex-col items-center gap-1">
