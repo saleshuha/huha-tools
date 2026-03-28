@@ -169,7 +169,7 @@ export function ExternalSyncDashboard() {
                   asin: p.asin,
                   sku: p.sku || p.asin,
                   quantity: p.quantity,
-                  status: "active",
+                  // status omitted — destination uses its default enum value
                 },
               }),
             }
