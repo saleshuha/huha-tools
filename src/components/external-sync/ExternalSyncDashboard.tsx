@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useCountry } from "@/contexts/CountryContext";
-import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw, Database, Send, PackageCheck, Clock, XCircle } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertTriangle, RefreshCw, Database, Send, PackageCheck, Clock, XCircle, Pause, Play, Square, Image } from "lucide-react";
 import { ExternalSyncHistory } from "./ExternalSyncHistory";
 
 interface AggregatedProduct {
@@ -13,6 +13,7 @@ interface AggregatedProduct {
   sku: string;
   title: string;
   quantity: number;
+  images: string[];
 }
 
 export function ExternalSyncDashboard() {
@@ -31,16 +32,23 @@ export function ExternalSyncDashboard() {
   const startTimeRef = useRef<number | null>(null);
   const [syncDone, setSyncDone] = useState(false);
   const [failedItems, setFailedItems] = useState<string[]>([]);
+  const [imagesFound, setImagesFound] = useState(0);
+
+  // Pause/Stop refs (use refs so the loop sees latest value)
+  const pausedRef = useRef(false);
+  const stoppedRef = useRef(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isStopped, setIsStopped] = useState(false);
 
   useEffect(() => {
     loadLastSync();
   }, []);
 
-  // Elapsed time timer
+  // Elapsed time timer (pauses when paused)
   useEffect(() => {
     if (!syncing) return;
     const interval = setInterval(() => {
-      if (startTimeRef.current) {
+      if (startTimeRef.current && !pausedRef.current) {
         setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
       }
     }, 1000);
@@ -64,6 +72,30 @@ export function ExternalSyncDashboard() {
     }
   };
 
+  const handlePause = useCallback(() => {
+    pausedRef.current = true;
+    setIsPaused(true);
+  }, []);
+
+  const handleResume = useCallback(() => {
+    pausedRef.current = false;
+    setIsPaused(false);
+  }, []);
+
+  const handleStop = useCallback(() => {
+    stoppedRef.current = true;
+    setIsStopped(true);
+    pausedRef.current = false;
+    setIsPaused(false);
+  }, []);
+
+  // Wait while paused
+  const waitIfPaused = async () => {
+    while (pausedRef.current && !stoppedRef.current) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  };
+
   const pushAllInventory = async () => {
     setSyncing(true);
     setSyncDone(false);
@@ -76,6 +108,11 @@ export function ExternalSyncDashboard() {
     setFailCount(0);
     setElapsedTime(0);
     setFailedItems([]);
+    setImagesFound(0);
+    pausedRef.current = false;
+    stoppedRef.current = false;
+    setIsPaused(false);
+    setIsStopped(false);
     startTimeRef.current = Date.now();
 
     try {
@@ -118,7 +155,7 @@ export function ExternalSyncDashboard() {
       // Aggregate by ASIN
       setPhase("aggregating");
       setPhaseDetail(`Aggregating ${allItems.length} inventory rows by ASIN...`);
-      setProgressPercent(10);
+      setProgressPercent(5);
 
       const asinMap = new Map<string, AggregatedProduct>();
       for (const item of allItems) {
@@ -131,9 +168,41 @@ export function ExternalSyncDashboard() {
             sku: item.sku || item.asin,
             title: item.title || item.asin,
             quantity: item.quantity || 0,
+            images: [],
           });
         }
       }
+
+      // Fetch product images for all ASINs
+      setPhase("loading-images");
+      setPhaseDetail("Loading product images...");
+      setProgressPercent(8);
+
+      const allAsins = Array.from(asinMap.keys());
+      let totalImagesFound = 0;
+
+      // Fetch images in chunks of 50 ASINs
+      for (let i = 0; i < allAsins.length; i += 50) {
+        const chunk = allAsins.slice(i, i + 50);
+        const { data: imgData } = await (supabase as any)
+          .from("product_images")
+          .select("asin, image_url")
+          .eq("user_id", session.user.id)
+          .in("asin", chunk);
+
+        if (imgData) {
+          for (const img of imgData) {
+            const product = asinMap.get(img.asin);
+            if (product && img.image_url) {
+              product.images.push(img.image_url);
+              totalImagesFound++;
+            }
+          }
+        }
+      }
+
+      setImagesFound(totalImagesFound);
+      setPhaseDetail(`Found ${totalImagesFound} images for ${allAsins.length} products`);
 
       const products = Array.from(asinMap.values());
       setTotalItems(products.length);
@@ -147,6 +216,19 @@ export function ExternalSyncDashboard() {
       const errors: string[] = [];
 
       for (let i = 0; i < products.length; i++) {
+        // Check stop
+        if (stoppedRef.current) {
+          setPhaseDetail(`Stopped by user at ${i}/${products.length}`);
+          break;
+        }
+
+        // Wait if paused
+        await waitIfPaused();
+        if (stoppedRef.current) {
+          setPhaseDetail(`Stopped by user at ${i}/${products.length}`);
+          break;
+        }
+
         const p = products[i];
         setCurrentItem(i + 1);
         setPhaseDetail(`Syncing ${i + 1}/${products.length}: ${p.title?.substring(0, 40) || p.asin}...`);
@@ -169,7 +251,7 @@ export function ExternalSyncDashboard() {
                   asin: p.asin,
                   sku: p.sku || p.asin,
                   quantity: p.quantity,
-                  // status omitted — destination uses its default enum value
+                  images: p.images.length > 0 ? p.images : undefined,
                 },
               }),
             }
@@ -212,16 +294,19 @@ export function ExternalSyncDashboard() {
 
       setProgressPercent(100);
       setPhase("done");
+      const stoppedEarly = stoppedRef.current;
       setPhaseDetail(
-        failed === 0
-          ? `All ${succeeded} products synced successfully!`
-          : `${succeeded} succeeded, ${failed} failed`
+        stoppedEarly
+          ? `Stopped: ${succeeded} succeeded, ${failed} failed (${products.length - succeeded - failed} skipped)`
+          : failed === 0
+            ? `All ${succeeded} products synced successfully!`
+            : `${succeeded} succeeded, ${failed} failed`
       );
 
       toast({
-        title: failed === 0 ? "Sync complete!" : "Sync completed with errors",
-        description: `${succeeded} products synced, ${failed} failed out of ${products.length}`,
-        variant: failed === 0 ? "default" : "destructive",
+        title: stoppedEarly ? "Sync stopped" : failed === 0 ? "Sync complete!" : "Sync completed with errors",
+        description: `${succeeded} products synced, ${failed} failed`,
+        variant: failed === 0 && !stoppedEarly ? "default" : "destructive",
       });
     } catch (err: any) {
       setPhase("error");
@@ -239,6 +324,7 @@ export function ExternalSyncDashboard() {
   const getPhaseIcon = () => {
     switch (phase) {
       case "loading": return <Database className="h-4 w-4 animate-pulse text-primary" />;
+      case "loading-images": return <Image className="h-4 w-4 animate-pulse text-primary" />;
       case "aggregating": return <PackageCheck className="h-4 w-4 animate-pulse text-primary" />;
       case "pushing": return <Send className="h-4 w-4 animate-pulse text-primary" />;
       case "finalizing": return <Clock className="h-4 w-4 animate-pulse text-primary" />;
@@ -259,20 +345,40 @@ export function ExternalSyncDashboard() {
             Push Inventory
           </CardTitle>
           <CardDescription>
-            Push all active {selectedCountry || "KSA"} inventory to the external app. Each product
-            is synced individually for reliability.
+            Push all active {selectedCountry || "KSA"} inventory (with images) to the external app.
+            Each product is synced individually for reliability.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Button onClick={pushAllInventory} disabled={syncing} size="lg">
-              {syncing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            {!syncing && (
+              <Button onClick={pushAllInventory} disabled={syncing} size="lg">
                 <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              {syncing ? "Syncing..." : "Push All Inventory"}
-            </Button>
+                Push All Inventory
+              </Button>
+            )}
+
+            {/* Pause / Resume / Stop controls */}
+            {syncing && (
+              <div className="flex items-center gap-2">
+                {!isPaused ? (
+                  <Button variant="outline" size="sm" onClick={handlePause}>
+                    <Pause className="mr-1.5 h-4 w-4" />
+                    Pause
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleResume} className="border-green-500/50 text-green-500 hover:bg-green-500/10">
+                    <Play className="mr-1.5 h-4 w-4" />
+                    Resume
+                  </Button>
+                )}
+                <Button variant="destructive" size="sm" onClick={handleStop}>
+                  <Square className="mr-1.5 h-4 w-4" />
+                  Stop
+                </Button>
+              </div>
+            )}
+
             {lastSyncedAt && !syncing && (
               <span className="text-sm text-muted-foreground">
                 Last sync: {new Date(lastSyncedAt).toLocaleString()}
@@ -288,12 +394,23 @@ export function ExternalSyncDashboard() {
                 <div className="flex items-center gap-2">
                   {getPhaseIcon()}
                   <span className="text-sm font-medium capitalize">
-                    {phase === "done" ? "Complete" : phase === "error" ? "Error" : phase.replace("-", " ")}
+                    {phase === "done" ? "Complete" : phase === "error" ? "Error" : phase === "loading-images" ? "Loading Images" : phase.replace("-", " ")}
                   </span>
+                  {isPaused && (
+                    <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full font-medium">
+                      PAUSED
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   {totalItems > 0 && (
                     <span>{currentItem} / {totalItems} products</span>
+                  )}
+                  {imagesFound > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Image className="h-3 w-3" />
+                      {imagesFound} images
+                    </span>
                   )}
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -344,7 +461,7 @@ export function ExternalSyncDashboard() {
               {/* Final summary */}
               {phase === "done" && !syncing && (
                 <div className="text-xs text-muted-foreground pt-1 border-t">
-                  Completed in {formatTime(elapsedTime)} · {successCount} synced · {failCount} failed
+                  Completed in {formatTime(elapsedTime)} · {successCount} synced · {failCount} failed · {imagesFound} images sent
                 </div>
               )}
             </div>
