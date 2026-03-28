@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
           slug: product.slug || (product.asin ? product.asin.toLowerCase() : undefined),
           sku: product.sku || product.asin,
           description: product.description || undefined,
-          status: product.status || "active",
+          // omit status — let destination use its default enum value
           retail_price: product.retail_price || undefined,
           cost_price: product.cost_price || undefined,
           inventory: product.inventory || (product.quantity !== undefined ? { quantity: product.quantity } : undefined),
