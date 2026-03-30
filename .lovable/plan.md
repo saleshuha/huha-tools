@@ -1,52 +1,31 @@
 
 
-# Fix External App Sync to Match Actual API
+# Fix: Stock Audit Records Not Showing in Stock History
 
-## Problems
+## Root Cause
 
-The edge function uses wrong action names and payload formats that don't match the external API:
+Two field mismatches in `useStockAudit.ts` → `applyAuditToInventory()`:
 
-1. **Test connection** sends `{ action: "ping" }` — not a valid action. The API only supports `upsert_product`, `delete_product`, `update_inventory`, `bulk_upsert`.
-2. **Sync inventory** sends `{ action: "sync_inventory", products: [...] }` — should use `bulk_upsert` with the correct product schema (needs `name`, `slug`, `sku` fields).
-3. **Create/update product** sends `create_product` / `update_product` — should use `upsert_product` with a `product` object (not array).
-4. **Delete product** sends `{ action: "delete_product", asin }` — should send `{ action: "delete_product", sku }`.
+1. **`inventory_type` mismatch**: The audit inserts `inventory_type: 'asin_inventory'`, but the Stock History dialog queries `.eq('inventory_type', 'asin')`. All other code (useAsinInventory, smart-stock-receiving, etc.) uses `'asin'` or `'sku'` — the audit is the only place using `'asin_inventory'`.
 
-## Changes
+2. **Missing `changed_by`**: The audit sets `user_id` but never sets `changed_by`. The Stock History dialog reads `changed_by` to show who made the change, so audit entries appear as "Unknown" user even if they were found.
 
-### 1. Edge Function (`supabase/functions/external-app-sync/index.ts`)
+## Fix
 
-**Test connection:** Instead of sending `ping`, send a lightweight `upsert_product` dry-run or simply verify the endpoint responds with a GET/minimal request. Best approach: send `{ action: "bulk_upsert", products: [] }` — an empty array should return 200 without side effects, confirming auth works.
+**File: `src/hooks/useStockAudit.ts`** (lines 514-534)
 
-**Sync inventory (`sync-inventory` action):**
-- Change forwarded action from `sync_inventory` to `bulk_upsert`
-- Map each inventory item to the required schema:
-  ```json
-  {
-    "name": item.title,
-    "slug": slugify(item.asin),  // lowercase ASIN as slug
-    "sku": item.sku || item.asin,
-    "status": "active",
-    "inventory": { "quantity": item.quantity }
-  }
+Change the `stock_changes` insert in `applyAuditToInventory`:
+- `inventory_type: 'asin_inventory'` → `inventory_type: 'asin'`
+- Add `changed_by: user.id`
+
+This is a two-line fix. No database migration needed — the column values are just strings.
+
+## Impact
+
+- Existing audit records already in the DB will still have wrong `inventory_type`. A one-time SQL update can fix historical data:
+  ```sql
+  UPDATE stock_changes SET inventory_type = 'asin' WHERE inventory_type = 'asin_inventory';
+  UPDATE stock_changes SET changed_by = user_id WHERE reference_type = 'stock_audit' AND changed_by IS NULL;
   ```
-- Also fetch `product_images` for the user and attach image URLs where available
-- Batch size stays at 100 (API limit) instead of current 50
-
-**Create/update product:**
-- Change to use `upsert_product` action
-- Send `{ action: "upsert_product", product: { name, slug, sku, inventory: { quantity }, images, ... } }`
-- Accept single product object, not array
-
-**Delete product:**
-- Send `{ action: "delete_product", sku: item.sku }` instead of `asin`
-
-### 2. Settings (`src/components/external-sync/ExternalSyncSettings.tsx`)
-
-- Update test connection result handling — the empty `bulk_upsert` may return `{ success: true }` or a 200 status, handle accordingly
-
-### 3. Dashboard — no structural changes needed, just inherits the fixed edge function
-
-## Files Modified
-- **`supabase/functions/external-app-sync/index.ts`** — Fix all action names and payload formats to match the actual API
-- **`src/components/external-sync/ExternalSyncSettings.tsx`** — Minor: improve test result display
+- Future audits will correctly appear in Stock History with proper user attribution.
 
