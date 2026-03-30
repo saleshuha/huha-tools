@@ -515,8 +515,9 @@ export function useStockAudit() {
           .from('stock_changes')
           .insert({
             inventory_id: itemId,
-            inventory_type: 'asin_inventory',
+            inventory_type: 'asin',
             user_id: user.id,
+            changed_by: user.id,
             asin: group.asin,
             serial_number: item.serial_number,
             sku_number: group.sku,
