@@ -1,31 +1,50 @@
 
 
-# Fix: Stock Audit Records Not Showing in Stock History
+# Add Product Images + DOCX Export to ASIN Sales Health
 
-## Root Cause
+## What Changes
 
-Two field mismatches in `useStockAudit.ts` → `applyAuditToInventory()`:
+1. **Product images in each row** — Fetch images from the existing `product_images` table (by ASIN) and display a small thumbnail in the Product column of the Sales Health table.
 
-1. **`inventory_type` mismatch**: The audit inserts `inventory_type: 'asin_inventory'`, but the Stock History dialog queries `.eq('inventory_type', 'asin')`. All other code (useAsinInventory, smart-stock-receiving, etc.) uses `'asin'` or `'sku'` — the audit is the only place using `'asin_inventory'`.
+2. **Export to DOCX** — Add a "Export DOCX" button that generates an editable Word document containing each product's image, ASIN, title, status, score, and sales data.
 
-2. **Missing `changed_by`**: The audit sets `user_id` but never sets `changed_by`. The Stock History dialog reads `changed_by` to show who made the change, so audit entries appear as "Unknown" user even if they were found.
+## Technical Details
 
-## Fix
+### 1. Fetch product images
 
-**File: `src/hooks/useStockAudit.ts`** (lines 514-534)
+- In `SalesHealthDashboard.tsx`, add a `useQuery` call to fetch images from `product_images` table for all visible ASINs
+- Build a `Map<string, string>` (asin → image_url) for quick lookup
+- Display a 32x32 thumbnail in the Product cell (sticky left column), with a fallback placeholder if no image exists
 
-Change the `stock_changes` insert in `applyAuditToInventory`:
-- `inventory_type: 'asin_inventory'` → `inventory_type: 'asin'`
-- Add `changed_by: user.id`
+### 2. Product column layout update
 
-This is a two-line fix. No database migration needed — the column values are just strings.
+The current Product cell shows ASIN + SKU + title vertically. Add the image to the left:
 
-## Impact
+```text
+[IMG] ASIN · SKU
+      Title (truncated)
+```
 
-- Existing audit records already in the DB will still have wrong `inventory_type`. A one-time SQL update can fix historical data:
-  ```sql
-  UPDATE stock_changes SET inventory_type = 'asin' WHERE inventory_type = 'asin_inventory';
-  UPDATE stock_changes SET changed_by = user_id WHERE reference_type = 'stock_audit' AND changed_by IS NULL;
-  ```
-- Future audits will correctly appear in Stock History with proper user attribution.
+### 3. DOCX Export
+
+- Install `docx` package (already available via npm)
+- Add a "Export DOCX" button next to the existing CSV Export popover
+- Generate a Word document with:
+  - Title header with date and filter info
+  - A table with columns: Image, ASIN/SKU, Title, Status, Score, Velocity, Total Shipped, Trend
+  - Product images fetched and embedded as `ImageRun` in the DOCX
+  - For products without images, show "No image" text
+- Download as `.docx` file
+
+### 4. Image fetching for DOCX
+
+- Images are stored as URLs (Supabase storage public URLs)
+- Fetch each image as a blob/buffer, then embed using `ImageRun` with base64 data
+- Process in batches to avoid overwhelming the browser
+- Show a loading toast during generation
+
+## Files
+
+- **Modify**: `src/components/asin-sales-health/SalesHealthDashboard.tsx` — Add image column, image fetching query, DOCX export button and handler
+- **Install**: `docx` and `file-saver` packages (for DOCX generation and download)
 
