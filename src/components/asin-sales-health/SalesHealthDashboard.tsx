@@ -7,9 +7,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download, ChevronLeft, ChevronRight, Star, Skull, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Sparkles, Search, ArrowUpDown, Download, ChevronLeft, ChevronRight, Star, Skull, Zap, FileText, ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useProductImages } from '@/hooks/useProductImages';
 import type { AsinHealth, HealthStatus } from '@/hooks/useAsinSalesHealth';
+import { Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, ImageRun, HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType } from 'docx';
+import { saveAs } from 'file-saver';
 
 const MONTH_LABELS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -61,6 +64,40 @@ function TrendArrow({ slope }: { slope: number }) {
   return <span className="text-muted-foreground text-[10px]">— {slope.toFixed(1)}</span>;
 }
 
+function ProductImage({ url }: { url?: string }) {
+  if (!url) {
+    return (
+      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt="Product"
+      className="w-8 h-8 rounded object-cover shrink-0 border border-border"
+      loading="lazy"
+      onError={(e) => {
+        (e.target as HTMLImageElement).style.display = 'none';
+      }}
+    />
+  );
+}
+
+async function fetchImageAsBuffer(url: string): Promise<{ buffer: ArrayBuffer; type: 'png' | 'jpg' } | null> {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const contentType = response.headers.get('content-type') || '';
+    const buffer = await response.arrayBuffer();
+    const type = contentType.includes('png') ? 'png' : 'jpg';
+    return { buffer, type };
+  } catch {
+    return null;
+  }
+}
+
 export function SalesHealthDashboard({ data, loading }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -69,7 +106,22 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [exportStatuses, setExportStatuses] = useState<Set<HealthStatus>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [docxExporting, setDocxExporting] = useState(false);
   const { toast } = useToast();
+  const { productImages, getImageByAsin } = useProductImages();
+
+  // Build a map for quick image lookup
+  const imageMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (productImages) {
+      productImages.forEach(img => {
+        if (img.asin && img.image_url) {
+          map.set(img.asin.trim(), img.image_url);
+        }
+      });
+    }
+    return map;
+  }, [productImages]);
 
   const last12Months = useMemo(() => {
     const allMonths = new Set<string>();
@@ -184,6 +236,155 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
   }, [data, exportStatuses, last12Months, toast]);
 
+  const handleDocxExport = useCallback(async () => {
+    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
+    const exportData = data.filter(item => statusesToExport.has(item.status));
+
+    if (exportData.length === 0) {
+      toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
+      return;
+    }
+
+    setDocxExporting(true);
+    toast({ title: 'Generating DOCX...', description: `Processing ${exportData.length} products with images...` });
+
+    try {
+      // Fetch images for all items
+      const imageBuffers = new Map<string, { buffer: ArrayBuffer; type: 'png' | 'jpg' }>();
+      for (let i = 0; i < exportData.length; i++) {
+        const item = exportData[i];
+        const imgUrl = imageMap.get(item.asin.trim());
+        if (imgUrl) {
+          const result = await fetchImageAsBuffer(imgUrl);
+          if (result) {
+            imageBuffers.set(item.asin, result);
+          }
+        }
+      }
+
+      const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+      const cellBorders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
+      const headerShading = { fill: "1a365d", type: ShadingType.CLEAR };
+      const headerRun = (text: string) => new TextRun({ text, bold: true, font: "Arial", size: 16, color: "FFFFFF" });
+
+      // Column widths: Image(900) ASIN(1400) Title(2600) Status(1000) Score(700) Velocity(800) Total(900) Trend(960)
+      const colWidths = [900, 1400, 2600, 1000, 700, 800, 900, 960];
+      const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+
+      const makeCell = (children: Paragraph[], width: number, shading?: any) => new DocxTableCell({
+        borders: cellBorders,
+        width: { size: width, type: WidthType.DXA },
+        margins: { top: 40, bottom: 40, left: 60, right: 60 },
+        children,
+        ...(shading ? { shading } : {}),
+      });
+
+      // Header row
+      const headerRow = new DocxTableRow({
+        children: [
+          makeCell([new Paragraph({ children: [headerRun("Image")] })], colWidths[0], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("ASIN / SKU")] })], colWidths[1], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Title")] })], colWidths[2], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Status")] })], colWidths[3], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Score")] })], colWidths[4], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Velocity")] })], colWidths[5], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Total")] })], colWidths[6], headerShading),
+          makeCell([new Paragraph({ children: [headerRun("Trend")] })], colWidths[7], headerShading),
+        ],
+      });
+
+      // Data rows
+      const dataRows = exportData.map((item, idx) => {
+        const imgData = imageBuffers.get(item.asin);
+        const rowShading = idx % 2 === 0 ? undefined : { fill: "F7F7F7", type: ShadingType.CLEAR };
+
+        const imageCell = imgData
+          ? [new Paragraph({
+              children: [new ImageRun({
+                type: imgData.type,
+                data: imgData.buffer,
+                transformation: { width: 40, height: 40 },
+                altText: { title: item.asin, description: `Product image for ${item.asin}`, name: item.asin },
+              })],
+            })]
+          : [new Paragraph({ children: [new TextRun({ text: "No image", font: "Arial", size: 14, color: "999999", italics: true })] })];
+
+        const trendText = item.trendSlope > 0.3 ? `▲ ${item.trendSlope.toFixed(1)}`
+          : item.trendSlope < -0.3 ? `▼ ${item.trendSlope.toFixed(1)}`
+          : `— ${item.trendSlope.toFixed(1)}`;
+
+        const trendColor = item.trendSlope > 0.3 ? "228B22" : item.trendSlope < -0.3 ? "FF8C00" : "666666";
+
+        const statusColors: Record<string, string> = {
+          star: "059669", growing: "16a34a", stable: "2563eb",
+          declining: "ea580c", at_risk: "dc2626", low_mover: "6b7280",
+          dead: "9ca3af", new: "7c3aed",
+        };
+
+        return new DocxTableRow({
+          children: [
+            makeCell(imageCell, colWidths[0], rowShading),
+            makeCell([
+              new Paragraph({ children: [new TextRun({ text: item.asin, font: "Courier New", size: 16, bold: true })] }),
+              ...(item.sku ? [new Paragraph({ children: [new TextRun({ text: item.sku, font: "Arial", size: 14, color: "888888" })] })] : []),
+            ], colWidths[1], rowShading),
+            makeCell([new Paragraph({ children: [new TextRun({ text: item.title || '-', font: "Arial", size: 16 })] })], colWidths[2], rowShading),
+            makeCell([new Paragraph({ children: [new TextRun({ text: STATUS_CONFIG[item.status].label, font: "Arial", size: 16, bold: true, color: statusColors[item.status] || "000000" })] })], colWidths[3], rowShading),
+            makeCell([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(item.healthScore), font: "Arial", size: 18, bold: true })] })], colWidths[4], rowShading),
+            makeCell([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: item.salesVelocity.toFixed(1), font: "Courier New", size: 16 })] })], colWidths[5], rowShading),
+            makeCell([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: item.totalShipped.toLocaleString(), font: "Courier New", size: 16 })] })], colWidths[6], rowShading),
+            makeCell([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: trendText, font: "Arial", size: 16, color: trendColor })] })], colWidths[7], rowShading),
+          ],
+        });
+      });
+
+      const statusLabel = exportStatuses.size > 0 ? Array.from(exportStatuses).map(s => STATUS_CONFIG[s].label).join(', ') : 'All';
+
+      const doc = new Document({
+        styles: {
+          default: { document: { run: { font: "Arial", size: 22 } } },
+        },
+        sections: [{
+          properties: {
+            page: {
+              size: { width: 12240, height: 15840 },
+              margin: { top: 720, right: 720, bottom: 720, left: 720 },
+            },
+          },
+          children: [
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun({ text: "ASIN Sales Health Report", bold: true, font: "Arial", size: 28 })],
+            }),
+            new Paragraph({
+              spacing: { after: 200 },
+              children: [
+                new TextRun({ text: `Generated: ${new Date().toLocaleDateString()} | `, font: "Arial", size: 18, color: "666666" }),
+                new TextRun({ text: `Status: ${statusLabel} | `, font: "Arial", size: 18, color: "666666" }),
+                new TextRun({ text: `Products: ${exportData.length}`, font: "Arial", size: 18, color: "666666" }),
+              ],
+            }),
+            new DocxTable({
+              width: { size: tableWidth, type: WidthType.DXA },
+              columnWidths: colWidths,
+              rows: [headerRow, ...dataRows],
+            }),
+          ],
+        }],
+      });
+
+      const buffer = await Packer.toBlob(doc);
+      const fileName = `asin_health_report_${new Date().toISOString().slice(0, 10)}.docx`;
+      saveAs(buffer, fileName);
+      toast({ title: 'DOCX exported', description: `${exportData.length} products saved to ${fileName}` });
+    } catch (error: any) {
+      console.error('DOCX export error:', error);
+      toast({ title: 'Export failed', description: error.message || 'Failed to generate DOCX file', variant: 'destructive' });
+    } finally {
+      setDocxExporting(false);
+    }
+  }, [data, exportStatuses, imageMap, toast]);
+
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Loading health data...</div>;
   }
@@ -271,10 +472,22 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                       })}
                     </div>
                   </div>
-                  <Button size="sm" className="w-full h-8 text-xs gap-1.5" onClick={handleExport}>
-                    <Download className="h-3 w-3" />
-                    Export {exportCount} ASINs
-                  </Button>
+                  <div className="space-y-1.5">
+                    <Button size="sm" className="w-full h-8 text-xs gap-1.5" onClick={handleExport}>
+                      <Download className="h-3 w-3" />
+                      CSV — {exportCount} ASINs
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-8 text-xs gap-1.5"
+                      onClick={handleDocxExport}
+                      disabled={docxExporting}
+                    >
+                      <FileText className="h-3 w-3" />
+                      {docxExporting ? 'Generating...' : `DOCX with Images — ${exportCount}`}
+                    </Button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -329,17 +542,20 @@ export function SalesHealthDashboard({ data, loading }: Props) {
 
                 return (
                   <TableRow key={item.asin} className={rowHighlight}>
-                    <TableCell className="py-2 max-w-[220px] sticky left-0 bg-background z-10">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-medium text-foreground">{item.asin}</span>
-                          {item.sku && (
-                            <span className="text-[10px] text-muted-foreground">· {item.sku}</span>
+                    <TableCell className="py-2 max-w-[260px] sticky left-0 bg-background z-10">
+                      <div className="flex items-start gap-2">
+                        <ProductImage url={imageMap.get(item.asin.trim())} />
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-medium text-foreground">{item.asin}</span>
+                            {item.sku && (
+                              <span className="text-[10px] text-muted-foreground">· {item.sku}</span>
+                            )}
+                          </div>
+                          {item.title && (
+                            <span className="text-[10px] text-muted-foreground truncate leading-tight">{item.title}</span>
                           )}
                         </div>
-                        {item.title && (
-                          <span className="text-[10px] text-muted-foreground truncate leading-tight">{item.title}</span>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>
