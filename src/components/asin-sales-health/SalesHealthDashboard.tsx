@@ -409,9 +409,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     );
   }
 
-  const exportCount = exportStatuses.size > 0
-    ? data.filter(d => exportStatuses.has(d.status)).length
-    : data.length;
+  const exportCount = getFilteredExportData().length;
 
   const showStart = (safePage - 1) * pageSize + 1;
   const showEnd = Math.min(safePage * pageSize, filtered.length);
