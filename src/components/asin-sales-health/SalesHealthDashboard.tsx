@@ -107,6 +107,8 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [docxExporting, setDocxExporting] = useState(false);
+  const [exportMinUnits, setExportMinUnits] = useState('');
+  const [exportMaxUnits, setExportMaxUnits] = useState('');
   const { toast } = useToast();
   const { productImages, getImageByAsin } = useProductImages();
 
