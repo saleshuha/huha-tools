@@ -480,6 +480,26 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                       })}
                     </div>
                   </div>
+                  <div className="border-t border-border pt-2 space-y-2">
+                    <p className="text-xs font-medium text-foreground">Total Units Sold Range</p>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={exportMinUnits}
+                        onChange={e => setExportMinUnits(e.target.value)}
+                        className="h-7 text-xs w-full"
+                      />
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={exportMaxUnits}
+                        onChange={e => setExportMaxUnits(e.target.value)}
+                        className="h-7 text-xs w-full"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-1.5">
                     <Button size="sm" className="w-full h-8 text-xs gap-1.5" onClick={handleExport}>
                       <Download className="h-3 w-3" />
