@@ -107,6 +107,8 @@ export function SalesHealthDashboard({ data, loading }: Props) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [docxExporting, setDocxExporting] = useState(false);
+  const [exportMinUnits, setExportMinUnits] = useState('');
+  const [exportMaxUnits, setExportMaxUnits] = useState('');
   const { toast } = useToast();
   const { productImages, getImageByAsin } = useProductImages();
 
@@ -192,9 +194,18 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     });
   };
 
-  const handleExport = useCallback(() => {
+  const getFilteredExportData = useCallback(() => {
     const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
-    const exportData = data.filter(item => statusesToExport.has(item.status));
+    let result = data.filter(item => statusesToExport.has(item.status));
+    const min = exportMinUnits ? parseInt(exportMinUnits, 10) : null;
+    const max = exportMaxUnits ? parseInt(exportMaxUnits, 10) : null;
+    if (min !== null && !isNaN(min)) result = result.filter(item => item.totalShipped >= min);
+    if (max !== null && !isNaN(max)) result = result.filter(item => item.totalShipped <= max);
+    return result;
+  }, [data, exportStatuses, exportMinUnits, exportMaxUnits]);
+
+  const handleExport = useCallback(() => {
+    const exportData = getFilteredExportData();
 
     if (exportData.length === 0) {
       toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
@@ -234,11 +245,10 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
-  }, [data, exportStatuses, last12Months, toast]);
+  }, [getFilteredExportData, last12Months, toast, exportStatuses]);
 
   const handleDocxExport = useCallback(async () => {
-    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
-    const exportData = data.filter(item => statusesToExport.has(item.status));
+    const exportData = getFilteredExportData();
 
     if (exportData.length === 0) {
       toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
@@ -383,7 +393,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     } finally {
       setDocxExporting(false);
     }
-  }, [data, exportStatuses, imageMap, toast]);
+  }, [getFilteredExportData, exportStatuses, imageMap, toast]);
 
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Loading health data...</div>;
@@ -399,9 +409,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     );
   }
 
-  const exportCount = exportStatuses.size > 0
-    ? data.filter(d => exportStatuses.has(d.status)).length
-    : data.length;
+  const exportCount = getFilteredExportData().length;
 
   const showStart = (safePage - 1) * pageSize + 1;
   const showEnd = Math.min(safePage * pageSize, filtered.length);
@@ -470,6 +478,26 @@ export function SalesHealthDashboard({ data, loading }: Props) {
                           </label>
                         );
                       })}
+                    </div>
+                  </div>
+                  <div className="border-t border-border pt-2 space-y-2">
+                    <p className="text-xs font-medium text-foreground">Total Units Sold Range</p>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={exportMinUnits}
+                        onChange={e => setExportMinUnits(e.target.value)}
+                        className="h-7 text-xs w-full"
+                      />
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={exportMaxUnits}
+                        onChange={e => setExportMaxUnits(e.target.value)}
+                        className="h-7 text-xs w-full"
+                      />
                     </div>
                   </div>
                   <div className="space-y-1.5">
