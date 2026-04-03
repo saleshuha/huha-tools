@@ -194,9 +194,18 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     });
   };
 
-  const handleExport = useCallback(() => {
+  const getFilteredExportData = useCallback(() => {
     const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
-    const exportData = data.filter(item => statusesToExport.has(item.status));
+    let result = data.filter(item => statusesToExport.has(item.status));
+    const min = exportMinUnits ? parseInt(exportMinUnits, 10) : null;
+    const max = exportMaxUnits ? parseInt(exportMaxUnits, 10) : null;
+    if (min !== null && !isNaN(min)) result = result.filter(item => item.totalShipped >= min);
+    if (max !== null && !isNaN(max)) result = result.filter(item => item.totalShipped <= max);
+    return result;
+  }, [data, exportStatuses, exportMinUnits, exportMaxUnits]);
+
+  const handleExport = useCallback(() => {
+    const exportData = getFilteredExportData();
 
     if (exportData.length === 0) {
       toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
