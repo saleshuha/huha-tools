@@ -245,11 +245,10 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: 'Export complete', description: `Exported ${exportData.length} ASINs (${statusLabel}).` });
-  }, [data, exportStatuses, last12Months, toast]);
+  }, [getFilteredExportData, last12Months, toast, exportStatuses]);
 
   const handleDocxExport = useCallback(async () => {
-    const statusesToExport = exportStatuses.size > 0 ? exportStatuses : new Set(ALL_STATUSES);
-    const exportData = data.filter(item => statusesToExport.has(item.status));
+    const exportData = getFilteredExportData();
 
     if (exportData.length === 0) {
       toast({ title: 'No data to export', description: 'No ASINs match the selected statuses.', variant: 'destructive' });
