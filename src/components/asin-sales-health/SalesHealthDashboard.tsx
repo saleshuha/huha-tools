@@ -393,7 +393,7 @@ export function SalesHealthDashboard({ data, loading }: Props) {
     } finally {
       setDocxExporting(false);
     }
-  }, [data, exportStatuses, imageMap, toast]);
+  }, [getFilteredExportData, exportStatuses, imageMap, toast]);
 
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground text-sm">Loading health data...</div>;
