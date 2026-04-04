@@ -24,21 +24,9 @@ export const getPriorityLabel = (priority?: number): string => {
 
 export const getPriorityColor = (priority?: number): string => {
   if (!priority) return 'secondary';
-  
-  switch (priority) {
-    case 1:
-      return 'destructive';
-    case 2:
-      return 'destructive';
-    case 3:
-      return 'secondary';
-    case 4:
-      return 'outline';
-    case 5:
-      return 'outline';
-    default:
-      return 'secondary';
-  }
+  if (priority <= 2) return 'destructive';
+  if (priority <= 3) return 'secondary';
+  return 'outline';
 };
 
 export const sortPOsByPriority = (pos: any[]): any[] => {
