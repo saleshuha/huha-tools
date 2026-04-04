@@ -23,6 +23,11 @@ const PRIORITY_COLORS: Record<number, string> = {
   3: 'border-l-sky',
   4: 'border-l-primary',
   5: 'border-l-muted-foreground',
+  6: 'border-l-accent',
+  7: 'border-l-secondary',
+  8: 'border-l-muted',
+  9: 'border-l-border',
+  10: 'border-l-ring',
 };
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -31,6 +36,11 @@ const PRIORITY_LABELS: Record<number, string> = {
   3: 'Medium',
   4: 'Low',
   5: 'Minimal',
+  6: 'Deferred',
+  7: 'Backlog',
+  8: 'Archive',
+  9: 'Reserve',
+  10: 'Lowest',
 };
 
 interface ExpandedGroupData {
