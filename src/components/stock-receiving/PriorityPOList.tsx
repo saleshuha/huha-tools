@@ -23,6 +23,11 @@ const PRIORITY_COLORS: Record<number, string> = {
   3: 'border-l-sky',
   4: 'border-l-primary',
   5: 'border-l-muted-foreground',
+  6: 'border-l-accent',
+  7: 'border-l-secondary',
+  8: 'border-l-muted',
+  9: 'border-l-border',
+  10: 'border-l-ring',
 };
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -31,6 +36,11 @@ const PRIORITY_LABELS: Record<number, string> = {
   3: 'Medium',
   4: 'Low',
   5: 'Minimal',
+  6: 'Deferred',
+  7: 'Backlog',
+  8: 'Archive',
+  9: 'Reserve',
+  10: 'Lowest',
 };
 
 interface ExpandedGroupData {
@@ -522,7 +532,7 @@ export function PriorityPOList() {
                 <Select value={String(newGroupPriority)} onValueChange={(v) => setNewGroupPriority(Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[1, 2, 3, 4, 5].map(p => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
                       <SelectItem key={p} value={String(p)}>P{p} - {PRIORITY_LABELS[p]}</SelectItem>
                     ))}
                   </SelectContent>
@@ -645,7 +655,7 @@ export function PriorityPOList() {
               <Select value={String(editGroupPriority)} onValueChange={(v) => setEditGroupPriority(Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 4, 5].map(p => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
                     <SelectItem key={p} value={String(p)}>P{p} - {PRIORITY_LABELS[p]}</SelectItem>
                   ))}
                 </SelectContent>
