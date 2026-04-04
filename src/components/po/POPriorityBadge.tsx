@@ -27,7 +27,7 @@ const priorityConfig: Record<number, { label: string; fullLabel: string; color: 
 };
 
 export function POPriorityBadge({ priority, onUpdate, disabled }: POPriorityBadgeProps) {
-  const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig[3];
+  const config = priorityConfig[priority] || priorityConfig[3];
 
   return (
     <DropdownMenu>
