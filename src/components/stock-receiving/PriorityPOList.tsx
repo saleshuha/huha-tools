@@ -532,7 +532,7 @@ export function PriorityPOList() {
                 <Select value={String(newGroupPriority)} onValueChange={(v) => setNewGroupPriority(Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[1, 2, 3, 4, 5].map(p => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
                       <SelectItem key={p} value={String(p)}>P{p} - {PRIORITY_LABELS[p]}</SelectItem>
                     ))}
                   </SelectContent>
