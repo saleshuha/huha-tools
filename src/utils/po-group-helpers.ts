@@ -5,24 +5,21 @@ export const consolidatePOGroupQuantity = (group: POGroupWithMembers): number =>
 };
 
 export const getPriorityLabel = (priority?: number): string => {
-  if (!priority) return '📦 3rd Nearest Shipment';
+  if (!priority) return '📦 P3 - Medium';
   
-  // Priorities 1-5 are for grouped POs
-  switch (priority) {
-    case 1:
-      return '🚀 1st Nearest Shipment';
-    case 2:
-      return '🔥 2nd Nearest Shipment';
-    case 3:
-      return '📦 3rd Nearest Shipment';
-    case 4:
-      return '📅 4th Nearest Shipment';
-    case 5:
-      return '⏰ 5th Nearest Shipment';
-    default:
-      // Priority 6+ are auto-assigned to ungrouped POs
-      return '📦 3rd Nearest Shipment';
-  }
+  const labels: Record<number, string> = {
+    1: '🚀 P1 - Critical',
+    2: '🔥 P2 - High',
+    3: '📦 P3 - Medium',
+    4: '📅 P4 - Low',
+    5: '⏰ P5 - Minimal',
+    6: '📋 P6 - Deferred',
+    7: '🗂️ P7 - Backlog',
+    8: '📁 P8 - Archive',
+    9: '🔖 P9 - Reserve',
+    10: '⬇️ P10 - Lowest',
+  };
+  return labels[priority] || `📦 P${priority}`;
 };
 
 export const getPriorityColor = (priority?: number): string => {
