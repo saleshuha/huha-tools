@@ -4489,7 +4489,12 @@ export const POTracker = () => {
                     setLabelSearchQuery('');
                   }}>
                             <X className="h-3 w-3" />
-                          </Button>}
+                           </Button>}
+                          {labelSearchQuery.includes(',') && (
+                            <div className="absolute -bottom-5 left-0 text-[10px] text-muted-foreground">
+                              {labelSearchQuery.split(',').filter(s => s.trim()).length} search terms
+                            </div>
+                          )}
                       </div>
 
                         {/* Right: Location controls grouped */}
