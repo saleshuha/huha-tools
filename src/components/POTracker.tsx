@@ -2456,8 +2456,22 @@ export const POTracker = () => {
       }
     }
     if (query) {
-      const lowerCaseQuery = query.toLowerCase();
-      ordersToFilter = ordersToFilter.filter(order => order.po_number.toLowerCase().includes(lowerCaseQuery) || order.asin?.toLowerCase().includes(lowerCaseQuery) || order.model_number?.toLowerCase().includes(lowerCaseQuery) || order.title?.toLowerCase().includes(lowerCaseQuery));
+      // Support comma-separated PO numbers for bulk lookup
+      const queryParts = query.split(',').map(q => q.trim().toLowerCase()).filter(q => q.length > 0);
+      if (queryParts.length > 1) {
+        // Multiple comma-separated terms — match any PO number exactly or partially
+        ordersToFilter = ordersToFilter.filter(order => 
+          queryParts.some(part => 
+            order.po_number.toLowerCase().includes(part) || 
+            order.asin?.toLowerCase().includes(part) || 
+            order.model_number?.toLowerCase().includes(part) || 
+            order.title?.toLowerCase().includes(part)
+          )
+        );
+      } else {
+        const lowerCaseQuery = queryParts[0];
+        ordersToFilter = ordersToFilter.filter(order => order.po_number.toLowerCase().includes(lowerCaseQuery) || order.asin?.toLowerCase().includes(lowerCaseQuery) || order.model_number?.toLowerCase().includes(lowerCaseQuery) || order.title?.toLowerCase().includes(lowerCaseQuery));
+      }
     }
     // Apply location filter
     if (selectedLocationFilter.size > 0) {
@@ -4464,8 +4478,8 @@ export const POTracker = () => {
                       <div className="flex items-center gap-3 flex-wrap">
                         {/* Left: Search */}
                         <div className="relative flex-1 min-w-[280px]">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
-                           <Input placeholder="Search PO number, ASIN, model, serial number..." value={labelSearchQuery} onChange={e => {
+                           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                            <Input placeholder="Search PO numbers (comma-separated), ASIN, model..." value={labelSearchQuery} onChange={e => {
                     console.log('Label search query changed to:', e.target.value);
                     setLabelSearchQuery(e.target.value);
                   }} className="pl-9 pr-20 border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl shadow-sm transition-all duration-200" />
