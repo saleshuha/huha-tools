@@ -1,50 +1,33 @@
 
 
-# Add Product Images + DOCX Export to ASIN Sales Health
+# Add Print Status Filter to PO Print Dialog
 
 ## What Changes
 
-1. **Product images in each row** — Fetch images from the existing `product_images` table (by ASIN) and display a small thumbnail in the Product column of the Sales Health table.
+Add a multi-select print status filter in the left panel (between the search bar and the item list) that lets you filter items by: **Fully Printed**, **Partially Printed**, and **Not Printed**. Also audit the metrics (Selected Items, Total Quantity) to ensure they reflect only the visible/filtered items correctly.
 
-2. **Export to DOCX** — Add a "Export DOCX" button that generates an editable Word document containing each product's image, ASIN, title, status, score, and sales data.
+## How It Works
+
+A row of toggle buttons (chips) below the search input:
+- **Not Printed** — items where `printed_quantity` is 0 or null
+- **Partial** — items where `0 < printed_quantity < quantity`
+- **Fully Printed** — items where `printed_quantity >= quantity`
+
+Multiple can be active at once. When none are active, all items show (no filter). The item count in the "Items to Print" header and the Summary metrics will update to reflect the filtered + selected items.
 
 ## Technical Details
 
-### 1. Fetch product images
+### File: `src/components/po/POPrintDialog.tsx`
 
-- In `SalesHealthDashboard.tsx`, add a `useQuery` call to fetch images from `product_images` table for all visible ASINs
-- Build a `Map<string, string>` (asin → image_url) for quick lookup
-- Display a 32x32 thumbnail in the Product cell (sticky left column), with a fallback placeholder if no image exists
+1. **New state**: `printStatusFilter` — a `Set<'printed' | 'partial' | 'not_printed'>`, default empty (show all)
 
-### 2. Product column layout update
+2. **Extend `filteredOrdersWithIndices` memo** — after the search filter, apply the print status filter:
+   - Classify each order: if `printed_quantity >= quantity` → "printed", if `printed_quantity > 0` → "partial", else → "not_printed"
+   - If `printStatusFilter` is non-empty, keep only matching orders
 
-The current Product cell shows ASIN + SKU + title vertically. Add the image to the left:
+3. **UI**: Add 3 toggle buttons styled as chips/badges below the search bar, each toggling its status in the set. Show active state with filled variant.
 
-```text
-[IMG] ASIN · SKU
-      Title (truncated)
-```
+4. **Metrics audit**: The Summary section already derives from `printItems` which comes from `selectedItems`. The "Items to Print" label already shows `filteredOrders.length`. Since the filter feeds into `filteredOrdersWithIndices`, all downstream counts will be correct. Will verify `totalQuantity` sums only selected items (it does — line 461 sums `printItems`).
 
-### 3. DOCX Export
-
-- Install `docx` package (already available via npm)
-- Add a "Export DOCX" button next to the existing CSV Export popover
-- Generate a Word document with:
-  - Title header with date and filter info
-  - A table with columns: Image, ASIN/SKU, Title, Status, Score, Velocity, Total Shipped, Trend
-  - Product images fetched and embedded as `ImageRun` in the DOCX
-  - For products without images, show "No image" text
-- Download as `.docx` file
-
-### 4. Image fetching for DOCX
-
-- Images are stored as URLs (Supabase storage public URLs)
-- Fetch each image as a blob/buffer, then embed using `ImageRun` with base64 data
-- Process in batches to avoid overwhelming the browser
-- Show a loading toast during generation
-
-## Files
-
-- **Modify**: `src/components/asin-sales-health/SalesHealthDashboard.tsx` — Add image column, image fetching query, DOCX export button and handler
-- **Install**: `docx` and `file-saver` packages (for DOCX generation and download)
+### Single file change — `src/components/po/POPrintDialog.tsx`
 
