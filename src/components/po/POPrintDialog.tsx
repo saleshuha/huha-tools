@@ -48,6 +48,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [stockSort, setStockSort] = useState<'none' | 'asc' | 'desc'>('none');
+  const [printStatusFilter, setPrintStatusFilter] = useState<Set<'printed' | 'partial' | 'not_printed'>>(new Set());
   const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [truePrintedTotals, setTruePrintedTotals] = useState<Map<string, number>>(new Map());
@@ -139,28 +140,50 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     }
   }, [orders]);
 
-  // Filter orders based on search query and maintain proper indices
+  // Helper to classify print status of an order
+  const getPrintStatus = (order: POOrder): 'printed' | 'partial' | 'not_printed' => {
+    const printed = truePrintedTotals.get(order.asin || '') ?? order.printed_quantity ?? 0;
+    if (printed >= order.quantity) return 'printed';
+    if (printed > 0) return 'partial';
+    return 'not_printed';
+  };
+
+  const togglePrintStatusFilter = (status: 'printed' | 'partial' | 'not_printed') => {
+    setPrintStatusFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  // Filter orders based on search query and print status, maintain proper indices
   const filteredOrdersWithIndices = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return orders.map((order, index) => ({ order, originalIndex: index }));
-    }
-    
-    const query = searchQuery.toLowerCase();
-    return orders
-      .map((order, index) => ({ order, originalIndex: index }))
-      .filter(({ order, originalIndex }) => {
+    let result = orders.map((order, index) => ({ order, originalIndex: index }));
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(({ order, originalIndex }) => {
         const searchText = [
           order.asin,
           order.sku_code,
           order.title,
           order.po_number,
           order.model_number,
-          `#${originalIndex + 1}` // Allow searching by serial number
+          `#${originalIndex + 1}`
         ].filter(Boolean).join(' ').toLowerCase();
-        
         return searchText.includes(query);
       });
-  }, [orders, searchQuery]);
+    }
+
+    // Print status filter
+    if (printStatusFilter.size > 0) {
+      result = result.filter(({ order }) => printStatusFilter.has(getPrintStatus(order)));
+    }
+
+    return result;
+  }, [orders, searchQuery, printStatusFilter, truePrintedTotals]);
 
   // Extract filtered orders for easier access
   const filteredOrders = React.useMemo(() => {
@@ -580,6 +603,35 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                   >
                     Select All Results ({filteredOrdersWithIndices.length})
                   </Button>
+                )}
+              </div>
+
+              {/* Print Status Filter */}
+              <div className="flex gap-1 flex-wrap">
+                {([
+                  { key: 'not_printed' as const, label: 'Not Printed', color: 'bg-red-100 text-red-700 border-red-300' },
+                  { key: 'partial' as const, label: 'Partial', color: 'bg-amber-100 text-amber-700 border-amber-300' },
+                  { key: 'printed' as const, label: 'Fully Printed', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+                ]).map(({ key, label, color }) => (
+                  <button
+                    key={key}
+                    onClick={() => togglePrintStatusFilter(key)}
+                    className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                      printStatusFilter.has(key)
+                        ? `${color} font-semibold ring-1 ring-offset-1 ring-current`
+                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {printStatusFilter.size > 0 && (
+                  <button
+                    onClick={() => setPrintStatusFilter(new Set())}
+                    className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
                 )}
               </div>
 
