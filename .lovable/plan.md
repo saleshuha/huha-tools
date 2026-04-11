@@ -1,33 +1,38 @@
 
 
-# Add Print Status Filter to PO Print Dialog
+# Generate Full App Documentation as DOCX
 
-## What Changes
+## What It Does
 
-Add a multi-select print status filter in the left panel (between the search bar and the item list) that lets you filter items by: **Fully Printed**, **Partially Printed**, and **Not Printed**. Also audit the metrics (Selected Items, Total Quantity) to ensure they reflect only the visible/filtered items correctly.
+Creates a comprehensive, professionally formatted Word document (.docx) documenting every section and page of the HuHa Dashboard application, organized by the sidebar navigation structure.
 
-## How It Works
+## Document Structure
 
-A row of toggle buttons (chips) below the search input:
-- **Not Printed** — items where `printed_quantity` is 0 or null
-- **Partial** — items where `0 < printed_quantity < quantity`
-- **Fully Printed** — items where `printed_quantity >= quantity`
+1. **Title Page** — "HuHa Dashboard - Application Documentation"
+2. **Table of Contents**
+3. **Overview** — App description, tech stack, authentication
+4. **Inventory Section** — Receive Stock, Instock Inventory, Sales & Replenishment, Stock Audit
+5. **Shopify Sync** — Shopify integration page
+6. **Market Purchases** — Market purchase tracking
+7. **Amazon Section** — DF Order Processing, Amazon Retail (PO Tracker), Amazon Fulfillment Tracker, Amazon Image Uploader, Amazon Vendor Central, Amazon Returns Analysis, ASIN Cost History, ASIN Sales Health
+8. **Noon Section** — Noon Orders Processing, Noon Orders Tracking, FBPI Orders
+9. **Noon Reports Section** — Dashboard, Store Management, Sales Data Upload, Fees Reports, Payment Reports, SKU Cost Management, Analytics Dashboard
+10. **Source Section** — Source Product Importer, Source Order Tracking, Source API Documentation, Global Sources
+11. **Label Designer**
+12. **Carrefour Sales Tracker**
+13. **Tools Section** — Excel File Mapper, Batch Processor, ASIN QTY Sum, Zip Splitter, File Merger, Excel Editor, Bulk Column Editor, Noon File Cleaner, Product File Manager, Noon Statement Analyzer
+14. **QZ Tray Setup**
+15. **User Management & Settings** — User Management, Preview Settings
 
-Multiple can be active at once. When none are active, all items show (no filter). The item count in the "Items to Print" header and the Summary metrics will update to reflect the filtered + selected items.
+Each page gets a heading with a brief description of its purpose and key features.
 
-## Technical Details
+## Technical Approach
 
-### File: `src/components/po/POPrintDialog.tsx`
+- Run a Node.js script using the `docx` npm package
+- US Letter page size, Arial font, proper heading styles
+- Numbered sections with consistent formatting
+- Output to `/mnt/documents/HuHa_App_Documentation.docx`
+- QA via PDF conversion and image inspection
 
-1. **New state**: `printStatusFilter` — a `Set<'printed' | 'partial' | 'not_printed'>`, default empty (show all)
-
-2. **Extend `filteredOrdersWithIndices` memo** — after the search filter, apply the print status filter:
-   - Classify each order: if `printed_quantity >= quantity` → "printed", if `printed_quantity > 0` → "partial", else → "not_printed"
-   - If `printStatusFilter` is non-empty, keep only matching orders
-
-3. **UI**: Add 3 toggle buttons styled as chips/badges below the search bar, each toggling its status in the set. Show active state with filled variant.
-
-4. **Metrics audit**: The Summary section already derives from `printItems` which comes from `selectedItems`. The "Items to Print" label already shows `filteredOrders.length`. Since the filter feeds into `filteredOrdersWithIndices`, all downstream counts will be correct. Will verify `totalQuantity` sums only selected items (it does — line 461 sums `printItems`).
-
-### Single file change — `src/components/po/POPrintDialog.tsx`
+## Single script execution — no codebase changes
 
