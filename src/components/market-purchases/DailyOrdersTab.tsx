@@ -304,6 +304,11 @@ export function DailyOrdersTab() {
           <span className="text-xs text-muted-foreground">Products</span>
           <span className="text-sm font-bold text-foreground">{items.length}</span>
         </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Total Qty</span>
+          <span className="text-sm font-bold text-foreground">{amazonTotal + noonTotal}</span>
+        </div>
         <div className="flex-1" />
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 flex-shrink-0">
           <TrendingUp className="h-3.5 w-3.5 text-primary" />
