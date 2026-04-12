@@ -244,6 +244,181 @@ export function DailyOrdersTab() {
     toast.success('PDF exported successfully');
   };
 
+  const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // Try canvas approach for CORS-restricted images
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        return new Promise((resolve) => {
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            try {
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            } catch {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = url;
+          setTimeout(() => resolve(null), 5000);
+        });
+      } catch {
+        return null;
+      }
+    }
+  };
+
+  const exportSummaryPDF = async () => {
+    if (items.length === 0) return;
+    toast.info('Generating Summary PDF with images...');
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const dateStr = format(new Date(selectedDate), 'dd MMM yyyy');
+    const margin = 12;
+    const imgSize = 22;
+    const rowH = 26;
+
+    // Fetch all images in parallel
+    const imagePromises = items.map(item => {
+      const url = item.asin ? getProductImageUrl(item.asin, item.noonImageKey) : (item.noonImageKey ? getNoonImageUrl(item.noonImageKey) : null);
+      return url ? fetchImageAsBase64(url) : Promise.resolve(null);
+    });
+    const imageDataList = await Promise.all(imagePromises);
+
+    // Column layout: Image | Title | ASIN | Qty
+    const colImage = { x: margin, w: imgSize + 4 };
+    const colTitle = { x: margin + colImage.w, w: 90 };
+    const colAsin = { x: colTitle.x + colTitle.w, w: 42 };
+    const colQty = { x: colAsin.x + colAsin.w, w: pageW - margin - (colAsin.x + colAsin.w) };
+
+    const drawHeader = (y: number) => {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Daily Orders Summary - ${dateStr}`, margin, y);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(130);
+      doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, margin, y + 5);
+      doc.setTextColor(0);
+      return y + 10;
+    };
+
+    const drawTableHeader = (y: number) => {
+      doc.setFillColor(235, 235, 240);
+      doc.rect(margin, y, pageW - margin * 2, 7, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100);
+      doc.text('IMAGE', colImage.x + 2, y + 4.5);
+      doc.text('TITLE', colTitle.x + 2, y + 4.5);
+      doc.text('ASIN', colAsin.x + 2, y + 4.5);
+      doc.text('QTY', colQty.x + colQty.w / 2, y + 4.5, { align: 'center' });
+      doc.setTextColor(0);
+      return y + 8;
+    };
+
+    let y = drawHeader(16);
+    y = drawTableHeader(y);
+
+    let totalQtySum = 0;
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      totalQtySum += item.totalQty;
+
+      if (y + rowH > pageH - 20) {
+        doc.addPage();
+        y = drawHeader(16);
+        y = drawTableHeader(y);
+      }
+
+      // Alternate row bg
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 248, 252);
+        doc.rect(margin, y - 1, pageW - margin * 2, rowH, 'F');
+      }
+
+      // Image
+      const imgData = imageDataList[idx];
+      if (imgData) {
+        try {
+          doc.addImage(imgData, 'JPEG', colImage.x + 1, y + 1, imgSize, imgSize);
+        } catch {
+          // Draw placeholder
+          doc.setDrawColor(200);
+          doc.rect(colImage.x + 1, y + 1, imgSize, imgSize);
+          doc.setFontSize(6);
+          doc.setTextColor(180);
+          doc.text('No Image', colImage.x + imgSize / 2 + 1, y + imgSize / 2 + 1, { align: 'center' });
+          doc.setTextColor(0);
+        }
+      } else {
+        doc.setDrawColor(200);
+        doc.rect(colImage.x + 1, y + 1, imgSize, imgSize);
+        doc.setFontSize(6);
+        doc.setTextColor(180);
+        doc.text('No Image', colImage.x + imgSize / 2 + 1, y + imgSize / 2 + 1, { align: 'center' });
+        doc.setTextColor(0);
+      }
+
+      // Title - wrap text
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      const titleLines = doc.splitTextToSize(item.title || '—', colTitle.w - 4);
+      doc.text(titleLines.slice(0, 3), colTitle.x + 2, y + 5);
+
+      // ASIN
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(item.asin || '—', colAsin.x + 2, y + 5);
+      if (item.sku) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(120);
+        doc.text(item.sku, colAsin.x + 2, y + 9);
+        doc.setTextColor(0);
+      }
+
+      // Qty
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(item.totalQty), colQty.x + colQty.w / 2, y + imgSize / 2 + 2, { align: 'center' });
+
+      y += rowH;
+    }
+
+    // Footer
+    y += 3;
+    doc.setDrawColor(0, 100, 200);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total Products: ${items.length}`, margin, y);
+    doc.text(`Total Quantity: ${totalQtySum}`, pageW - margin, y, { align: 'right' });
+
+    doc.save(`daily-orders-summary-${selectedDate}.pdf`);
+    toast.success('Summary PDF exported successfully');
+  };
+
   return (
     <div className="space-y-5">
       {/* Date Navigation Toolbar */}
@@ -278,6 +453,15 @@ export function DailyOrdersTab() {
           <FileDown className="h-3.5 w-3.5 mr-1.5" /> PDF Export
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={exportSummaryPDF}
+          disabled={items.length === 0}
+        >
+          <FileDown className="h-3.5 w-3.5 mr-1.5" /> Summary PDF
+        </Button>
+        <Button
           size="sm"
           className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
           onClick={() => setLinkDialogOpen(true)}
@@ -303,6 +487,11 @@ export function DailyOrdersTab() {
           <Package className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Products</span>
           <span className="text-sm font-bold text-foreground">{items.length}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Total Qty</span>
+          <span className="text-sm font-bold text-foreground">{amazonTotal + noonTotal}</span>
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 flex-shrink-0">
@@ -342,7 +531,7 @@ export function DailyOrdersTab() {
                   <CardContent className="p-4">
                     <div className="flex gap-3">
                       <div
-                        className="h-16 w-16 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
+                        className="h-20 w-20 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
                         onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
                       >
                         {imgUrl && !hasFailed ? (
@@ -410,7 +599,7 @@ export function DailyOrdersTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/40 border-b border-border">
-                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
+                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[92px]"></th>
                   <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
@@ -427,7 +616,7 @@ export function DailyOrdersTab() {
                         const hasFailed = failedImages.has(item.asin);
                         return (
                           <div
-                            className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                            className="h-20 w-20 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                             onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
                           >
                             {imgUrl && !hasFailed ? (
