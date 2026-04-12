@@ -417,6 +417,7 @@ export function DailyOrdersTab() {
 
     doc.save(`daily-orders-summary-${selectedDate}.pdf`);
     toast.success('Summary PDF exported successfully');
+  };
 
   return (
     <div className="space-y-5">
