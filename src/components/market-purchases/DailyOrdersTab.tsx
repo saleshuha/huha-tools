@@ -453,6 +453,15 @@ export function DailyOrdersTab() {
           <FileDown className="h-3.5 w-3.5 mr-1.5" /> PDF Export
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={exportSummaryPDF}
+          disabled={items.length === 0}
+        >
+          <FileDown className="h-3.5 w-3.5 mr-1.5" /> Summary PDF
+        </Button>
+        <Button
           size="sm"
           className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
           onClick={() => setLinkDialogOpen(true)}
