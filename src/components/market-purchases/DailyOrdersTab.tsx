@@ -347,7 +347,7 @@ export function DailyOrdersTab() {
                   <CardContent className="p-4">
                     <div className="flex gap-3">
                       <div
-                        className="h-16 w-16 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
+                        className="h-20 w-20 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
                         onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
                       >
                         {imgUrl && !hasFailed ? (
@@ -415,7 +415,7 @@ export function DailyOrdersTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/40 border-b border-border">
-                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
+                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[92px]"></th>
                   <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
                   <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
@@ -432,7 +432,7 @@ export function DailyOrdersTab() {
                         const hasFailed = failedImages.has(item.asin);
                         return (
                           <div
-                            className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                            className="h-20 w-20 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                             onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
                           >
                             {imgUrl && !hasFailed ? (
