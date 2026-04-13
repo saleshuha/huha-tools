@@ -498,8 +498,6 @@ export const useAmazonOrders = () => {
 
       const data = allData;
 
-      if (error) throw error;
-
       // Calculate statistics
       const newOrders = formattedOrders.filter(order => !existingOrdersMap.has(order.order_id));
       const updatedOrders = formattedOrders.filter(order => existingOrdersMap.has(order.order_id));
