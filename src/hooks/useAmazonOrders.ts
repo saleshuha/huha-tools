@@ -472,18 +472,31 @@ export const useAmazonOrders = () => {
         };
       });
 
-      // Upsert orders
+      // Deduplicate by order_id within the batch (keep last occurrence)
+      const deduped = new Map<string, any>();
+      for (const order of formattedOrders) {
+        deduped.set(order.order_id, order);
+      }
+      const uniqueOrders = Array.from(deduped.values());
 
-      // Use upsert to handle duplicates - update if order_id exists, insert if new
-      const { data, error } = await supabase
-        .from('orders')
-        .upsert(formattedOrders as any, {
-          onConflict: 'order_id,user_id,country',
-          ignoreDuplicates: false // This ensures we update existing records
-        })
-        .select();
+      // Upsert in batches of 500 to avoid payload limits
+      const BATCH_SIZE = 500;
+      let allData: any[] = [];
+      for (let i = 0; i < uniqueOrders.length; i += BATCH_SIZE) {
+        const batch = uniqueOrders.slice(i, i + BATCH_SIZE);
+        const { data: batchData, error } = await supabase
+          .from('orders')
+          .upsert(batch as any, {
+            onConflict: 'order_id,user_id,country',
+            ignoreDuplicates: false
+          })
+          .select();
 
-      if (error) throw error;
+        if (error) throw error;
+        if (batchData) allData = allData.concat(batchData);
+      }
+
+      const data = allData;
 
       // Calculate statistics
       const newOrders = formattedOrders.filter(order => !existingOrdersMap.has(order.order_id));
