@@ -1,32 +1,43 @@
 
 
-# Daily Orders Tab Improvements
+# Multi-File Upload with Deduplication for Amazon Fulfillment Tracker
 
 ## Changes
 
-### 1. Bigger Table Images
-Increase the desktop table image from `h-14 w-14` (56px) to `h-20 w-20` (80px), and update the column width from `w-[68px]` to `w-[92px]`. Mobile card images increase from `h-16 w-16` to `h-20 w-20`.
+### 1. Multi-File Upload in ImportOrdersDialog
+- Change the file input from single to `multiple` file selection
+- Store an array of files instead of a single file
+- Parse all selected files and merge their rows into one combined preview
+- Deduplicate by `order_id` across all files before showing preview (keep last occurrence)
+- Show duplicate count removed in the preview summary
+- Show list of all selected files with their names/sizes
 
-### 2. Verify Qty Accuracy
-The consolidation logic at lines 74-111 sums `item_quantity` from `order_imports` (Amazon) and `quantity` from `noon_processing_orders` (Noon) per unique ASIN/SKU. The `totalQty` is `amazonQty + noonQty` (line 111). The stat bar totals use `items.reduce()` which correctly sums all items. The footer row also uses `items.reduce((s, i) => s + i.totalQty, 0)`. This logic is correct — each row from the uploaded file contributes its quantity to the matching consolidated item. No bug here, but I'll add a visible "Total Qty" sum in the stat bar for quick cross-checking.
+### 2. Pre-Upload Deduplication Display
+- After parsing all files, show: "X orders found from Y files (Z duplicates removed)"
+- The preview table shows only unique orders
 
-### 3. New PDF Export — Image, Title, ASIN, Qty Only
-Add a second export button "Export Summary PDF" that generates a cleaner PDF with:
-- **Large product images** loaded from URLs (using jsPDF's `addImage` with fetched image data)
-- **Title** column
-- **ASIN** column  
-- **Total Qty** column
-- Footer with total qty sum
+### 3. Metrics & Credit Timing Audit
+The existing code is correct:
+- **Total value**: sums `cost * qty` per order, converts to USD — correct
+- **Pending**: filters by status "approved" or "non submitted" — correct
+- **Overdue**: filters pending orders where `shipment_date + creditDays < now` — correct, uses `creditDays` from `usePaymentTerms` hook
+- **Paid**: filters by `payment_status === 'completed'` or `status === 'paid'` — correct
+- **Paid through date**: finds latest date where all prior orders are paid — correct
+- **Upcoming payments**: windows at 7/30/90 days — correct
+- **Dedup in bulkImportOrders**: already deduplicates by `order_id` before upsert — correct
 
-Images will be fetched as base64 via canvas, with a fallback placeholder for failed loads. Each row will be taller (~25mm) to accommodate the large image.
+No metrics bugs found. The `bulkImportOrders` hook already handles batch dedup properly.
 
 ## Technical Details
 
-### File: `src/components/market-purchases/DailyOrdersTab.tsx`
+### File: `src/components/amazon/ImportOrdersDialog.tsx`
 
-1. **Image size** — Change `h-14 w-14` → `h-20 w-20` on line 430, column width `w-[68px]` → `w-[92px]` on line 413
-2. **New `exportSummaryPDF` function** — Fetches product images as base64, builds a portrait A4 PDF with 4 columns (Image ~20x20mm, Title, ASIN, Qty), paginated
-3. **New button** — Add "Summary PDF" button next to the existing "PDF Export" button in the toolbar
+1. Change `file` state from `File | null` to `File[]`
+2. Change file input to accept `multiple`
+3. Update `handleFileSelect` to accept multiple files, parse each with XLSX, merge all rows
+4. Deduplicate merged rows by `order_id` (keep last), track duplicate count
+5. Update UI to show file list and dedup stats
+6. No changes needed in `useAmazonOrders.ts` — dedup already exists there
 
 ### Single file change
 
