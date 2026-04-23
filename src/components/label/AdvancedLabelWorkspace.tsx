@@ -6,13 +6,16 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { PrintService } from '@/services/print-service';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { 
   Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw, 
   Copy, Trash2, Move, RotateCw, Grid3X3, MousePointer2,
-  Undo2, Redo2, Settings
+  Undo2, Redo2, Settings, Sun
 } from 'lucide-react';
 import { toast } from 'sonner';
 import JsBarcode from 'jsbarcode';
