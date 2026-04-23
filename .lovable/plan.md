@@ -1,43 +1,40 @@
 
 
-# Multi-File Upload with Deduplication for Amazon Fulfillment Tracker
+# Add Print Quantity Input to Label Designer
 
-## Changes
+## What Changes
 
-### 1. Multi-File Upload in ImportOrdersDialog
-- Change the file input from single to `multiple` file selection
-- Store an array of files instead of a single file
-- Parse all selected files and merge their rows into one combined preview
-- Deduplicate by `order_id` across all files before showing preview (keep last occurrence)
-- Show duplicate count removed in the preview summary
-- Show list of all selected files with their names/sizes
+Add a quantity input control next to the Print button in the Label Designer toolbar so users can specify how many copies of the current label to print in one click.
 
-### 2. Pre-Upload Deduplication Display
-- After parsing all files, show: "X orders found from Y files (Z duplicates removed)"
-- The preview table shows only unique orders
+## UI
 
-### 3. Metrics & Credit Timing Audit
-The existing code is correct:
-- **Total value**: sums `cost * qty` per order, converts to USD — correct
-- **Pending**: filters by status "approved" or "non submitted" — correct
-- **Overdue**: filters pending orders where `shipment_date + creditDays < now` — correct, uses `creditDays` from `usePaymentTerms` hook
-- **Paid**: filters by `payment_status === 'completed'` or `status === 'paid'` — correct
-- **Paid through date**: finds latest date where all prior orders are paid — correct
-- **Upcoming payments**: windows at 7/30/90 days — correct
-- **Dedup in bulkImportOrders**: already deduplicates by `order_id` before upsert — correct
+In `AdvancedLabelWorkspace.tsx` toolbar, just before the Print button:
 
-No metrics bugs found. The `bulkImportOrders` hook already handles batch dedup properly.
+- A small number input (width ~64px) showing the print quantity
+- Default value: `1`, min: `1`, max: `999`
+- Shown only when QZ is connected and a printer is selected (same gating as Print)
+- Tooltip: "Number of label copies to print"
+- Persisted to `localStorage` as `labelDesignerPrintQty` (same pattern as `printDarkness`)
+
+The Print button label updates to reflect quantity when > 1, e.g. `Print ×5`.
+
+## Behavior
+
+- New state: `printQty` (number), initialized from localStorage (fallback `1`)
+- `handlePrint` already builds `printSettings` with a `copies` field that is currently hardcoded to `1`. Change it to use `printQty`.
+- After successful print, toast becomes: `"Sent N label(s) to printer"`
+- Quantity persists to localStorage on change (same pattern as darkness)
+
+The existing ZPL pipeline (`PrintService.generateZPL`) already honors `copies` via the `^PQ` command, so no service-layer changes are required.
 
 ## Technical Details
 
-### File: `src/components/amazon/ImportOrdersDialog.tsx`
+### File: `src/components/label/AdvancedLabelWorkspace.tsx`
 
-1. Change `file` state from `File | null` to `File[]`
-2. Change file input to accept `multiple`
-3. Update `handleFileSelect` to accept multiple files, parse each with XLSX, merge all rows
-4. Deduplicate merged rows by `order_id` (keep last), track duplicate count
-5. Update UI to show file list and dedup stats
-6. No changes needed in `useAmazonOrders.ts` — dedup already exists there
+1. Add `printQty` state (lines ~74) with localStorage hydration
+2. Update `handlePrint` (line 300) — replace `copies: 1` with `copies: printQty`, persist qty, and update success toast message
+3. Add a compact `<Input type="number">` (with small +/- handled via native input) between the Darkness popover (line 1063) and the Print button (line 1064). Wrap with a `Label` for accessibility. Constrain width with `w-16 h-9`.
+4. Update Print button text to show `Print` or `Print ×{printQty}` when qty > 1
 
-### Single file change
+### Single file change, no service or context changes needed
 
