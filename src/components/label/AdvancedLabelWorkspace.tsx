@@ -71,6 +71,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [printDarkness, setPrintDarkness] = useState<number>(() => {
+    const saved = localStorage.getItem('labelDesignerPrintDarkness');
+    return saved ? Math.min(30, Math.max(0, parseInt(saved, 10) || 10)) : 10;
+  });
 
   useEffect(() => {
     initializeQZ();
