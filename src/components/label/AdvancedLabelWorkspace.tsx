@@ -75,6 +75,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
     const saved = localStorage.getItem('labelDesignerPrintDarkness');
     return saved ? Math.min(30, Math.max(0, parseInt(saved, 10) || 10)) : 10;
   });
+  const [printQty, setPrintQty] = useState<number>(() => {
+    const saved = localStorage.getItem('labelDesignerPrintQty');
+    return saved ? Math.min(999, Math.max(1, parseInt(saved, 10) || 1)) : 1;
+  });
 
   useEffect(() => {
     initializeQZ();
@@ -297,14 +301,17 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         paperSize: 'custom' as const,
         orientation: 'portrait' as const,
         dpi: 203 as const,
-        copies: 1,
+        copies: printQty,
         labelsPerPage: 1,
         margin: 0,
         darkness: printDarkness
       };
       
-      // Persist darkness preference
-      try { localStorage.setItem('labelDesignerPrintDarkness', String(printDarkness)); } catch {}
+      // Persist preferences
+      try {
+        localStorage.setItem('labelDesignerPrintDarkness', String(printDarkness));
+        localStorage.setItem('labelDesignerPrintQty', String(printQty));
+      } catch {}
       
       // For label designer, only print the currently displayed row
       const currentRowData = dataset && dataset.data[previewIndex] ? [dataset.data[previewIndex]] : [];
@@ -316,7 +323,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       
       const zplCode = PrintService.generateZPL(document, singleLabelDataset, printSettings);
       await qzConnectionManager.print(zplCode, selectedPrinter);
-      toast.success('Label sent to printer successfully');
+      toast.success(`Sent ${printQty} label${printQty > 1 ? 's' : ''} to printer`);
     } catch (error) {
       console.error('Print error:', error);
       toast.error('Failed to print label');
@@ -1061,16 +1068,35 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                 </div>
               </PopoverContent>
             </Popover>
+            {qzConnected && selectedPrinter && (
+              <div className="flex items-center gap-1" title="Number of label copies to print">
+                <Label htmlFor="print-qty" className="sr-only">Print quantity</Label>
+                <Input
+                  id="print-qty"
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={printQty}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    const clamped = isNaN(v) ? 1 : Math.min(999, Math.max(1, v));
+                    setPrintQty(clamped);
+                    try { localStorage.setItem('labelDesignerPrintQty', String(clamped)); } catch {}
+                  }}
+                  className="w-16 h-9"
+                />
+              </div>
+            )}
             <Button 
               variant="default" 
               size="sm" 
               onClick={handlePrint}
               disabled={!qzConnected || !selectedPrinter}
-              title={!qzConnected ? "Connect QZ Tray first" : !selectedPrinter ? "Select a printer" : "Print"}
+              title={!qzConnected ? "Connect QZ Tray first" : !selectedPrinter ? "Select a printer" : `Print ${printQty} label${printQty > 1 ? 's' : ''}`}
               className="whitespace-nowrap"
             >
               <Printer className="h-4 w-4 mr-1" />
-              Print
+              {printQty > 1 ? `Print ×${printQty}` : 'Print'}
             </Button>
             {dataset && dataset.data.length > 1 && (
               <Badge variant="outline" className="text-xs">
