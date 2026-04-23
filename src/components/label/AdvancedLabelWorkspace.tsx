@@ -1023,6 +1023,44 @@ export const AdvancedLabelWorkspace: React.FC = () => {
               <Eye className="h-4 w-4 mr-1" />
               Preview
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Print Darkness"
+                  className="whitespace-nowrap"
+                >
+                  <Sun className="h-4 w-4 mr-1" />
+                  Darkness
+                  <Badge variant="secondary" className="ml-1 font-mono text-[10px] px-1.5 py-0">
+                    {printDarkness}
+                  </Badge>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 bg-popover" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Print Darkness</Label>
+                    <Badge variant="secondary" className="font-mono">{printDarkness}</Badge>
+                  </div>
+                  <Slider
+                    value={[printDarkness]}
+                    onValueChange={(v) => setPrintDarkness(v[0])}
+                    min={0}
+                    max={30}
+                    step={1}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Light (0)</span>
+                    <span>Dark (30)</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Controls thermal printer burn intensity. Higher values produce darker text. Saved automatically.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button 
               variant="default" 
               size="sm" 
