@@ -300,8 +300,11 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         copies: 1,
         labelsPerPage: 1,
         margin: 0,
-        darkness: 10
+        darkness: printDarkness
       };
+      
+      // Persist darkness preference
+      try { localStorage.setItem('labelDesignerPrintDarkness', String(printDarkness)); } catch {}
       
       // For label designer, only print the currently displayed row
       const currentRowData = dataset && dataset.data[previewIndex] ? [dataset.data[previewIndex]] : [];
