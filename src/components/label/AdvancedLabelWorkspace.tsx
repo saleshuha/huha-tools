@@ -6,13 +6,16 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { PrintService } from '@/services/print-service';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { 
   Printer, Eye, Save, ZoomIn, ZoomOut, RotateCcw, 
   Copy, Trash2, Move, RotateCw, Grid3X3, MousePointer2,
-  Undo2, Redo2, Settings
+  Undo2, Redo2, Settings, Sun
 } from 'lucide-react';
 import { toast } from 'sonner';
 import JsBarcode from 'jsbarcode';
@@ -68,6 +71,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [printDarkness, setPrintDarkness] = useState<number>(() => {
+    const saved = localStorage.getItem('labelDesignerPrintDarkness');
+    return saved ? Math.min(30, Math.max(0, parseInt(saved, 10) || 10)) : 10;
+  });
 
   useEffect(() => {
     initializeQZ();
@@ -293,8 +300,11 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         copies: 1,
         labelsPerPage: 1,
         margin: 0,
-        darkness: 10
+        darkness: printDarkness
       };
+      
+      // Persist darkness preference
+      try { localStorage.setItem('labelDesignerPrintDarkness', String(printDarkness)); } catch {}
       
       // For label designer, only print the currently displayed row
       const currentRowData = dataset && dataset.data[previewIndex] ? [dataset.data[previewIndex]] : [];
@@ -1013,6 +1023,44 @@ export const AdvancedLabelWorkspace: React.FC = () => {
               <Eye className="h-4 w-4 mr-1" />
               Preview
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Print Darkness"
+                  className="whitespace-nowrap"
+                >
+                  <Sun className="h-4 w-4 mr-1" />
+                  Darkness
+                  <Badge variant="secondary" className="ml-1 font-mono text-[10px] px-1.5 py-0">
+                    {printDarkness}
+                  </Badge>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 bg-popover" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Print Darkness</Label>
+                    <Badge variant="secondary" className="font-mono">{printDarkness}</Badge>
+                  </div>
+                  <Slider
+                    value={[printDarkness]}
+                    onValueChange={(v) => setPrintDarkness(v[0])}
+                    min={0}
+                    max={30}
+                    step={1}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Light (0)</span>
+                    <span>Dark (30)</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Controls thermal printer burn intensity. Higher values produce darker text. Saved automatically.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button 
               variant="default" 
               size="sm" 
