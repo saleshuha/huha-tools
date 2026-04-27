@@ -472,7 +472,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl w-full h-[92vh] max-h-[92vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Layers className="w-5 h-5 text-primary" />
