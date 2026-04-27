@@ -472,7 +472,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
       />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl w-full h-[92vh] max-h-[92vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Layers className="w-5 h-5 text-primary" />
@@ -500,7 +500,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
           <Separator />
 
-          <div className="flex-1 min-h-0 overflow-hidden space-y-3 py-2">
+          <div className="flex-1 min-h-0 flex flex-col gap-3 py-2">
             {/* Mode toggle + refresh */}
             <div className="flex items-center gap-2 flex-wrap">
               <div className="inline-flex rounded-md border border-border overflow-hidden">
@@ -630,7 +630,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
             </div>
 
             {/* Plan Preview */}
-            <ScrollArea className="flex-1 h-[55vh]">
+            <ScrollArea className="flex-1 min-h-0 h-full">
               <div className="space-y-1 pr-3">
                 {loadingSaved && activePlan.length === 0 ? (
                   <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
