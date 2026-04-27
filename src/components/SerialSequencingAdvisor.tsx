@@ -630,7 +630,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
             </div>
 
             {/* Plan Preview */}
-            <ScrollArea className="flex-1 h-[55vh]">
+            <ScrollArea className="flex-1 min-h-0 h-full">
               <div className="space-y-1 pr-3">
                 {loadingSaved && activePlan.length === 0 ? (
                   <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
