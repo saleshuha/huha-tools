@@ -500,7 +500,7 @@ export function SerialSequencingAdvisor({ inventory, onComplete }: SerialSequenc
 
           <Separator />
 
-          <div className="flex-1 min-h-0 overflow-hidden space-y-3 py-2">
+          <div className="flex-1 min-h-0 flex flex-col gap-3 py-2">
             {/* Mode toggle + refresh */}
             <div className="flex items-center gap-2 flex-wrap">
               <div className="inline-flex rounded-md border border-border overflow-hidden">
