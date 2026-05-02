@@ -1007,6 +1007,12 @@ export function AsinInventory() {
     localStorage.setItem('savedLabelTemplate', templateId);
   };
 
+  // Handler to save printer selection automatically
+  const handlePrinterSelection = (printer: string) => {
+    setSelectedPrinter(printer);
+    if (printer) localStorage.setItem('qz-default-printer', printer);
+  };
+
   const loadTemplates = async () => {
     try {
       const { data: templates, error } = await supabase
@@ -1671,6 +1677,9 @@ export function AsinInventory() {
               selectedItemsCount={selectedItems.size}
               qzConnected={qzConnected}
               onPrint={handleBulkPrint}
+              availablePrinters={availablePrinters}
+              selectedPrinter={selectedPrinter}
+              onPrinterChange={handlePrinterSelection}
             />
           </CardContent>
         </Card>

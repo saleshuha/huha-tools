@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Printer, Zap, Settings2 } from 'lucide-react';
+import { Printer, Zap, Settings2, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LabelPrintingCardProps {
@@ -17,6 +17,9 @@ interface LabelPrintingCardProps {
   selectedItemsCount: number;
   qzConnected: boolean;
   onPrint: () => void;
+  availablePrinters?: string[];
+  selectedPrinter?: string;
+  onPrinterChange?: (printer: string) => void;
 }
 
 export function LabelPrintingCard({
@@ -27,9 +30,12 @@ export function LabelPrintingCard({
   onDarknessChange,
   selectedItemsCount,
   qzConnected,
-  onPrint
+  onPrint,
+  availablePrinters = [],
+  selectedPrinter = '',
+  onPrinterChange,
 }: LabelPrintingCardProps) {
-  const canPrint = qzConnected && selectedTemplate && selectedItemsCount > 0;
+  const canPrint = qzConnected && selectedTemplate && selectedItemsCount > 0 && !!selectedPrinter;
 
   return (
     <Card className={cn(
@@ -49,7 +55,7 @@ export function LabelPrintingCard({
               {qzConnected ? (
                 <span className="flex items-center gap-1 text-emerald-500">
                   <Zap className="w-3 h-3" />
-                  QZ Tray Connected
+                  QZ Tray Connected · Settings auto-saved
                 </span>
               ) : (
                 <span className="text-orange-500">QZ Tray Not Connected</span>
@@ -59,7 +65,7 @@ export function LabelPrintingCard({
         </div>
 
         {/* Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Template Selection */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
@@ -74,6 +80,38 @@ export function LabelPrintingCard({
                 {availableTemplates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Printer Selection */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+              <Monitor className="w-3 h-3" />
+              Printer
+            </Label>
+            <Select
+              value={selectedPrinter || ''}
+              onValueChange={(v) => onPrinterChange?.(v)}
+              disabled={!qzConnected || availablePrinters.length === 0}
+            >
+              <SelectTrigger className="h-10 bg-background border-border/60">
+                <SelectValue
+                  placeholder={qzConnected ? 'Select printer...' : 'QZ not connected'}
+                />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg max-h-72">
+                {availablePrinters.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn(
+                        'w-1.5 h-1.5 rounded-full',
+                        p === selectedPrinter ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                      )} />
+                      <span className="truncate">{p}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -110,18 +148,19 @@ export function LabelPrintingCard({
             <Button
               onClick={onPrint}
               disabled={!canPrint}
+              title={!selectedPrinter ? 'Select a printer' : undefined}
               className={cn(
                 'w-full h-10 font-semibold transition-all duration-300',
-                selectedItemsCount > 0 
-                  ? 'bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/20' 
+                selectedItemsCount > 0
+                  ? 'bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/20'
                   : 'bg-muted'
               )}
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Selected
               {selectedItemsCount > 0 && (
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="ml-2 bg-white/20 text-white"
                 >
                   {selectedItemsCount}
