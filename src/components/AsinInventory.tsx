@@ -1677,6 +1677,9 @@ export function AsinInventory() {
               selectedItemsCount={selectedItems.size}
               qzConnected={qzConnected}
               onPrint={handleBulkPrint}
+              availablePrinters={availablePrinters}
+              selectedPrinter={selectedPrinter}
+              onPrinterChange={handlePrinterSelection}
             />
           </CardContent>
         </Card>
