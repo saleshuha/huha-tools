@@ -664,6 +664,90 @@ export type Database = {
           },
         ]
       }
+      delta_sync_config: {
+        Row: {
+          api_key: string | null
+          auto_push_enabled: boolean
+          base_url: string
+          created_at: string
+          id: string
+          last_pushed_at: string | null
+          last_test_at: string | null
+          last_test_status: string | null
+          source_label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key?: string | null
+          auto_push_enabled?: boolean
+          base_url?: string
+          created_at?: string
+          id?: string
+          last_pushed_at?: string | null
+          last_test_at?: string | null
+          last_test_status?: string | null
+          source_label?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string | null
+          auto_push_enabled?: boolean
+          base_url?: string
+          created_at?: string
+          id?: string
+          last_pushed_at?: string | null
+          last_test_at?: string | null
+          last_test_status?: string | null
+          source_label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      delta_sync_queue: {
+        Row: {
+          asin: string
+          balance_after: number | null
+          created_at: string
+          delta: number
+          error_message: string | null
+          id: string
+          notes: string | null
+          pushed_at: string | null
+          reference_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          balance_after?: number | null
+          created_at?: string
+          delta: number
+          error_message?: string | null
+          id?: string
+          notes?: string | null
+          pushed_at?: string | null
+          reference_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          balance_after?: number | null
+          created_at?: string
+          delta?: number
+          error_message?: string | null
+          id?: string
+          notes?: string | null
+          pushed_at?: string | null
+          reference_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       exchange_rates: {
         Row: {
           from_currency: string
