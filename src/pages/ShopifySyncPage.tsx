@@ -8,6 +8,8 @@ import { ShopifyProductManager } from "@/components/shopify/ShopifyProductManage
 import { ShopifyPushInventory } from "@/components/shopify/ShopifyPushInventory";
 import { ExternalSyncSettings } from "@/components/external-sync/ExternalSyncSettings";
 import { ExternalSyncDashboard } from "@/components/external-sync/ExternalSyncDashboard";
+import { DeltaSyncSettings } from "@/components/external-sync/DeltaSyncSettings";
+import { DeltaSyncDashboard } from "@/components/external-sync/DeltaSyncDashboard";
 import { Store, CheckCircle, XCircle, Globe } from "lucide-react";
 
 export default function ShopifySyncPage() {
