@@ -113,6 +113,8 @@ export default function ShopifySyncPage() {
         <TabsContent value="app-sync" className="space-y-4">
           <ExternalSyncSettings />
           <ExternalSyncDashboard />
+          <DeltaSyncSettings />
+          <DeltaSyncDashboard />
         </TabsContent>
       </Tabs>
     </div>
