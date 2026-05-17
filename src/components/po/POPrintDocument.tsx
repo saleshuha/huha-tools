@@ -433,7 +433,7 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             </div>
             {itemsWithStock > 0 && (
               <div className="print-header-stat in-stock">
-                ✓ {itemsWithStock} In Stock
+                ✓ {itemsWithStock} Items · {inStockUnits} Units In Stock
               </div>
             )}
             {itemsWithoutStock > 0 && (
