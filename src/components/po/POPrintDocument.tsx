@@ -12,8 +12,9 @@ interface POPrintDocumentProps {
 export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentProps>(
   ({ items, includeImages, title = 'Purchase Order Items' }, ref) => {
     const itemsWithStock = items.filter(i => (i.inventoryQty ?? 0) > 0).length;
-    const itemsWithoutStock = items.length - itemsWithStock;
-    const totalPrintedQty = items.reduce((sum, i) => sum + (i.printedQuantity ?? 0), 0);
+   const itemsWithoutStock = items.length - itemsWithStock;
+   const inStockUnits = items.reduce((sum, i) => sum + Math.min(i.quantity, i.inventoryQty ?? 0), 0);
+   const totalPrintedQty = items.reduce((sum, i) => sum + (i.printedQuantity ?? 0), 0);
     const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
 
     return (
