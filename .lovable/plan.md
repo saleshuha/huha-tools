@@ -1,91 +1,44 @@
-# Add Delta Stock Sync — Second External Destination
-
 ## Goal
+Make Shipped Orders and FBA Inventory uploads support multiple files without erasing prior data, and add per-file management so users can review, replace, or delete each upload independently.
 
-Add a new "Delta Stock Sync" connection on the **App Sync** tab (Shopify Sync page) that pushes ASIN inventory **changes** (deltas) to a second external app via its `POST /api/public/sync/stock` endpoint. Keeps the existing huha sync untouched.
+## Current behavior (the bug)
+- `saveFBAInventory` / `saveShippedOrders` run `DELETE WHERE user_id` before each insert → uploading file #2 wipes file #1.
+- Dropzones use `multiple: false`, so users can only pick one file at a time.
+- UI only displays a single "File" name in the stat bar. Quantity aggregation across ASINs already works in the hooks (Map sums by ASIN), so once multi-file persistence is fixed, totals across files will combine automatically.
 
-## Endpoint Contract
+## Changes
 
-- `POST {base_url}/api/public/sync/stock`
-- Headers: `Authorization: Bearer sp_live_...`, `Content-Type: application/json`
-- Body: `{ source, items: [{ asin, delta, reference_id?, notes? }] }` (1–500 items, delta in [-10000, 10000])
-- 200 → `{ applied, skipped, results: [{ asin, delta, balance_after }] }`
-- Errors: 401 / 403 / 400 / 429
-- Rate limit: 60 req/min per key → batch up to 500 items per call, throttle.
+### 1. Storage layer (append + per-file ops)
+`src/utils/fbaInventoryStorage.ts` and `src/utils/shippedOrdersStorage.ts`:
+- Replace destructive `save…` with `appendFBAInventory(items, fileName)` / `appendShippedOrders(items, fileName)` — inserts only, no pre-delete. If `fileName` already exists for that user, delete only that file's rows first (replace-by-filename), so re-uploading the same file refreshes instead of duplicating.
+- Add `listFBAFiles()` / `listShippedFiles()` returning `{ fileName, itemCount, totalQuantity, lastModified }[]` grouped by `file_name`.
+- Add `deleteFBAByFile(fileName)` / `deleteShippedByFile(fileName)`.
+- Keep `clearFBAInventory` / `clearShippedOrders` for the "Clear All" action.
+- `loadFBAInventory` / `loadShippedOrders`: keep returning the merged item list (already correct via pagination); drop the misleading single `fileName` field — replaced by the file list.
 
-## UI
+### 2. Hooks
+`src/hooks/useFBAInventory.ts` and `src/hooks/useShippedOrders.ts`:
+- Expose `files` (the per-file summary list), `append(items, fileName)`, `deleteFile(fileName)`, plus existing `clear`, `reload`, `getFBAQty` / `getShippedQty`, and quantity maps (aggregation already sums duplicates across files).
+- Remove the single `fileName` field; add `filesCount`.
 
-New card under existing "External App Connection" on the App Sync tab:
+### 3. UI — `FBAInventoryUpload.tsx` and `ShippedOrdersUpload.tsx`
+- Dropzone: `multiple: true`. Loop through `acceptedFiles` and parse each sequentially. If a file lacks auto-detected mapping, queue it and show the mapping dialog one file at a time.
+- Replace the single "File" stat with **Files: N**. Keep SKUs / Total Units / Last Modified.
+- Add a new **Uploaded Files** panel (collapsible card) above the data table listing each file with: file name, item count, total units, uploaded-at, and a small `Trash2` icon button per row to delete just that file (with confirm dialog). Re-uploading the same file replaces its rows.
+- Keep "Clear All" button in toolbar for nuking everything.
+- Show a small progress indicator while processing multiple files ("Processing 2 of 5…").
 
-**Card 1 — Delta Sync Settings** (`DeltaSyncSettings.tsx`)
-- Base URL input (default the lovableproject.com URL from the docs, editable)
-- API Key input (`sp_live_...`, masked, with show/hide toggle)
-- Source label input (default `huha-tools`, ≤80 chars)
-- Auto-Push toggle ("Push stock changes in real time")
-- Save / Test Connection buttons (Test sends a dry `{items: []}` or a 0-delta sample to verify auth)
-
-**Card 2 — Delta Sync Dashboard** (`DeltaSyncDashboard.tsx`)
-- Status row: last push time, total applied, total skipped (today), key status badge
-- "Reconcile Now" button → manual one-shot push of pending deltas
-- Pending queue summary (count of un-pushed deltas)
-- Recent results list (last 50): ASIN, delta sent, balance_after, status, timestamp
-
-Both cards rendered inside the existing `app-sync` `TabsContent` in `src/pages/ShopifySyncPage.tsx`, below the current `ExternalSyncSettings` / `ExternalSyncDashboard`.
-
-## Data Flow
-
-### Auto-push (real-time)
-1. Trigger on every insert into `stock_changes` (the advanced stock ledger that already records all qty mutations).
-2. Insert a row into a new `delta_sync_queue` table with `{user_id, asin, delta, reference_id, notes, status='pending'}`.
-3. A scheduled edge function (`delta-sync-push`, runs every 1 min via cron) drains the queue per user: groups up to 500 pending rows → POSTs to the user's endpoint → marks rows `sent` with `balance_after`, or `failed` with error message; respects 60 req/min.
-
-### Manual reconcile
-- "Reconcile Now" calls the same edge function with `mode=manual` for the current user; bypasses the cron wait.
-
-### Auto-push toggle OFF
-- The trigger still queues rows (so nothing is lost if the user re-enables) but the cron skips them. Pending count is shown so the user can flush manually.
-
-## Database (migrations)
-
-1. **`delta_sync_config`** (per user)
-   - `user_id` (unique), `base_url`, `api_key` (text, RLS-protected), `source_label`, `auto_push_enabled` (bool), `last_pushed_at`, `last_test_status`
-   - RLS: only owner can select/update/insert.
-
-2. **`delta_sync_queue`**
-   - `id`, `user_id`, `asin`, `delta` (int), `reference_id` (nullable), `notes` (nullable), `status` (`pending|sent|failed|skipped`), `balance_after` (nullable), `error_message` (nullable), `created_at`, `pushed_at`
-   - Index on `(user_id, status, created_at)`.
-   - RLS: owner read-only; edge function (service role) writes.
-
-3. **Trigger** on `stock_changes` insert → enqueue into `delta_sync_queue` (only when a `delta_sync_config` row exists for the user; computes delta as `new_quantity - old_quantity` if not already a delta column).
-
-## Edge Function — `delta-sync-push`
-
-- Auth: accepts user JWT (manual mode) OR runs as service role from cron (no JWT).
-- Logic: load each user's `delta_sync_config` (where `api_key` not null). If `mode=manual`, scope to caller's user_id. For each user:
-  - Pull up to 500 `pending` rows ordered by `created_at`.
-  - POST to `{base_url}/api/public/sync/stock` with `{source, items}`.
-  - On 200: mark rows `sent` with `balance_after` from `results`; rows in `skipped[]` marked `skipped`.
-  - On 401/403: mark rows `failed`, set `last_test_status='invalid_key'`, stop.
-  - On 429: backoff, retry once, otherwise leave pending.
-  - On 400: mark batch `failed` with the validation error.
-- Updates `last_pushed_at` on success.
-- Schedule via `pg_cron` every 60s (added in migration alongside the table).
-
-## Files
-
-**New**
-- `src/components/external-sync/DeltaSyncSettings.tsx`
-- `src/components/external-sync/DeltaSyncDashboard.tsx`
-- `supabase/functions/delta-sync-push/index.ts`
-
-**Edited**
-- `src/pages/ShopifySyncPage.tsx` — render the two new cards in the App Sync tab.
-- `supabase/config.toml` — register `delta-sync-push` (verify_jwt = false; auth handled in code).
-
-**Migrations** — `delta_sync_config` table + RLS, `delta_sync_queue` table + RLS, `stock_changes` AFTER INSERT trigger, `pg_cron` schedule for `delta-sync-push`.
+### 4. No DB schema change required
+`fba_inventory` and `shipped_orders` already have `file_name` and `user_id`. The append + replace-by-filename + group-by-filename logic works on the existing tables.
 
 ## Out of scope
+- No changes to ASIN lookup consumers (POTracker etc.) — they keep using `getFBAQty` / `getShippedQty`, which transparently aggregate across all files.
+- No changes to print/sync flows.
 
-- No changes to the existing huha sync (`external-app-sync` function or its UI).
-- No changes to ASIN inventory mutation logic itself — we hook the existing `stock_changes` ledger.
-- No multi-destination fan-out (this is the second of two; if a third is needed later, generalize then).
+## Files touched
+- `src/utils/fbaInventoryStorage.ts` (edit)
+- `src/utils/shippedOrdersStorage.ts` (edit)
+- `src/hooks/useFBAInventory.ts` (edit)
+- `src/hooks/useShippedOrders.ts` (edit)
+- `src/components/po/FBAInventoryUpload.tsx` (edit)
+- `src/components/po/ShippedOrdersUpload.tsx` (edit)
