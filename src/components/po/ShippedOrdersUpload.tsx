@@ -1,15 +1,15 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileUp, Search, Trash2, Package, Hash, FileText, Loader2, Download } from 'lucide-react';
+import { Upload, FileUp, Search, Trash2, Package, Hash, FileText, Loader2, Download, Files } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useShippedOrders } from '@/hooks/useShippedOrders';
 import { ShippedOrder } from '@/utils/shippedOrdersStorage';
@@ -20,98 +20,39 @@ import { CompactStatBar } from '@/components/ui/compact-stat-bar';
 import { ToolbarBar, ToolbarSpacer } from '@/components/ui/toolbar-bar';
 import { DataTableWrapper, dataTableHeaderClass, dataTableHeadClass, dataTableRowClass, DataTableFooter } from '@/components/ui/data-table-wrapper';
 
+type Mapping = { asin: string; quantity: string; sku: string; title: string };
+
 const ShippedOrdersUpload: React.FC = () => {
   const { toast } = useToast();
-  const { shippedOrders, totalItems, totalQuantity, lastModified, fileName, isLoading, save, clear, reload } = useShippedOrders();
+  const { shippedOrders, files, filesCount, totalItems, totalQuantity, lastModified, isLoading, append, deleteFile, clear } = useShippedOrders();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [showMappingDialog, setShowMappingDialog] = useState(false);
   const [pendingData, setPendingData] = useState<any[]>([]);
   const [pendingHeaders, setPendingHeaders] = useState<string[]>([]);
   const [pendingFileName, setPendingFileName] = useState<string>('');
-  const [columnMapping, setColumnMapping] = useState<{ asin: string; quantity: string; sku: string; title: string }>({
-    asin: '',
-    quantity: '',
-    sku: '',
-    title: '',
-  });
+  const [columnMapping, setColumnMapping] = useState<Mapping>({ asin: '', quantity: '', sku: '', title: '' });
 
-  const autoDetectMapping = useCallback((headers: string[]) => {
-    const lowerHeaders = headers.map(h => h.toLowerCase().trim());
-    const asinIndex = lowerHeaders.findIndex(h => h.includes('asin') || h === 'product id');
-    const qtyIndex = lowerHeaders.findIndex(h => 
-      h.includes('quantity') || h.includes('qty') || h.includes('shipped') || h.includes('units')
-    );
-    const skuIndex = lowerHeaders.findIndex(h => h.includes('sku') && !h.includes('fnsku'));
-    const titleIndex = lowerHeaders.findIndex(h => h.includes('title') || h.includes('product name') || h.includes('name'));
+  const autoDetectMapping = useCallback((headers: string[]): Mapping => {
+    const lower = headers.map(h => h.toLowerCase().trim());
+    const asinIdx = lower.findIndex(h => h.includes('asin') || h === 'product id');
+    const qtyIdx = lower.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('shipped') || h.includes('units'));
+    const skuIdx = lower.findIndex(h => h.includes('sku') && !h.includes('fnsku'));
+    const titleIdx = lower.findIndex(h => h.includes('title') || h.includes('product name') || h.includes('name'));
     return {
-      asin: asinIndex >= 0 ? headers[asinIndex] : '',
-      quantity: qtyIndex >= 0 ? headers[qtyIndex] : '',
-      sku: skuIndex >= 0 ? headers[skuIndex] : '',
-      title: titleIndex >= 0 ? headers[titleIndex] : '',
+      asin: asinIdx >= 0 ? headers[asinIdx] : '',
+      quantity: qtyIdx >= 0 ? headers[qtyIdx] : '',
+      sku: skuIdx >= 0 ? headers[skuIdx] : '',
+      title: titleIdx >= 0 ? headers[titleIdx] : '',
     };
   }, []);
 
-  const parseFile = useCallback(async (file: File) => {
-    setIsProcessing(true);
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      let data: any[] = [];
-      let headers: string[] = [];
-      if (extension === 'csv' || extension === 'txt') {
-        const text = await file.text();
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-        headers = result.meta.fields || [];
-        data = result.data;
-      } else if (extension === 'xlsx' || extension === 'xls') {
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-        if (jsonData.length > 0) {
-          headers = jsonData[0].map(String);
-          data = jsonData.slice(1).map(row => {
-            const obj: any = {};
-            headers.forEach((h, i) => { obj[h] = row[i]; });
-            return obj;
-          });
-        }
-      }
-      if (data.length === 0) {
-        toast({ title: 'Empty file', description: 'The file contains no data.', variant: 'destructive' });
-        setIsProcessing(false);
-        return;
-      }
-      const autoMapping = autoDetectMapping(headers);
-      setPendingHeaders(headers);
-      setPendingData(data);
-      setPendingFileName(file.name);
-      setColumnMapping(autoMapping);
-      if (autoMapping.asin && autoMapping.quantity) {
-        processData(data, autoMapping, file.name);
-      } else {
-        setShowMappingDialog(true);
-      }
-    } catch (error) {
-      console.error('Error parsing file:', error);
-      toast({ title: 'Parse error', description: 'Failed to parse the file.', variant: 'destructive' });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [autoDetectMapping, toast]);
-
-  const processData = useCallback(async (data: any[], mapping: typeof columnMapping, fName: string) => {
-    if (!mapping.asin || !mapping.quantity) {
-      toast({ title: 'Mapping required', description: 'ASIN and Quantity columns are required.', variant: 'destructive' });
-      return;
-    }
+  const buildItems = (data: any[], mapping: Mapping): ShippedOrder[] => {
     const items: ShippedOrder[] = [];
     for (const row of data) {
       const asin = String(row[mapping.asin] || '').trim();
-      const qtyRaw = row[mapping.quantity];
-      const quantity = parseInt(String(qtyRaw).replace(/,/g, ''), 10);
+      const quantity = parseInt(String(row[mapping.quantity]).replace(/,/g, ''), 10);
       if (asin && !isNaN(quantity) && quantity > 0) {
         items.push({
           asin,
@@ -121,22 +62,80 @@ const ShippedOrdersUpload: React.FC = () => {
         });
       }
     }
-    if (items.length === 0) {
-      toast({ title: 'No valid data', description: 'No valid rows found with ASIN and quantity.', variant: 'destructive' });
+    return items;
+  };
+
+  const parseFileRaw = async (file: File): Promise<{ data: any[]; headers: string[] }> => {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension === 'csv' || extension === 'txt') {
+      const text = await file.text();
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return { headers: result.meta.fields || [], data: result.data as any[] };
+    }
+    if (extension === 'xlsx' || extension === 'xls') {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      if (!jsonData.length) return { headers: [], data: [] };
+      const headers = jsonData[0].map(String);
+      const data = jsonData.slice(1).map(row => {
+        const obj: any = {};
+        headers.forEach((h, i) => { obj[h] = row[i]; });
+        return obj;
+      });
+      return { headers, data };
+    }
+    return { headers: [], data: [] };
+  };
+
+  const processData = useCallback(async (data: any[], mapping: Mapping, fName: string) => {
+    if (!mapping.asin || !mapping.quantity) {
+      toast({ title: 'Mapping required', description: 'ASIN and Quantity columns are required.', variant: 'destructive' });
       return;
     }
-    await save(items, fName);
-    setShowMappingDialog(false);
-    setPendingData([]);
-    setPendingHeaders([]);
-    toast({ title: 'Data imported', description: `${items.length} items with ${items.reduce((s, i) => s + i.quantity, 0)} total quantity.` });
-  }, [save, toast]);
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      parseFile(acceptedFiles[0]);
+    const items = buildItems(data, mapping);
+    if (items.length === 0) {
+      toast({ title: 'No valid data', description: `${fName}: no valid rows found.`, variant: 'destructive' });
+      return;
     }
-  }, [parseFile]);
+    await append(items, fName);
+    toast({ title: 'File imported', description: `${fName}: ${items.length} items (${items.reduce((s, i) => s + i.quantity, 0)} qty).` });
+  }, [append, toast]);
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (!acceptedFiles.length) return;
+    setBatchProgress({ current: 0, total: acceptedFiles.length });
+    for (let i = 0; i < acceptedFiles.length; i++) {
+      const file = acceptedFiles[i];
+      setBatchProgress({ current: i + 1, total: acceptedFiles.length });
+      try {
+        const { data, headers } = await parseFileRaw(file);
+        if (!data.length) {
+          toast({ title: 'Empty file', description: `${file.name} contains no data.`, variant: 'destructive' });
+          continue;
+        }
+        const auto = autoDetectMapping(headers);
+        if (auto.asin && auto.quantity) {
+          await processData(data, auto, file.name);
+        } else {
+          setPendingHeaders(headers);
+          setPendingData(data);
+          setPendingFileName(file.name);
+          setColumnMapping(auto);
+          setShowMappingDialog(true);
+          if (i < acceptedFiles.length - 1) {
+            toast({ title: 'Mapping needed', description: `Pausing batch. Map columns for ${file.name}; remaining files were skipped.`, variant: 'destructive' });
+          }
+          break;
+        }
+      } catch (err) {
+        console.error('Error parsing file:', err);
+        toast({ title: 'Parse error', description: `Failed to parse ${file.name}.`, variant: 'destructive' });
+      }
+    }
+    setBatchProgress(null);
+  }, [autoDetectMapping, processData, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -146,16 +145,16 @@ const ShippedOrdersUpload: React.FC = () => {
       'application/vnd.ms-excel': ['.xls'],
       'text/plain': ['.txt'],
     },
-    multiple: false,
+    multiple: true,
   });
 
   const filteredItems = shippedOrders.filter(item => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase();
     return (
-      item.asin?.toLowerCase().includes(query) ||
-      item.sku?.toLowerCase().includes(query) ||
-      item.title?.toLowerCase().includes(query)
+      item.asin?.toLowerCase().includes(q) ||
+      item.sku?.toLowerCase().includes(q) ||
+      item.title?.toLowerCase().includes(q)
     );
   });
 
@@ -171,6 +170,8 @@ const ShippedOrdersUpload: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [shippedOrders]);
 
+  const isProcessing = !!batchProgress;
+
   return (
     <div className="space-y-4">
       {/* Upload Area */}
@@ -184,14 +185,21 @@ const ShippedOrdersUpload: React.FC = () => {
           >
             <input {...getInputProps()} />
             {isProcessing ? (
-              <Loader2 className="h-10 w-10 text-primary animate-spin" />
+              <>
+                <Loader2 className="h-10 w-10 text-primary animate-spin mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Processing {batchProgress!.current} of {batchProgress!.total}…
+                </p>
+              </>
             ) : (
-              <Upload className="h-10 w-10 text-muted-foreground mb-3" />
+              <>
+                <Upload className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-base font-medium text-foreground mb-1">
+                  {isDragActive ? 'Drop files here' : 'Drop one or more CSV/Excel files here or click to upload'}
+                </p>
+                <p className="text-xs text-muted-foreground">Multiple files supported · re-uploading a file refreshes its rows</p>
+              </>
             )}
-            <p className="text-base font-medium text-foreground mb-1">
-              {isDragActive ? 'Drop the file here' : 'Drop CSV/Excel file here or click to upload'}
-            </p>
-            <p className="text-xs text-muted-foreground">Supports .csv, .xlsx, .xls files</p>
           </div>
         </CardContent>
       </Card>
@@ -200,12 +208,60 @@ const ShippedOrdersUpload: React.FC = () => {
       {totalItems > 0 && (
         <CompactStatBar
           items={[
+            { icon: Files, label: 'Files', value: filesCount },
             { icon: Hash, label: 'ASINs', value: totalItems },
             { icon: Package, label: 'Total Qty', value: totalQuantity, highlight: true },
-            { icon: FileText, label: 'File', value: fileName || '-' },
             { icon: FileUp, label: 'Modified', value: lastModified ? format(new Date(lastModified), 'MMM d, HH:mm') : '-' },
           ]}
         />
+      )}
+
+      {/* Uploaded Files panel */}
+      {filesCount > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Uploaded Files ({filesCount})
+              </div>
+            </div>
+            <div className="rounded-lg border divide-y">
+              {files.map(f => (
+                <div key={f.fileName} className="flex items-center gap-3 px-3 py-2 text-xs">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium truncate flex-1" title={f.fileName}>{f.fileName}</span>
+                  <Badge variant="secondary" className="font-mono">{f.itemCount.toLocaleString()} rows</Badge>
+                  <Badge variant="default" className="font-mono">{f.totalQuantity.toLocaleString()} qty</Badge>
+                  <span className="text-muted-foreground hidden sm:inline w-28 text-right">
+                    {f.lastModified ? format(new Date(f.lastModified), 'MMM d, HH:mm') : '-'}
+                  </span>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this file?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Remove all {f.itemCount.toLocaleString()} rows from <span className="font-medium">{f.fileName}</span>. Other files stay intact. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteFile(f.fileName)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete File
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Toolbar */}
@@ -237,7 +293,7 @@ const ShippedOrdersUpload: React.FC = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Clear all shipped orders data?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete all {totalItems} items. This action cannot be undone.
+                  This permanently deletes all {filesCount} file(s) and {totalItems.toLocaleString()} items. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -292,12 +348,8 @@ const ShippedOrdersUpload: React.FC = () => {
                   <span className="font-mono text-sm font-medium">{item.asin}</span>
                   <Badge variant="secondary" className="font-mono">{item.quantity.toLocaleString()}</Badge>
                 </div>
-                {item.title && (
-                  <p className="text-xs text-muted-foreground truncate">{item.title}</p>
-                )}
-                {item.sku && (
-                  <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>
-                )}
+                {item.title && <p className="text-xs text-muted-foreground truncate">{item.title}</p>}
+                {item.sku && <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>}
               </div>
             ))}
             {filteredItems.length > 50 && (
@@ -315,16 +367,16 @@ const ShippedOrdersUpload: React.FC = () => {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <p className="text-lg font-medium text-muted-foreground">No shipped orders data</p>
-            <p className="text-sm text-muted-foreground/70">Upload a CSV or Excel file to get started</p>
+            <p className="text-sm text-muted-foreground/70">Upload one or more CSV / Excel files to get started</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Column Mapping Dialog - unchanged */}
+      {/* Column Mapping Dialog */}
       <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Map Columns</DialogTitle>
+            <DialogTitle>Map Columns — {pendingFileName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -367,7 +419,15 @@ const ShippedOrdersUpload: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowMappingDialog(false)}>Cancel</Button>
-              <Button onClick={() => processData(pendingData, columnMapping, pendingFileName)} disabled={!columnMapping.asin || !columnMapping.quantity}>
+              <Button
+                onClick={async () => {
+                  await processData(pendingData, columnMapping, pendingFileName);
+                  setShowMappingDialog(false);
+                  setPendingData([]);
+                  setPendingHeaders([]);
+                }}
+                disabled={!columnMapping.asin || !columnMapping.quantity}
+              >
                 Import Data
               </Button>
             </div>
