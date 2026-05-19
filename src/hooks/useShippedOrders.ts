@@ -3,8 +3,9 @@ import {
   StoredShippedOrders,
   ShippedOrder,
   loadShippedOrders,
-  saveShippedOrders,
+  appendShippedOrders,
   clearShippedOrders,
+  deleteShippedByFile,
 } from '@/utils/shippedOrdersStorage';
 
 export const useShippedOrders = () => {
@@ -23,8 +24,13 @@ export const useShippedOrders = () => {
     }
   }, []);
 
-  const save = useCallback(async (items: ShippedOrder[], fileName?: string) => {
-    await saveShippedOrders(items, fileName);
+  const append = useCallback(async (items: ShippedOrder[], fileName?: string) => {
+    await appendShippedOrders(items, fileName);
+    await reload();
+  }, [reload]);
+
+  const deleteFile = useCallback(async (fileName: string) => {
+    await deleteShippedByFile(fileName);
     await reload();
   }, [reload]);
 
@@ -33,14 +39,12 @@ export const useShippedOrders = () => {
     setData(null);
   }, []);
 
-  // Create lookup map for O(1) access by ASIN
   const shippedQtyMap = useMemo(() => {
     const map = new Map<string, number>();
     if (data?.items) {
       for (const item of data.items) {
         const key = item.asin?.toUpperCase();
         if (key) {
-          // Aggregate quantities for same ASIN
           map.set(key, (map.get(key) || 0) + item.quantity);
         }
       }
@@ -48,28 +52,29 @@ export const useShippedOrders = () => {
     return map;
   }, [data?.items]);
 
-  // Lookup function
   const getShippedQty = useCallback((asin: string | undefined | null): number => {
     if (!asin) return 0;
     return shippedQtyMap.get(asin.toUpperCase()) || 0;
   }, [shippedQtyMap]);
 
-  // Load on mount
   useEffect(() => {
     reload();
   }, [reload]);
 
   return {
     shippedOrders: data?.items || [],
+    files: data?.files || [],
+    filesCount: data?.files.length || 0,
     totalItems: data?.totalItems || 0,
     totalQuantity: data?.totalQuantity || 0,
     lastModified: data?.lastModified,
-    fileName: data?.fileName,
     isLoading,
     getShippedQty,
     shippedQtyMap,
     reload,
-    save,
+    append,
+    save: append, // backward-compat alias
+    deleteFile,
     clear,
   };
 };
