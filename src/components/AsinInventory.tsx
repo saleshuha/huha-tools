@@ -634,31 +634,29 @@ export function AsinInventory() {
         return;
       }
 
-      // Validate for duplicates (LAYER 2: Bulk UI validation)
-      const validationErrors = [];
+      // Skip duplicates instead of blocking: existing ASINs/SKUs/serials are skipped,
+      // only new items are added
+      const skippedReasons: string[] = [];
       const seenSkus = new Set();
       const seenSerials = new Set();
       const seenAsins = new Set(); // Track ASINs within bulk data
-      
+      const validItems: typeof items = [];
+
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
 
         // Check for duplicate ASIN in existing inventory
-        const duplicateAsin = fullInventory.find(existing => 
+        const duplicateAsin = fullInventory.find(existing =>
           existing.asin.toLowerCase() === item.asin.toLowerCase()
         );
         if (duplicateAsin) {
-          validationErrors.push(
-            `Row ${i + 1}: ASIN "${item.asin}" already exists (Serial: ${duplicateAsin.serialNumber})`
-          );
+          skippedReasons.push(`Row ${i + 1}: ASIN "${item.asin}" already exists`);
           continue;
         }
 
         // Check for duplicate ASIN within bulk data
         if (seenAsins.has(item.asin.toLowerCase())) {
-          validationErrors.push(
-            `Row ${i + 1}: ASIN "${item.asin}" appears multiple times in bulk data`
-          );
+          skippedReasons.push(`Row ${i + 1}: ASIN "${item.asin}" duplicated in input`);
           continue;
         }
         seenAsins.add(item.asin.toLowerCase());
@@ -667,13 +665,12 @@ export function AsinInventory() {
         if (item.sku && item.sku.trim()) {
           const duplicateSku = inventory.find(existing => existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase());
           if (duplicateSku) {
-            validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
+            skippedReasons.push(`Row ${i + 1}: SKU "${item.sku}" already exists`);
             continue;
           }
 
-          // Check for duplicate SKU within bulk data
           if (seenSkus.has(item.sku.toLowerCase())) {
-            validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" appears multiple times in bulk data`);
+            skippedReasons.push(`Row ${i + 1}: SKU "${item.sku}" duplicated in input`);
             continue;
           }
           seenSkus.add(item.sku.toLowerCase());
@@ -681,34 +678,38 @@ export function AsinInventory() {
 
         // Check for duplicate SERIAL NUMBER (if provided)
         if (item.serialNumber && item.serialNumber.trim()) {
-          const duplicateSerial = inventory.find(existing => 
+          const duplicateSerial = inventory.find(existing =>
             existing.serialNumber === item.serialNumber
           );
           if (duplicateSerial) {
-            validationErrors.push(
-              `Row ${i + 1}: Serial "${item.serialNumber}" already used by ASIN "${duplicateSerial.asin}"`
-            );
+            skippedReasons.push(`Row ${i + 1}: Serial "${item.serialNumber}" already used by "${duplicateSerial.asin}"`);
             continue;
           }
 
-          // Check for duplicate serial within bulk data
           if (seenSerials.has(item.serialNumber)) {
-            validationErrors.push(
-              `Row ${i + 1}: Serial "${item.serialNumber}" appears multiple times in bulk data`
-            );
+            skippedReasons.push(`Row ${i + 1}: Serial "${item.serialNumber}" duplicated in input`);
             continue;
           }
           seenSerials.add(item.serialNumber);
         }
+
+        validItems.push(item);
       }
-      
-      if (validationErrors.length > 0) {
+
+      if (validItems.length === 0) {
         toast({
-          title: "Validation Errors",
-          description: `Found ${validationErrors.length} duplicate(s): ${validationErrors.slice(0, 3).join(', ')}${validationErrors.length > 3 ? '...' : ''}`,
+          title: "Nothing to Add",
+          description: `All ${items.length} item(s) already exist or are duplicated. ${skippedReasons.slice(0, 3).join(', ')}${skippedReasons.length > 3 ? '...' : ''}`,
           variant: "destructive"
         });
         return;
+      }
+
+      if (skippedReasons.length > 0) {
+        toast({
+          title: `${skippedReasons.length} item(s) skipped`,
+          description: `${skippedReasons.slice(0, 3).join(', ')}${skippedReasons.length > 3 ? ` …and ${skippedReasons.length - 3} more` : ''}`,
+        });
       }
 
       // Use items as-is - no auto serial number assignment
