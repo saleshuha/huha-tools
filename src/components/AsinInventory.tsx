@@ -712,8 +712,8 @@ export function AsinInventory() {
         });
       }
 
-      // Use items as-is - no auto serial number assignment
-      const itemsWithAutoSerial = items;
+      // Use only the new (non-duplicate) items
+      const itemsWithAutoSerial = validItems;
 
       // Start bulk add with progress tracking
       setBulkAddProgress({ current: 0, total: itemsWithAutoSerial.length, isProcessing: true });
