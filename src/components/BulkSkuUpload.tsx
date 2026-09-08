@@ -213,16 +213,22 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     maxFiles: 1
   });
 
+  const missingSkuMatches = matchResults.matched.filter(
+    (m) => !m.currentSku || m.currentSku === 'Not set'
+  );
+  const itemsToUpdate = fillOnlyMissing ? missingSkuMatches : matchResults.matched;
+
   const handleUpdateSkus = async () => {
-    if (matchResults.matched.length === 0) return;
+    if (itemsToUpdate.length === 0) return;
 
     setIsProcessing(true);
     try {
-      await onSkuUpdate(matchResults.matched);
-      
+      await onSkuUpdate(itemsToUpdate);
+
+      const skippedExisting = matchResults.matched.length - itemsToUpdate.length;
       toast({
         title: "SKUs updated successfully",
-        description: `Updated ${matchResults.matched.length} inventory items`
+        description: `Updated ${itemsToUpdate.length} inventory items${skippedExisting > 0 ? ` · skipped ${skippedExisting} that already had a SKU` : ''}`
       });
 
       // Reset state and close dialog
@@ -240,6 +246,7 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
       setIsProcessing(false);
     }
   };
+
 
   const resetData = () => {
     setUploadedData([]);
