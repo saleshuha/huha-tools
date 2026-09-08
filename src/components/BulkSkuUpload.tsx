@@ -25,6 +25,8 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     unmatched: { asin: string; sku: string }[];
   }>({ matched: [], unmatched: [] });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fillOnlyMissing, setFillOnlyMissing] = useState(true);
+
   const { toast } = useToast();
 
   const processFile = async (file: File) => {
@@ -213,16 +215,22 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     maxFiles: 1
   });
 
+  const missingSkuMatches = matchResults.matched.filter(
+    (m) => !m.currentSku || m.currentSku === 'Not set'
+  );
+  const itemsToUpdate = fillOnlyMissing ? missingSkuMatches : matchResults.matched;
+
   const handleUpdateSkus = async () => {
-    if (matchResults.matched.length === 0) return;
+    if (itemsToUpdate.length === 0) return;
 
     setIsProcessing(true);
     try {
-      await onSkuUpdate(matchResults.matched);
-      
+      await onSkuUpdate(itemsToUpdate);
+
+      const skippedExisting = matchResults.matched.length - itemsToUpdate.length;
       toast({
         title: "SKUs updated successfully",
-        description: `Updated ${matchResults.matched.length} inventory items`
+        description: `Updated ${itemsToUpdate.length} inventory items${skippedExisting > 0 ? ` · skipped ${skippedExisting} that already had a SKU` : ''}`
       });
 
       // Reset state and close dialog
@@ -240,6 +248,7 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
       setIsProcessing(false);
     }
   };
+
 
   const resetData = () => {
     setUploadedData([]);
@@ -385,6 +394,16 @@ B08N5WRWNY,MY-SKU-003`}
                     <CheckCircle className="w-5 h-5" />
                     Matched Items ({matchResults.matched.length})
                   </h4>
+                  <label className="mb-3 flex items-center gap-2 text-sm text-green-900">
+                    <input
+                      type="checkbox"
+                      checked={fillOnlyMissing}
+                      onChange={(e) => setFillOnlyMissing(e.target.checked)}
+                      className="h-4 w-4 accent-green-600"
+                    />
+                    Only add SKU where it's missing ({missingSkuMatches.length} of {matchResults.matched.length}) — don't overwrite existing SKUs
+                  </label>
+
                   <div className="max-h-40 overflow-y-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -437,11 +456,12 @@ B08N5WRWNY,MY-SKU-003`}
           {matchResults.matched.length > 0 && (
             <Button
               onClick={handleUpdateSkus}
-              disabled={isProcessing}
+              disabled={isProcessing || itemsToUpdate.length === 0}
             >
-              {isProcessing ? 'Updating...' : `Update ${matchResults.matched.length} SKUs`}
+              {isProcessing ? 'Updating...' : `Update ${itemsToUpdate.length} SKUs`}
             </Button>
           )}
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
