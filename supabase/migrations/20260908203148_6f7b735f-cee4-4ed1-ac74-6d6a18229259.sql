@@ -1,0 +1,1 @@
+ALTER TABLE public.asin_inventory DROP CONSTRAINT IF EXISTS unique_user_asin_serial;
