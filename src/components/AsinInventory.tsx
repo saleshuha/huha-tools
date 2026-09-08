@@ -608,16 +608,30 @@ export function AsinInventory() {
       }
       const lines = bulkText.trim().split('\n');
       const items = [];
+      const looksLikeSerial = (v: string) => /^\d{1,6}$/.test(v) || /^SN/i.test(v);
       for (const line of lines) {
-        const parts = line.split('\t');
+        // Support tab-separated (preferred) and comma-separated pastes
+        let parts = line.split('\t');
+        if (parts.length < 2 && line.includes(',')) {
+          parts = line.split(',');
+        }
         if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
+          let serialNumber = parts[1]?.trim() || '';
+          let sku = parts[2]?.trim() || '';
+
+          // If the user pasted just "ASIN <SKU>", don't mistake the SKU for a serial number
+          if (serialNumber && !sku && !looksLikeSerial(serialNumber)) {
+            sku = serialNumber;
+            serialNumber = '';
+          }
+
           const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
           const status = quantity === 0 ? 'out-of-stock' : 'in-stock'; // Auto-set based on quantity
-          
+
           items.push({
             asin: parts[0].trim(), // Mandatory ASIN
-            serialNumber: parts[1]?.trim() || '', // Optional
-            sku: parts[2]?.trim() || '', // Optional
+            serialNumber,
+            sku,
             status: status, // Auto-set to 'out-of-stock' if quantity is 0
             quantity: quantity,
             notes: parts[5]?.trim() || '', // Optional
@@ -625,6 +639,7 @@ export function AsinInventory() {
           });
         }
       }
+
       if (items.length === 0) {
         toast({
           title: "No Valid Data",
