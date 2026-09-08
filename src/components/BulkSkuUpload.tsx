@@ -25,6 +25,8 @@ export function BulkSkuUpload({ inventory, onSkuUpdate }: BulkSkuUploadProps) {
     unmatched: { asin: string; sku: string }[];
   }>({ matched: [], unmatched: [] });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fillOnlyMissing, setFillOnlyMissing] = useState(true);
+
   const { toast } = useToast();
 
   const processFile = async (file: File) => {
