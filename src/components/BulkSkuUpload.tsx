@@ -456,11 +456,12 @@ B08N5WRWNY,MY-SKU-003`}
           {matchResults.matched.length > 0 && (
             <Button
               onClick={handleUpdateSkus}
-              disabled={isProcessing}
+              disabled={isProcessing || itemsToUpdate.length === 0}
             >
-              {isProcessing ? 'Updating...' : `Update ${matchResults.matched.length} SKUs`}
+              {isProcessing ? 'Updating...' : `Update ${itemsToUpdate.length} SKUs`}
             </Button>
           )}
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
