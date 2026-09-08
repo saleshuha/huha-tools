@@ -394,6 +394,16 @@ B08N5WRWNY,MY-SKU-003`}
                     <CheckCircle className="w-5 h-5" />
                     Matched Items ({matchResults.matched.length})
                   </h4>
+                  <label className="mb-3 flex items-center gap-2 text-sm text-green-900">
+                    <input
+                      type="checkbox"
+                      checked={fillOnlyMissing}
+                      onChange={(e) => setFillOnlyMissing(e.target.checked)}
+                      className="h-4 w-4 accent-green-600"
+                    />
+                    Only add SKU where it's missing ({missingSkuMatches.length} of {matchResults.matched.length}) — don't overwrite existing SKUs
+                  </label>
+
                   <div className="max-h-40 overflow-y-auto">
                     <table className="w-full text-sm">
                       <thead>
