@@ -10,6 +10,7 @@ import { ExternalSyncSettings } from "@/components/external-sync/ExternalSyncSet
 import { ExternalSyncDashboard } from "@/components/external-sync/ExternalSyncDashboard";
 import { DeltaSyncSettings } from "@/components/external-sync/DeltaSyncSettings";
 import { DeltaSyncDashboard } from "@/components/external-sync/DeltaSyncDashboard";
+import { ConnectionGuideCard } from "@/components/external-sync/ConnectionGuideCard";
 import { Store, CheckCircle, XCircle, Globe } from "lucide-react";
 
 export default function ShopifySyncPage() {
@@ -111,10 +112,11 @@ export default function ShopifySyncPage() {
         </TabsContent>
 
         <TabsContent value="app-sync" className="space-y-4">
-          <ExternalSyncSettings />
-          <ExternalSyncDashboard />
+          <ConnectionGuideCard />
           <DeltaSyncSettings />
           <DeltaSyncDashboard />
+          <ExternalSyncSettings />
+          <ExternalSyncDashboard />
         </TabsContent>
       </Tabs>
     </div>

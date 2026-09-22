@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, TestTube, Loader2, CheckCircle, XCircle } from "lucide-react";
 
@@ -130,16 +131,21 @@ export function ExternalSyncSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          External App Connection
-        </CardTitle>
-        <CardDescription>
-          Configure the webhook URL to sync inventory with your other Lovable app.
-        </CardDescription>
-      </CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            External App Connection
+            <Badge variant="outline" className="ml-1 bg-muted text-muted-foreground border-dashed">
+              Legacy / optional
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Full-product push (name, ASIN, SKU, images) to a separate <code>product-sync</code> edge
+            function on the other app. Requires a shared key. Use only if you need the full catalog —
+            otherwise prefer Delta Stock Sync above.
+          </CardDescription>
+        </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="webhook-url">Webhook URL</Label>
