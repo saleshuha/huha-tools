@@ -246,7 +246,15 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ source: cfg.source_label || "huha-tools", items: [{ asin: "TEST_PROBE_0000", delta: 0 }] }),
       });
       const txt = await r.text();
-      const ok = r.status === 200 || r.status === 400; // 400 is fine — means key is valid, body validation only
+      // 200 = accepted, 400 = key valid but probe body rejected (still proves auth works)
+      const ok = r.status === 200 || r.status === 400;
+      const statusLabel = ok
+        ? "ok"
+        : r.status === 401 ? "invalid_key"
+        : r.status === 403 ? "revoked_key"
+        : r.status === 404 ? "endpoint_not_found"
+        : r.status === 429 ? "rate_limited"
+        : `http_${r.status}`;
       await admin.from("delta_sync_config").update({
         last_test_status: ok ? "ok" : (r.status === 401 ? "invalid_key" : r.status === 403 ? "revoked_key" : `http_${r.status}`),
         last_test_at: new Date().toISOString(),
