@@ -53,6 +53,7 @@ export function DeltaSyncSettings() {
         setApiKey(d.api_key || "");
         setSourceLabel(d.source_label || "huha-tools");
         setAutoPush(d.auto_push_enabled);
+        setIdentifierMode(d.identifier_mode === "sku" ? "sku" : "asin");
       }
     } finally { setLoading(false); }
   };
