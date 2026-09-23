@@ -148,20 +148,33 @@ stock_changes  ──►  delta_sync_queue  ──►  delta-sync-push  ──�
 {EXAMPLE_RESPONSE}
                 </pre>
                 <p className="text-xs text-muted-foreground">
-                  Unknown ASINs are skipped (never fail the batch). Each applied row returns the new
-                  on-hand stock (<code>balance_after</code>).
+                  Unknown codes are skipped (never fail the batch) and marked <em>skipped</em> in our
+                  queue. Each applied row returns the new on-hand stock (<code>balance_after</code>),
+                  which we store against the queued change.
                 </p>
               </div>
 
               {/* Errors */}
               <div className="space-y-2">
-                <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Errors</h5>
+                <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Errors &amp; how we react</h5>
                 <div className="rounded-md border divide-y text-xs">
-                  <div className="flex items-center gap-3 p-2"><code className="text-red-600">401</code> <span className="text-muted-foreground">missing_key / invalid_key — bad or missing Authorization header.</span></div>
-                  <div className="flex items-center gap-3 p-2"><code className="text-red-600">403</code> <span className="text-muted-foreground">revoked_key — key revoked in their dashboard.</span></div>
-                  <div className="flex items-center gap-3 p-2"><code className="text-amber-600">400</code> <span className="text-muted-foreground">invalid_body — schema validation failed.</span></div>
-                  <div className="flex items-center gap-3 p-2"><code className="text-amber-600">429</code> <span className="text-muted-foreground">rate_limited — over 60 requests/min for the same key.</span></div>
+                  <div className="flex items-start gap-3 p-2"><code className="text-red-600">401</code> <span className="text-muted-foreground">missing_key / invalid_key — bad or missing Authorization header. Push stops, status shows "invalid_key".</span></div>
+                  <div className="flex items-start gap-3 p-2"><code className="text-red-600">403</code> <span className="text-muted-foreground">revoked_key — key revoked in their dashboard. Push stops, status shows "revoked_key".</span></div>
+                  <div className="flex items-start gap-3 p-2"><code className="text-amber-600">400</code> <span className="text-muted-foreground">invalid_body — schema validation failed. Batch is marked failed with their message.</span></div>
+                  <div className="flex items-start gap-3 p-2"><code className="text-amber-600">429</code> <span className="text-muted-foreground">rate_limited — over 60 requests/min. Rows stay pending and retry on the next run.</span></div>
+                  <div className="flex items-start gap-3 p-2"><code className="text-amber-600">404</code> <span className="text-muted-foreground">Endpoint not found — the Base URL is wrong or the route isn't deployed yet.</span></div>
                 </div>
+              </div>
+
+              {/* Delivery behaviour */}
+              <div className="space-y-2">
+                <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How we deliver</h5>
+                <ul className="text-xs text-muted-foreground space-y-1 pl-4 list-disc">
+                  <li>Every stock change is queued, then pushed oldest-first in batches of up to 500.</li>
+                  <li>Up to 8 batches (4,000 changes) per run, spaced ~1 second apart to respect the rate limit.</li>
+                  <li>Each queued change ends as <em>sent</em>, <em>skipped</em> or <em>failed</em> — nothing is silently lost.</li>
+                  <li>Backlogged changes keep retrying until a valid Base URL and key accept them.</li>
+                </ul>
               </div>
             </div>
           )}
