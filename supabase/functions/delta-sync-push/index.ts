@@ -139,47 +139,49 @@ async function pushBatch(
     await admin.from("delta_sync_queue").update({
       status: "failed", error_message: body?.error || `HTTP ${res.status}`, pushed_at: new Date().toISOString(),
     }).in("id", ids);
-    return { user_id: cfg.user_id, error: `auth ${res.status}` };
+    return { error: res.status === 401 ? "invalid_key" : "revoked_key" };
   }
 
   if (res.status === 429) {
-    return { user_id: cfg.user_id, error: "rate_limited" };
+    // Leave rows pending — they are retried on the next run.
+    return { error: "rate_limited" };
   }
 
   if (!res.ok) {
     await admin.from("delta_sync_queue").update({
-      status: "failed", error_message: body?.error ? JSON.stringify(body.error) : `HTTP ${res.status}`, pushed_at: new Date().toISOString(),
+      status: "failed",
+      error_message: body?.error ? JSON.stringify(body.error).slice(0, 300) : `HTTP ${res.status}`,
+      pushed_at: new Date().toISOString(),
     }).in("id", ids);
-    return { user_id: cfg.user_id, error: `HTTP ${res.status}` };
+    return { error: `HTTP ${res.status}` };
   }
 
   // 200 OK
   const results = (body.results || []) as Array<{ asin: string; delta: number; balance_after: number }>;
   const skipped = (body.skipped || []) as Array<{ asin: string; reason: string }>;
 
-  // Map asin+delta -> balance_after (first match)
+  // Responses echo back the identifier we sent (ASIN or SKU depending on mode)
   const balanceByKey = new Map<string, number>();
   for (const r of results) {
     const k = `${r.asin}|${r.delta}`;
     if (!balanceByKey.has(k)) balanceByKey.set(k, r.balance_after);
   }
-  const skippedAsins = new Set(skipped.map((s) => s.asin));
+  const skippedIds = new Set(skipped.map((s) => s.asin));
   const skippedReason = new Map(skipped.map((s) => [s.asin, s.reason]));
 
   const now = new Date().toISOString();
-  // Update individually (small batch, max 500)
   for (const row of queue) {
-    if (skippedAsins.has(row.asin)) {
+    const outId = (idMap.get(row.asin) || row.asin).toString().trim();
+    if (skippedIds.has(outId)) {
       await admin.from("delta_sync_queue").update({
-        status: "skipped", error_message: skippedReason.get(row.asin) || "skipped", pushed_at: now,
+        status: "skipped", error_message: skippedReason.get(outId) || "skipped", pushed_at: now,
       }).eq("id", row.id);
     } else {
-      const k = `${row.asin}|${row.delta}`;
+      const k = `${outId}|${clampDelta(row.delta)}`;
       const bal = balanceByKey.get(k);
       await admin.from("delta_sync_queue").update({
         status: "sent", balance_after: bal ?? null, pushed_at: now,
       }).eq("id", row.id);
-      // Pop the consumed balance so the next identical row gets a fresh value if any
       balanceByKey.delete(k);
     }
   }
@@ -190,7 +192,12 @@ async function pushBatch(
     last_test_at: now,
   }).eq("user_id", cfg.user_id);
 
-  return { user_id: cfg.user_id, applied: body.applied ?? results.length, skipped: skipped.length };
+  return {
+    empty: false,
+    applied: typeof body.applied === "number" ? body.applied : results.length,
+    skipped: skipped.length,
+    processed: queue.length,
+  };
 }
 
 Deno.serve(async (req) => {
