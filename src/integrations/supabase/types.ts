@@ -671,6 +671,7 @@ export type Database = {
           base_url: string
           created_at: string
           id: string
+          identifier_mode: string
           last_pushed_at: string | null
           last_test_at: string | null
           last_test_status: string | null
@@ -684,6 +685,7 @@ export type Database = {
           base_url?: string
           created_at?: string
           id?: string
+          identifier_mode?: string
           last_pushed_at?: string | null
           last_test_at?: string | null
           last_test_status?: string | null
@@ -697,6 +699,7 @@ export type Database = {
           base_url?: string
           created_at?: string
           id?: string
+          identifier_mode?: string
           last_pushed_at?: string | null
           last_test_at?: string | null
           last_test_status?: string | null
