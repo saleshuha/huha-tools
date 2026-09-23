@@ -139,6 +139,36 @@ export function DeltaSyncSettings() {
         </div>
 
         <div className="space-y-2">
+          <Label>Product matching</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(["asin", "sku"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setIdentifierMode(m)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  identifierMode === m ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {m === "asin" ? "Send our ASIN" : "Send our SKU"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {m === "asin"
+                    ? "Use when the other app stores the ASIN as its product code."
+                    : "Use when the other app matches the value against its product SKU."}
+                </p>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The value is always sent in the <code>asin</code> field — this only picks which of our codes goes in it.
+          </p>
+        </div>
+
+
+
+        <div className="space-y-2">
           <Label htmlFor="ds-key">API Key</Label>
           <div className="relative">
             <Input
