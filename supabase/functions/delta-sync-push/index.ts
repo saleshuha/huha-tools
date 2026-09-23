@@ -274,13 +274,13 @@ Deno.serve(async (req) => {
       }
       const { data } = await admin
         .from("delta_sync_config")
-        .select("user_id, base_url, api_key, source_label, auto_push_enabled")
+        .select("user_id, base_url, api_key, source_label, auto_push_enabled, identifier_mode")
         .eq("user_id", userId);
       configs = (data ?? []) as Config[];
     } else {
       const { data } = await admin
         .from("delta_sync_config")
-        .select("user_id, base_url, api_key, source_label, auto_push_enabled")
+        .select("user_id, base_url, api_key, source_label, auto_push_enabled, identifier_mode")
         .eq("auto_push_enabled", true)
         .not("api_key", "is", null);
       configs = (data ?? []) as Config[];
