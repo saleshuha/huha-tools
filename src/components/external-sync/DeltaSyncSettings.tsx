@@ -14,6 +14,7 @@ interface Config {
   api_key: string | null;
   source_label: string;
   auto_push_enabled: boolean;
+  identifier_mode: string | null;
   last_pushed_at: string | null;
   last_test_status: string | null;
 }
@@ -27,6 +28,7 @@ export function DeltaSyncSettings() {
   const [apiKey, setApiKey] = useState("");
   const [sourceLabel, setSourceLabel] = useState("huha-tools");
   const [autoPush, setAutoPush] = useState(false);
+  const [identifierMode, setIdentifierMode] = useState<"asin" | "sku">("asin");
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,7 @@ export function DeltaSyncSettings() {
         setApiKey(d.api_key || "");
         setSourceLabel(d.source_label || "huha-tools");
         setAutoPush(d.auto_push_enabled);
+        setIdentifierMode(d.identifier_mode === "sku" ? "sku" : "asin");
       }
     } finally { setLoading(false); }
   };
@@ -66,6 +69,7 @@ export function DeltaSyncSettings() {
         api_key: apiKey.trim() || null,
         source_label: sourceLabel.trim().slice(0, 80) || "huha-tools",
         auto_push_enabled: autoPush,
+        identifier_mode: identifierMode,
       };
       const { error } = await supabase
         .from("delta_sync_config" as any)
@@ -133,6 +137,36 @@ export function DeltaSyncSettings() {
             <Input id="ds-source" value={sourceLabel} maxLength={80} onChange={(e) => setSourceLabel(e.target.value)} placeholder="my-other-app" />
           </div>
         </div>
+
+        <div className="space-y-2">
+          <Label>Product matching</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(["asin", "sku"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setIdentifierMode(m)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  identifierMode === m ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+              >
+                <p className="text-sm font-medium">
+                  {m === "asin" ? "Send our ASIN" : "Send our SKU"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {m === "asin"
+                    ? "Use when the other app stores the ASIN as its product code."
+                    : "Use when the other app matches the value against its product SKU."}
+                </p>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The value is always sent in the <code>asin</code> field — this only picks which of our codes goes in it.
+          </p>
+        </div>
+
+
 
         <div className="space-y-2">
           <Label htmlFor="ds-key">API Key</Label>

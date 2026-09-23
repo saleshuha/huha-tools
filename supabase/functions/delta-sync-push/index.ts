@@ -24,6 +24,37 @@ interface Config {
   api_key: string | null;
   source_label: string;
   auto_push_enabled: boolean;
+  identifier_mode?: string | null;
+}
+
+const MAX_ITEMS_PER_REQUEST = 500;   // receiver accepts 1-500 items
+const MAX_BATCHES_PER_RUN = 8;       // stay well under 60 req/min per key
+const DELAY_BETWEEN_BATCHES_MS = 1100;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const clampDelta = (d: number) => Math.max(-10000, Math.min(10000, Math.trunc(d)));
+
+/**
+ * The receiver matches the `asin` field against ITS OWN product identifier.
+ * Some apps store our ASIN as their SKU — `identifier_mode = 'sku'` makes us
+ * send our local SKU in the `asin` field instead of the raw ASIN.
+ */
+async function buildIdentifierMap(admin: any, cfg: Config, asins: string[]) {
+  const map = new Map<string, string>();
+  if ((cfg.identifier_mode || "asin") !== "sku") return map;
+  const unique = [...new Set(asins)];
+  for (let i = 0; i < unique.length; i += 200) {
+    const chunk = unique.slice(i, i + 200);
+    const { data } = await admin
+      .from("asin_inventory")
+      .select("asin, sku")
+      .eq("user_id", cfg.user_id)
+      .in("asin", chunk);
+    for (const row of (data ?? []) as Array<{ asin: string; sku: string | null }>) {
+      if (row.sku && !map.has(row.asin)) map.set(row.asin, row.sku);
+    }
+  }
+  return map;
 }
 
 async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
@@ -32,23 +63,49 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
     return { user_id: cfg.user_id, skipped: "auto_disabled" };
   }
 
+  let totalApplied = 0;
+  let totalSkipped = 0;
+  let batches = 0;
+
+  for (let b = 0; b < MAX_BATCHES_PER_RUN; b++) {
+    const outcome = await pushBatch(admin, cfg);
+    if ("error" in outcome) {
+      return { user_id: cfg.user_id, batches, applied: totalApplied, skipped: totalSkipped, error: outcome.error };
+    }
+    if (outcome.empty) break;
+    batches++;
+    totalApplied += outcome.applied;
+    totalSkipped += outcome.skipped;
+    if (outcome.processed < MAX_ITEMS_PER_REQUEST) break;
+    await sleep(DELAY_BETWEEN_BATCHES_MS);
+  }
+
+  return { user_id: cfg.user_id, batches, applied: totalApplied, skipped: totalSkipped };
+}
+
+async function pushBatch(
+  admin: any,
+  cfg: Config,
+): Promise<{ error: string } | { empty: true } | { empty: false; applied: number; skipped: number; processed: number }> {
   const { data: rows, error } = await admin
     .from("delta_sync_queue")
     .select("id, asin, delta, reference_id, notes")
     .eq("user_id", cfg.user_id)
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(500);
+    .limit(MAX_ITEMS_PER_REQUEST);
 
-  if (error) return { user_id: cfg.user_id, error: error.message };
+  if (error) return { error: error.message };
   const queue = (rows ?? []) as QueueRow[];
-  if (queue.length === 0) return { user_id: cfg.user_id, applied: 0 };
+  if (queue.length === 0) return { empty: true };
+
+  const idMap = await buildIdentifierMap(admin, cfg, queue.map((r) => r.asin));
 
   const items = queue.map((r) => ({
-    asin: r.asin,
-    delta: r.delta,
-    ...(r.reference_id ? { reference_id: r.reference_id } : {}),
-    ...(r.notes ? { notes: r.notes } : {}),
+    asin: (idMap.get(r.asin) || r.asin).toString().trim(),
+    delta: clampDelta(r.delta),
+    ...(r.reference_id ? { reference_id: String(r.reference_id).slice(0, 120) } : {}),
+    ...(r.notes ? { notes: String(r.notes).slice(0, 240) } : {}),
   }));
 
   const url = cfg.base_url.replace(/\/$/, "") + "/api/public/sync/stock";
@@ -60,10 +117,13 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
         Authorization: `Bearer ${cfg.api_key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ source: cfg.source_label || "huha-tools", items }),
+      body: JSON.stringify({
+        source: (cfg.source_label || "huha-tools").slice(0, 80),
+        items,
+      }),
     });
   } catch (e) {
-    return { user_id: cfg.user_id, error: `network: ${(e as Error).message}` };
+    return { error: `network: ${(e as Error).message}` };
   }
 
   const ids = queue.map((r) => r.id);
@@ -79,47 +139,49 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
     await admin.from("delta_sync_queue").update({
       status: "failed", error_message: body?.error || `HTTP ${res.status}`, pushed_at: new Date().toISOString(),
     }).in("id", ids);
-    return { user_id: cfg.user_id, error: `auth ${res.status}` };
+    return { error: res.status === 401 ? "invalid_key" : "revoked_key" };
   }
 
   if (res.status === 429) {
-    return { user_id: cfg.user_id, error: "rate_limited" };
+    // Leave rows pending — they are retried on the next run.
+    return { error: "rate_limited" };
   }
 
   if (!res.ok) {
     await admin.from("delta_sync_queue").update({
-      status: "failed", error_message: body?.error ? JSON.stringify(body.error) : `HTTP ${res.status}`, pushed_at: new Date().toISOString(),
+      status: "failed",
+      error_message: body?.error ? JSON.stringify(body.error).slice(0, 300) : `HTTP ${res.status}`,
+      pushed_at: new Date().toISOString(),
     }).in("id", ids);
-    return { user_id: cfg.user_id, error: `HTTP ${res.status}` };
+    return { error: `HTTP ${res.status}` };
   }
 
   // 200 OK
   const results = (body.results || []) as Array<{ asin: string; delta: number; balance_after: number }>;
   const skipped = (body.skipped || []) as Array<{ asin: string; reason: string }>;
 
-  // Map asin+delta -> balance_after (first match)
+  // Responses echo back the identifier we sent (ASIN or SKU depending on mode)
   const balanceByKey = new Map<string, number>();
   for (const r of results) {
     const k = `${r.asin}|${r.delta}`;
     if (!balanceByKey.has(k)) balanceByKey.set(k, r.balance_after);
   }
-  const skippedAsins = new Set(skipped.map((s) => s.asin));
+  const skippedIds = new Set(skipped.map((s) => s.asin));
   const skippedReason = new Map(skipped.map((s) => [s.asin, s.reason]));
 
   const now = new Date().toISOString();
-  // Update individually (small batch, max 500)
   for (const row of queue) {
-    if (skippedAsins.has(row.asin)) {
+    const outId = (idMap.get(row.asin) || row.asin).toString().trim();
+    if (skippedIds.has(outId)) {
       await admin.from("delta_sync_queue").update({
-        status: "skipped", error_message: skippedReason.get(row.asin) || "skipped", pushed_at: now,
+        status: "skipped", error_message: skippedReason.get(outId) || "skipped", pushed_at: now,
       }).eq("id", row.id);
     } else {
-      const k = `${row.asin}|${row.delta}`;
+      const k = `${outId}|${clampDelta(row.delta)}`;
       const bal = balanceByKey.get(k);
       await admin.from("delta_sync_queue").update({
         status: "sent", balance_after: bal ?? null, pushed_at: now,
       }).eq("id", row.id);
-      // Pop the consumed balance so the next identical row gets a fresh value if any
       balanceByKey.delete(k);
     }
   }
@@ -130,7 +192,12 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
     last_test_at: now,
   }).eq("user_id", cfg.user_id);
 
-  return { user_id: cfg.user_id, applied: body.applied ?? results.length, skipped: skipped.length };
+  return {
+    empty: false,
+    applied: typeof body.applied === "number" ? body.applied : results.length,
+    skipped: skipped.length,
+    processed: queue.length,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -179,12 +246,20 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ source: cfg.source_label || "huha-tools", items: [{ asin: "TEST_PROBE_0000", delta: 0 }] }),
       });
       const txt = await r.text();
-      const ok = r.status === 200 || r.status === 400; // 400 is fine — means key is valid, body validation only
+      // 200 = accepted, 400 = key valid but probe body rejected (still proves auth works)
+      const ok = r.status === 200 || r.status === 400;
+      const statusLabel = ok
+        ? "ok"
+        : r.status === 401 ? "invalid_key"
+        : r.status === 403 ? "revoked_key"
+        : r.status === 404 ? "endpoint_not_found"
+        : r.status === 429 ? "rate_limited"
+        : `http_${r.status}`;
       await admin.from("delta_sync_config").update({
-        last_test_status: ok ? "ok" : (r.status === 401 ? "invalid_key" : r.status === 403 ? "revoked_key" : `http_${r.status}`),
+        last_test_status: statusLabel,
         last_test_at: new Date().toISOString(),
       }).eq("user_id", userId);
-      return new Response(JSON.stringify({ ok, status: r.status, response: txt.slice(0, 500) }), {
+      return new Response(JSON.stringify({ ok, status: r.status, error: ok ? null : statusLabel, response: txt.slice(0, 500) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -199,13 +274,13 @@ Deno.serve(async (req) => {
       }
       const { data } = await admin
         .from("delta_sync_config")
-        .select("user_id, base_url, api_key, source_label, auto_push_enabled")
+        .select("user_id, base_url, api_key, source_label, auto_push_enabled, identifier_mode")
         .eq("user_id", userId);
       configs = (data ?? []) as Config[];
     } else {
       const { data } = await admin
         .from("delta_sync_config")
-        .select("user_id, base_url, api_key, source_label, auto_push_enabled")
+        .select("user_id, base_url, api_key, source_label, auto_push_enabled, identifier_mode")
         .eq("auto_push_enabled", true)
         .not("api_key", "is", null);
       configs = (data ?? []) as Config[];
