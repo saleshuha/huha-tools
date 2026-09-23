@@ -28,6 +28,7 @@ export function DeltaSyncSettings() {
   const [apiKey, setApiKey] = useState("");
   const [sourceLabel, setSourceLabel] = useState("huha-tools");
   const [autoPush, setAutoPush] = useState(false);
+  const [identifierMode, setIdentifierMode] = useState<"asin" | "sku">("asin");
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
