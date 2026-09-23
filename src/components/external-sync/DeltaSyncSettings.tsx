@@ -14,6 +14,7 @@ interface Config {
   api_key: string | null;
   source_label: string;
   auto_push_enabled: boolean;
+  identifier_mode: string | null;
   last_pushed_at: string | null;
   last_test_status: string | null;
 }
