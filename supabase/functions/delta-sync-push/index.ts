@@ -24,6 +24,37 @@ interface Config {
   api_key: string | null;
   source_label: string;
   auto_push_enabled: boolean;
+  identifier_mode?: string | null;
+}
+
+const MAX_ITEMS_PER_REQUEST = 500;   // receiver accepts 1-500 items
+const MAX_BATCHES_PER_RUN = 8;       // stay well under 60 req/min per key
+const DELAY_BETWEEN_BATCHES_MS = 1100;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const clampDelta = (d: number) => Math.max(-10000, Math.min(10000, Math.trunc(d)));
+
+/**
+ * The receiver matches the `asin` field against ITS OWN product identifier.
+ * Some apps store our ASIN as their SKU — `identifier_mode = 'sku'` makes us
+ * send our local SKU in the `asin` field instead of the raw ASIN.
+ */
+async function buildIdentifierMap(admin: any, cfg: Config, asins: string[]) {
+  const map = new Map<string, string>();
+  if ((cfg.identifier_mode || "asin") !== "sku") return map;
+  const unique = [...new Set(asins)];
+  for (let i = 0; i < unique.length; i += 200) {
+    const chunk = unique.slice(i, i + 200);
+    const { data } = await admin
+      .from("asin_inventory")
+      .select("asin, sku")
+      .eq("user_id", cfg.user_id)
+      .in("asin", chunk);
+    for (const row of (data ?? []) as Array<{ asin: string; sku: string | null }>) {
+      if (row.sku && !map.has(row.asin)) map.set(row.asin, row.sku);
+    }
+  }
+  return map;
 }
 
 async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
@@ -32,23 +63,49 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
     return { user_id: cfg.user_id, skipped: "auto_disabled" };
   }
 
+  let totalApplied = 0;
+  let totalSkipped = 0;
+  let batches = 0;
+
+  for (let b = 0; b < MAX_BATCHES_PER_RUN; b++) {
+    const outcome = await pushBatch(admin, cfg);
+    if ("error" in outcome) {
+      return { user_id: cfg.user_id, batches, applied: totalApplied, skipped: totalSkipped, error: outcome.error };
+    }
+    if (outcome.empty) break;
+    batches++;
+    totalApplied += outcome.applied;
+    totalSkipped += outcome.skipped;
+    if (outcome.processed < MAX_ITEMS_PER_REQUEST) break;
+    await sleep(DELAY_BETWEEN_BATCHES_MS);
+  }
+
+  return { user_id: cfg.user_id, batches, applied: totalApplied, skipped: totalSkipped };
+}
+
+async function pushBatch(
+  admin: any,
+  cfg: Config,
+): Promise<{ error: string } | { empty: true } | { empty: false; applied: number; skipped: number; processed: number }> {
   const { data: rows, error } = await admin
     .from("delta_sync_queue")
     .select("id, asin, delta, reference_id, notes")
     .eq("user_id", cfg.user_id)
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(500);
+    .limit(MAX_ITEMS_PER_REQUEST);
 
-  if (error) return { user_id: cfg.user_id, error: error.message };
+  if (error) return { error: error.message };
   const queue = (rows ?? []) as QueueRow[];
-  if (queue.length === 0) return { user_id: cfg.user_id, applied: 0 };
+  if (queue.length === 0) return { empty: true };
+
+  const idMap = await buildIdentifierMap(admin, cfg, queue.map((r) => r.asin));
 
   const items = queue.map((r) => ({
-    asin: r.asin,
-    delta: r.delta,
-    ...(r.reference_id ? { reference_id: r.reference_id } : {}),
-    ...(r.notes ? { notes: r.notes } : {}),
+    asin: (idMap.get(r.asin) || r.asin).toString().trim(),
+    delta: clampDelta(r.delta),
+    ...(r.reference_id ? { reference_id: String(r.reference_id).slice(0, 120) } : {}),
+    ...(r.notes ? { notes: String(r.notes).slice(0, 240) } : {}),
   }));
 
   const url = cfg.base_url.replace(/\/$/, "") + "/api/public/sync/stock";
@@ -60,10 +117,13 @@ async function pushForUser(admin: any, cfg: Config, mode: "auto" | "manual") {
         Authorization: `Bearer ${cfg.api_key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ source: cfg.source_label || "huha-tools", items }),
+      body: JSON.stringify({
+        source: (cfg.source_label || "huha-tools").slice(0, 80),
+        items,
+      }),
     });
   } catch (e) {
-    return { user_id: cfg.user_id, error: `network: ${(e as Error).message}` };
+    return { error: `network: ${(e as Error).message}` };
   }
 
   const ids = queue.map((r) => r.id);
