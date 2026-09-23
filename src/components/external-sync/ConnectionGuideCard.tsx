@@ -124,9 +124,15 @@ stock_changes  ──►  delta_sync_queue  ──►  delta-sync-push  ──�
 {EXAMPLE_REQUEST}
                 </pre>
                 <ul className="text-xs text-muted-foreground space-y-1 pl-4 list-disc">
-                  <li><code>source</code>: ≤ 80 chars, labels the calling app.</li>
-                  <li><code>items</code>: 1–500 items per request.</li>
-                  <li><code>delta</code>: integer −10000 to +10000. Positive = restock, negative = sale.</li>
+                  <li><code>source</code>: ≤ 80 chars, labels the calling app (we send <code>huha-tools</code>).</li>
+                  <li><code>items</code>: 1–500 items per request. We split larger queues into 500-item batches automatically.</li>
+                  <li><code>delta</code>: integer −10000 to +10000. Positive = restock, negative = sale. Values are clamped before sending.</li>
+                  <li>
+                    <code>asin</code>: the receiving app matches this value against <strong>its own product code</strong>.
+                    If it matches on SKU, switch <em>Product matching</em> in Delta Sync Settings to <strong>Send our SKU</strong> —
+                    we then put our SKU in this field.
+                  </li>
+                  <li>Rate limit: 60 requests/min per key. We pace batches ~1 per second and pause when we get a 429.</li>
                 </ul>
               </div>
 
