@@ -69,6 +69,7 @@ export function DeltaSyncSettings() {
         api_key: apiKey.trim() || null,
         source_label: sourceLabel.trim().slice(0, 80) || "huha-tools",
         auto_push_enabled: autoPush,
+        identifier_mode: identifierMode,
       };
       const { error } = await supabase
         .from("delta_sync_config" as any)
