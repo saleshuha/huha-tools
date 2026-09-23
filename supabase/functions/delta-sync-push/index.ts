@@ -256,10 +256,10 @@ Deno.serve(async (req) => {
         : r.status === 429 ? "rate_limited"
         : `http_${r.status}`;
       await admin.from("delta_sync_config").update({
-        last_test_status: ok ? "ok" : (r.status === 401 ? "invalid_key" : r.status === 403 ? "revoked_key" : `http_${r.status}`),
+        last_test_status: statusLabel,
         last_test_at: new Date().toISOString(),
       }).eq("user_id", userId);
-      return new Response(JSON.stringify({ ok, status: r.status, response: txt.slice(0, 500) }), {
+      return new Response(JSON.stringify({ ok, status: r.status, error: ok ? null : statusLabel, response: txt.slice(0, 500) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
