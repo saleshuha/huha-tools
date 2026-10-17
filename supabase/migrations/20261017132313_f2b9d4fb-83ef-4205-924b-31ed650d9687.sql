@@ -1,0 +1,1 @@
+CREATE POLICY trendyol_fulfilled_lines_server ON public.trendyol_fulfilled_lines FOR ALL TO service_role USING (true) WITH CHECK (true);
