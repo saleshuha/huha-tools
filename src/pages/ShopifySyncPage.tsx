@@ -11,6 +11,7 @@ import { ExternalSyncDashboard } from "@/components/external-sync/ExternalSyncDa
 import { DeltaSyncSettings } from "@/components/external-sync/DeltaSyncSettings";
 import { DeltaSyncDashboard } from "@/components/external-sync/DeltaSyncDashboard";
 import { ConnectionGuideCard } from "@/components/external-sync/ConnectionGuideCard";
+import { TrendyolWorkspace } from "@/components/trendyol/TrendyolWorkspace";
 import { Store, CheckCircle, XCircle, Globe } from "lucide-react";
 
 export default function ShopifySyncPage() {
@@ -88,6 +89,7 @@ export default function ShopifySyncPage() {
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="trendyol">Trendyol SA</TabsTrigger>
           <TabsTrigger value="app-sync" className="flex items-center gap-1">
             <Globe className="h-3.5 w-3.5" />
             App Sync
@@ -109,6 +111,10 @@ export default function ShopifySyncPage() {
 
         <TabsContent value="history">
           <ShopifySyncHistory />
+        </TabsContent>
+
+        <TabsContent value="trendyol">
+          <TrendyolWorkspace />
         </TabsContent>
 
         <TabsContent value="app-sync" className="space-y-4">
