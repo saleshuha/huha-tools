@@ -6130,6 +6130,162 @@ export type Database = {
         }
         Relationships: []
       }
+      trendyol_packages: {
+        Row: {
+          created_at: string
+          fulfilled_at: string | null
+          fulfillment_result: Json | null
+          id: string
+          last_error: string | null
+          lines: Json
+          order_number: string
+          package_id: string
+          payload: Json
+          remote_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfillment_result?: Json | null
+          id?: string
+          last_error?: string | null
+          lines: Json
+          order_number: string
+          package_id: string
+          payload: Json
+          remote_status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfillment_result?: Json | null
+          id?: string
+          last_error?: string | null
+          lines?: Json
+          order_number?: string
+          package_id?: string
+          payload?: Json
+          remote_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trendyol_products: {
+        Row: {
+          asin: string
+          attributes: Json
+          barcode: string
+          brand_id: number | null
+          category_id: number | null
+          created_at: string
+          description: string
+          enabled: boolean
+          id: string
+          images: Json
+          last_batch_id: string | null
+          last_error: string | null
+          list_price: number
+          product_main_id: string
+          publish_status: string
+          sale_price: number
+          sku: string
+          title: string
+          updated_at: string
+          user_id: string
+          vat_rate: number
+        }
+        Insert: {
+          asin: string
+          attributes?: Json
+          barcode: string
+          brand_id?: number | null
+          category_id?: number | null
+          created_at?: string
+          description?: string
+          enabled?: boolean
+          id?: string
+          images?: Json
+          last_batch_id?: string | null
+          last_error?: string | null
+          list_price?: number
+          product_main_id: string
+          publish_status?: string
+          sale_price?: number
+          sku: string
+          title: string
+          updated_at?: string
+          user_id: string
+          vat_rate?: number
+        }
+        Update: {
+          asin?: string
+          attributes?: Json
+          barcode?: string
+          brand_id?: number | null
+          category_id?: number | null
+          created_at?: string
+          description?: string
+          enabled?: boolean
+          id?: string
+          images?: Json
+          last_batch_id?: string | null
+          last_error?: string | null
+          list_price?: number
+          product_main_id?: string
+          publish_status?: string
+          sale_price?: number
+          sku?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          vat_rate?: number
+        }
+        Relationships: []
+      }
+      trendyol_sync_runs: {
+        Row: {
+          action: string
+          batch_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          product_ids: string[]
+          result: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          batch_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          product_ids?: string[]
+          result?: Json | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          batch_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          product_ids?: string[]
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_page_permissions: {
         Row: {
           created_at: string | null
@@ -6562,6 +6718,10 @@ export type Database = {
       count_restock_eligible_items: {
         Args: { country_filter: string }
         Returns: number
+      }
+      fulfill_trendyol_package: {
+        Args: { p_package_id: string; p_user_id: string }
+        Returns: Json
       }
       get_active_po_metrics: {
         Args: { user_id_param: string }
