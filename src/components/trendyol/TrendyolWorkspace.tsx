@@ -66,7 +66,7 @@ export function TrendyolWorkspace() {
     setProducts(p); setOrders(o); setRuns(r);
   }, []);
   useEffect(() => { load().catch(e => setError(e.message)); }, [load]);
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setError("");
     try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); } finally { setBusy(false); }
   };
