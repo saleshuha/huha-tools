@@ -11,6 +11,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("publish"), ids: z.array(z.string().uuid()).min(1).max(1000) }),
   z.object({ action: z.literal("sync"), ids: z.array(z.string().uuid()).min(1).max(1000), mode: z.enum(["stock", "price", "both"]) }),
   z.object({ action: z.literal("batch"), id: z.string().uuid() }),
+  z.object({ action: z.literal("approval"), ids: z.array(z.string().uuid()).min(1).max(50) }),
   z.object({ action: z.literal("import-orders"), page: z.number().int().min(0).max(10000).default(0), startDate: z.number().int().positive() }),
   z.object({ action: z.literal("fulfill"), id: z.string().uuid() }),
   z.object({ action: z.literal("invoice"), id: z.string().uuid(), invoiceNumber: z.string().trim().min(1).max(100) }),
@@ -77,6 +78,19 @@ Deno.serve(async (req) => {
       if (["attributes", "values"].includes(input.kind) && !input.categoryId || input.kind === "values" && !input.attributeId) return json({ error: "Category and attribute IDs are required" }, 400);
       return json(await call(paths[input.kind]));
     }
+    if (input.action === "approval") {
+      const { data: products, error } = await db.from("trendyol_products").select("id,barcode").eq("user_id", user.id).in("id", [...new Set(input.ids)]);
+      if (error) throw error;
+      const results = [];
+      for (const p of products ?? []) {
+        const result = await call(`/integration/product/sellers/${SELLER_ID}/product/${encodeURIComponent(p.barcode)}`);
+        const status = result.approved === true ? "approved" : "pending-approval";
+        const { error: updateError } = await db.from("trendyol_products").update({ publish_status: status }).eq("id", p.id);
+        if (updateError) throw updateError;
+        results.push({ barcode: p.barcode, status, archived: result.archived });
+      }
+      return json({ results });
+    }
     if (input.action === "publish" || input.action === "sync") {
       const ids = [...new Set(input.ids)];
       const { data: products, error } = await db.from("trendyol_products").select("*").eq("user_id", user.id).eq("enabled", true).in("id", ids);
@@ -95,7 +109,7 @@ Deno.serve(async (req) => {
           for (const a of required) if (!validated.data.attributes.some(v => v.attributeId === (a.attribute?.id ?? a.id))) return json({ error: `${p.sku}: missing required attribute ${a.attribute?.name ?? a.id}` }, 400);
           items.push(validated.data);
         } else {
-          if (p.publish_status === "draft" || p.publish_status === "failed") return json({ error: `Publish ${p.sku} and check its batch before syncing` }, 400);
+          if (p.publish_status !== "approved") return json({ error: `Check approval for ${p.sku} before syncing` }, 400);
           const item: any = { barcode: p.barcode };
           if (input.mode !== "price") item.quantity = quantity;
           if (input.mode !== "stock") {
@@ -178,7 +192,7 @@ Deno.serve(async (req) => {
     }
     if (input.action === "tracking") {
       if (!["Picking", "Invoiced"].includes(remote.status)) return json({ error: "Picking or Invoiced status required" }, 409);
-      const result = await call(`/integration/order/sellers/${SELLER_ID}/shipment-packages/${pkg.package_id}/tracking-details`, "PUT", { cargoSenderNumber: input.trackingNumber, cargoProviderCode: input.providerCode });
+      const result = await call(`/integration/order/sellers/${SELLER_ID}/shipment-packages/${pkg.package_id}/tracking-details`, "PUT", { cargoSenderNumber: input.trackingNumber, providerCode: input.providerCode });
       await log("tracking", { package: pkg.order_number, result }); return json({ success: true });
     }
     return json({ error: "Unknown action" }, 400);
