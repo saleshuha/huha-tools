@@ -1,7 +1,7 @@
 # Trendyol Saudi integration
 
 - [ ] Verify Saudi seller API, product requirements and shipment workflow.
-- [ ] Connect Trendyol seller credentials securely and verify Saudi account access.
+- [ ] Connect Trendyol seller credentials securely and verify Saudi account access. Blocked: App connectors require Lovable Cloud; this project uses external Supabase. Await the user's choice of secure Supabase secrets instead.
 - [ ] Add product mapping, creation, price and available-stock synchronization.
 - [ ] Add order import and safe, idempotent local fulfillment with stock history.
 - [ ] Add sync results, retry handling and settings.
