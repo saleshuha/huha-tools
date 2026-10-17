@@ -1,8 +1,9 @@
 # Trendyol Saudi integration
 
-- [ ] Verify Saudi seller API, product requirements and shipment workflow.
-- [ ] Connect Trendyol seller credentials securely and verify Saudi account access. Use existing external Supabase as approved; awaiting production API key and API secret in the secure form.
-- [ ] Add product mapping, creation, price and available-stock synchronization.
-- [ ] Add order import and safe, idempotent local fulfillment with stock history.
-- [ ] Add sync results, retry handling and settings.
-- [ ] Test product, stock, price and fulfillment flows against the connected account.
+- [x] Verify Saudi seller API, product requirements and shipment workflow.
+- [x] Connect Trendyol credentials through existing Supabase; Saudi orders/categories/brands read access returned HTTP 200.
+- [x] Add product mapping, V2 creation, approval checks, price and sellable-stock manual synchronization.
+- [x] Add paginated order import and transactional local fulfillment, stock history, package/line replay guards, Picking/invoice/tracking notifications.
+- [x] Add batch history, error details, retry Picking, mapping settings and integration documentation.
+- [x] Run five stock-domain tests, deploy the function and verify the app compiles; public browser redirects to sign-in without errors.
+- [ ] Verify authenticated workspace and actual product creation/approval, price/stock push and order fulfillment. Blockers: external Supabase does not supply a test browser session; seller currently has zero orders; no real product mapping/approval supplied. No live marketplace writes were made.
