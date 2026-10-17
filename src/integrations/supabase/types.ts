@@ -6130,6 +6130,38 @@ export type Database = {
         }
         Relationships: []
       }
+      trendyol_fulfilled_lines: {
+        Row: {
+          created_at: string
+          line_id: string
+          package_id: string
+          quantity: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          line_id: string
+          package_id: string
+          quantity: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          line_id?: string
+          package_id?: string
+          quantity?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trendyol_fulfilled_lines_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "trendyol_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trendyol_packages: {
         Row: {
           created_at: string
