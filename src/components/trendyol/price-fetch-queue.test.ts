@@ -29,5 +29,15 @@ test('rate limit stops new lookups without retrying billed requests', async () =
     lookup: async asin => { calls.push(asin); if (asin === 'A') throw new Error('429'); return asin; },
     saved: () => {}, failed: () => { stopped = true; }, progress: () => {},
   });
-  assert.deepEqual(calls, ['A', 'B']); assert.equal(result.saved, 1); assert.deepEqual(result.remaining, ['A', 'C']);
+  assert.deepEqual(calls, ['A', 'B']); assert.equal(result.saved, 1); assert.deepEqual(result.remaining, ['C']);
+});
+
+test('isolated errors do not block other prices or enter the resume queue', async () => {
+  const calls: string[] = []; let failures = 0;
+  const result = await fetchPriceQueue({ asins: ['A', 'B', 'C'], stopped: () => false,
+    lookup: async asin => { calls.push(asin); if (asin === 'A') throw new Error('502'); return asin; },
+    saved: () => {}, failed: () => { failures++; }, progress: () => {},
+  });
+  assert.equal(failures, 1); assert.equal(result.saved, 2); assert.deepEqual(result.remaining, []);
+  assert.deepEqual(calls.sort(), ['A', 'B', 'C']);
 });

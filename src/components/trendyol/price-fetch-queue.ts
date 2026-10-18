@@ -32,5 +32,6 @@ export async function fetchPriceQueue<T>(options: {
     }
   };
   await Promise.all(Array.from({ length: Math.min(PRICE_FETCH_CONCURRENCY, options.asins.length) }, worker));
-  return { saved: saved.size, remaining: options.asins.filter(asin => !saved.has(asin)) };
+  // Resume only unstarted requests; failures may have already consumed a credit.
+  return { saved: saved.size, remaining: options.asins.slice(cursor) };
 }
