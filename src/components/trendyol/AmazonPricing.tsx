@@ -60,7 +60,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   }, [products, prices, percentage, fixed, originalPercentage, originalFixed]);
   const pendingAsins = pendingLookupAsins(products, null, prices);
   const selectedPending = pendingLookupAsins(products, selected, prices);
-  const filtered = rows.filter(r => (priceView === "all" || (priceView === "pending" ? !r.cached : !!r.cached)) && `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = rows.filter(r => (priceView === "all" || (priceView === "blocked" ? priceSubmissionBlocker(r) !== null : priceView === "ready" ? priceSubmissionBlocker(r) === null : priceView === "pending" ? !r.cached : !!r.cached)) && `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
   const pages = Math.max(1, Math.ceil(filtered.length / 50)); const current = Math.min(page, pages - 1); const visible = filtered.slice(current * 50, current * 50 + 50);
   const picked = rows.filter(r => selected.has(r.id));
   const eligibleRows = rows.filter(r => priceSubmissionBlocker(r) === null);
@@ -114,7 +114,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
     </ToolbarBar>
     <ToolbarBar>
       <Input aria-label="Search Amazon pricing" placeholder="Search ASIN or product" className="h-8 text-xs max-w-64" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
-      <Select value={priceView} onValueChange={value => { setPriceView(value); setPage(0); }}><SelectTrigger aria-label="Amazon price status" className="h-8 text-xs w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All items</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="fetched">Fetched</SelectItem></SelectContent></Select>
+      <Select value={priceView} onValueChange={value => { setPriceView(value); setPage(0); }}><SelectTrigger aria-label="Amazon price status" className="h-8 text-xs w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All items</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="fetched">Fetched</SelectItem><SelectItem value="ready">Ready to submit</SelectItem><SelectItem value="blocked">Blocked</SelectItem></SelectContent></Select>
       <span className="text-xs text-muted-foreground">{selected.size} selected</span>
       <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !selectedPending.length} onClick={() => execute(() => fetchPrices("selected"))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch selected pending ({selectedPending.length})</Button>
       <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !pendingAsins.length} onClick={() => execute(() => fetchPrices("pending"))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch pending ({pendingAsins.length})</Button>
@@ -130,6 +130,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
       {dirty && <p>Save formulas before submitting prices.</p>}
       {!valid && <p className="text-destructive">Enter valid original and sale formulas.</p>}
       <p>{eligibleRows.length} ready to submit · {rows.length - eligibleRows.length} blocked · {picked.length - eligiblePicked.length} selected blocked</p>
+      {rows.length > eligibleRows.length && <p>Blocked because: {Object.entries(rows.reduce<Record<string, number>>((acc, r) => { const b = priceSubmissionBlocker(r); if (b) acc[b] = (acc[b] ?? 0) + 1; return acc; }, {})).map(([reason, n]) => `${n} ${reason === "Available Amazon price required" ? "no Amazon Buy Box price" : reason}`).join(" · ")}</p>}
       {rows.some(r => r.publish_status !== "approved") && <p>Unapproved products cannot receive price updates. Check approval to refresh their status; products still pending must be approved by Trendyol.</p>}
     </div>
     <DataTableWrapper><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox aria-label="Select visible pricing products" disabled={busy} checked={visible.length > 0 && visible.every(r => selected.has(r.id))} onCheckedChange={checked => setSelected(s => { const next = new Set(s); visible.forEach(r => checked === true ? next.add(r.id) : next.delete(r.id)); return next; })} /></TableHead><TableHead>Product / ASIN</TableHead><TableHead>Amazon.sa Buy Box</TableHead><TableHead>Last fetched</TableHead><TableHead>Current original / sale</TableHead><TableHead>Preview original</TableHead><TableHead>Preview sale</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>
