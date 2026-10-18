@@ -156,9 +156,11 @@ Deno.serve(async (req) => {
       const asinTaken = new Map((existing ?? []).map(r => [normalize(r.asin), r.barcode]));
       const skuTaken = new Map((existing ?? []).map(r => [normalize(r.sku), r.barcode]));
       let inserted = 0, updated = 0, skipped = 0;
+      const reasons: string[] = [];
+      const fail = (barcode: string, reason: string) => { skipped++; if (reasons.length < 5) reasons.push(`${barcode}: ${reason}`); };
       for (const p of remote) {
         const barcode = String(p.barcode ?? "").trim();
-        if (!barcode) { skipped++; continue; }
+        if (!barcode) { fail("(no barcode)", "missing barcode"); continue; }
         const stockCode = String(p.stockCode ?? "").trim();
         const key = normalize(stockCode || barcode);
         const match = byBarcode.get(barcode);
@@ -175,19 +177,19 @@ Deno.serve(async (req) => {
         };
         if (match) {
           const { error } = await db.from("trendyol_products").update(fields).eq("id", match.id);
-          if (error) { skipped++; continue; }
+          if (error) { fail(barcode, error.message); continue; }
           updated++;
         } else {
           // Avoid collisions: asin/sku are unique per user, so only insert when free.
-          if (asinTaken.has(key) || skuTaken.has(key)) { skipped++; continue; }
+          if (asinTaken.has(key) || skuTaken.has(key)) { fail(barcode, `ASIN/SKU ${key} already mapped to another barcode`); continue; }
           const { error } = await db.from("trendyol_products").insert({ ...fields, user_id: user.id, barcode, asin: key, sku: key, enabled: true });
-          if (error) { skipped++; continue; }
+          if (error) { fail(barcode, error.message); continue; }
           asinTaken.set(key, barcode); skuTaken.set(key, barcode);
           inserted++;
         }
       }
-      await log("import-products", { count: remote.length, inserted, updated, skipped, page: input.page });
-      return json({ count: remote.length, inserted, updated, skipped, totalPages: result.totalPages, page: input.page });
+      await log("import-products", { count: remote.length, inserted, updated, skipped, reasons, page: input.page });
+      return json({ count: remote.length, inserted, updated, skipped, reasons, totalPages: result.totalPages ?? 1, page: input.page });
     }
     if (input.action === "import-orders") {
       if (input.startDate < Date.now() - 90 * 86400000 || input.startDate > Date.now()) return json({ error: "Use an order date within the last 90 days" }, 400);
