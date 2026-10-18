@@ -6,7 +6,7 @@ export function calculatedPrices(price: number | null, formula: DualPricingFormu
   return { salePrice, listPrice, valid: salePrice !== null && listPrice !== null && listPrice >= salePrice };
 }
 export function lookupAsins(products: { id: string; asin: string }[], selected: Set<string> | null): string[] {
-  return [...new Set(products.filter(p => selected === null || selected.has(p.id)).map(p => p.asin.trim().toUpperCase()))];
+  return [...new Set(products.filter(p => selected === null || selected.has(p.id)).map(p => p.asin.trim().toUpperCase()).filter(asin => /^[A-Z0-9]{10}$/.test(asin)))];
 }
 export function calculatedPrice(price: number | null, formula: PricingFormula): number | null {
   if (price === null || !Number.isFinite(price) || price <= 0 || !Number.isFinite(formula.percentage) || !Number.isFinite(formula.fixed_sar) || formula.percentage < -100 || formula.percentage > 1000 || Math.abs(formula.fixed_sar) > 10000) return null;

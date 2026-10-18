@@ -57,6 +57,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const toggle = (id: string, checked: boolean) => setSelected(s => { const next = new Set(s); checked ? next.add(id) : next.delete(id); return next; });
   const fetchPrices = async (all: boolean) => {
     stop.current = false; const asins = lookupAsins(products, all ? null : selected); let count = 0;
+    if (!asins.length) throw new Error("No valid Amazon ASINs to fetch");
     try {
       for (const asin of asins) {
         if (stop.current) break;
@@ -99,6 +100,9 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
       for (let i = 0; i < picked.length; i += 100) {
         setProgress(`Submitting ${i + 1}–${Math.min(i + 100, picked.length)}/${picked.length}`);
         await trendyol({ action: "pricing-submit", items: picked.slice(i, i + 100).map(r => ({ id: r.id, salePrice: r.next.salePrice, listPrice: r.next.listPrice })) });
+        const submittedIds = new Set(picked.slice(i, i + 100).map(r => r.id));
+        setSelected(previous => new Set([...previous].filter(id => !submittedIds.has(id))));
+        setProgress(`${Math.min(i + 100, picked.length)}/${picked.length} products submitted · Check History`);
       }
       setConfirm(false); setSelected(new Set()); setProgress("Prices submitted · Check History for batch results"); await onSubmitted();
     })}>Confirm submission</Button></DialogFooter></DialogContent></Dialog>

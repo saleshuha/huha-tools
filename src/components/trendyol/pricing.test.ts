@@ -18,3 +18,6 @@ test('fetch all includes unselected products and deduplicates normalized ASINs',
  assert.deepEqual(lookupAsins(products, null), ['B0DST89YP2', 'B0FL817V9N']);
  assert.deepEqual(lookupAsins(products, new Set(['1'])), ['B0DST89YP2']);
 });
+test('bulk lookups skip invalid or blank ASINs rather than aborting valid products', () => {
+ assert.deepEqual(lookupAsins([{ id: '1', asin: '' }, { id: '2', asin: 'LOCAL-SKU' }, { id: '3', asin: 'B0FL817V9N' }], null), ['B0FL817V9N']);
+});
