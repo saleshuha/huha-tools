@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { aggregateInventory, normalize, planDeductions, type InventoryRow } from "./domain.ts";
+import { aggregateInventory, normalize, planDeductions, type InventoryRow } from "../_shared/trendyol/domain.ts";
 const rows: InventoryRow[] = [
   { id: "1", asin: " b0test ", sku: " new_sku ", quantity: 2, status: "in-stock", country: "KSA" },
   { id: "2", asin: "B0TEST", quantity: 3, status: "in-stock", country: "KSA" },

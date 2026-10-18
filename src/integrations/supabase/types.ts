@@ -6298,6 +6298,7 @@ export type Database = {
           publish_status: string
           sale_price: number
           sku: string
+          stock_sync_mapped: boolean
           title: string
           updated_at: string
           user_id: string
@@ -6321,6 +6322,7 @@ export type Database = {
           publish_status?: string
           sale_price?: number
           sku: string
+          stock_sync_mapped?: boolean
           title: string
           updated_at?: string
           user_id: string
@@ -6344,10 +6346,88 @@ export type Database = {
           publish_status?: string
           sale_price?: number
           sku?: string
+          stock_sync_mapped?: boolean
           title?: string
           updated_at?: string
           user_id?: string
           vat_rate?: number
+        }
+        Relationships: []
+      }
+      trendyol_stock_queue: {
+        Row: {
+          attempts: number
+          batch_id: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          product_id: string
+          sent_version: number | null
+          state: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          attempts?: number
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          product_id: string
+          sent_version?: number | null
+          state?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          attempts?: number
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          product_id?: string
+          sent_version?: number | null
+          state?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trendyol_stock_queue_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "trendyol_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trendyol_stock_worker: {
+        Row: {
+          created_at: string
+          id: number
+          lease_token: string | null
+          lease_until: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: number
+          lease_token?: string | null
+          lease_until?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          lease_token?: string | null
+          lease_until?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -6818,6 +6898,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_trendyol_stock_worker: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
       cleanup_po_duplicates: { Args: never; Returns: number }
       count_restock_eligible_items: {
         Args: { country_filter: string }
@@ -7588,6 +7672,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      queue_trendyol_stock: {
+        Args: { p_ids?: string[]; p_user_id: string }
+        Returns: number
+      }
+      release_trendyol_stock_worker: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
       remove_all_po_duplicates: {
         Args: { user_id_param: string }
         Returns: {
@@ -7649,6 +7741,8 @@ export type Database = {
           updated_count: number
         }[]
       }
+      wake_trendyol_stock: { Args: never; Returns: undefined }
+      wake_trendyol_stock_if_pending: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

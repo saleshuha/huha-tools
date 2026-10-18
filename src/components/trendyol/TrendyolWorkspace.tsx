@@ -55,6 +55,7 @@ export function TrendyolWorkspace() {
   const [fulfill, setFulfill] = useState<PackageRow | null>(null);
   const [details, setDetails] = useState<string | null>(null);
   const [progress, setProgress] = useState("");
+  const [stockQueue, setStockQueue] = useState<{ state: string; last_error: string | null }[]>([]);
 
   const load = useCallback(async () => {
     const fetchRows = async (table: "trendyol_products" | "trendyol_packages" | "trendyol_sync_runs") => {
@@ -68,6 +69,14 @@ export function TrendyolWorkspace() {
       return all;
     };
     const [p, o, r, stock] = await Promise.all([fetchRows("trendyol_products"), fetchRows("trendyol_packages"), fetchRows("trendyol_sync_runs"), trendyol<{ items: Inventory[] }>({ action: "inventory" })]);
+    const queue: { state: string; last_error: string | null }[] = []; const seenQueue = new Set<string>();
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase.from("trendyol_stock_queue").select("id,state,last_error").order("id", { ascending: true }).range(start, start + 999);
+      if (error) throw error;
+      for (const row of data ?? []) if (!seenQueue.has(row.id)) { seenQueue.add(row.id); queue.push(row); }
+      if ((data?.length ?? 0) < 1000) break;
+    }
+    setStockQueue(queue);
     setProducts(p); setOrders(o); setRuns(r); setInventory(stock.items); setInventoryReady(true);
   }, []);
   useEffect(() => { load().catch(e => setError(e.message)); }, [load]);
@@ -86,7 +95,7 @@ export function TrendyolWorkspace() {
     if (groups.mapped.some(pair => productKey(pair.inventory.asin) === productKey(item.asin) && pair.product.id !== product.id)) throw new Error("This inventory product is already mapped");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in required");
-    const { data, error } = await supabase.from("trendyol_products").update({ asin: productKey(item.asin) }).eq("id", product.id).eq("user_id", user.id).select("id").single();
+    const { data, error } = await supabase.from("trendyol_products").update({ asin: productKey(item.asin), stock_sync_mapped: true }).eq("id", product.id).eq("user_id", user.id).select("id").single();
     if (error) throw error;
     if (!data) throw new Error("Mapping could not be saved");
     setSelected(new Set()); setProductTab("mapped");
@@ -103,7 +112,8 @@ export function TrendyolWorkspace() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in required");
     const { id, ...fields } = edit;
-    const payload = { ...fields, asin: edit.asin.trim().toUpperCase(), sku: edit.sku.trim().toUpperCase(), barcode: edit.barcode.trim(), images, attributes: attrs, user_id: user.id };
+    const payload = { ...fields, asin: edit.asin.trim().toUpperCase(), sku: edit.sku.trim().toUpperCase(), barcode: edit.barcode.trim(), images, attributes: attrs, user_id: user.id,
+      ...(inventory.some(i => productKey(i.asin) === productKey(edit.asin)) ? { stock_sync_mapped: true } : {}) };
     const result = id ? await supabase.from("trendyol_products").update(payload).eq("id", id) : await supabase.from("trendyol_products").insert(payload);
     if (result.error) throw result.error;
     setEdit(null); toast({ title: "Product mapping saved" });
@@ -115,7 +125,7 @@ export function TrendyolWorkspace() {
       await trendyol({ action, ids: ids.slice(start, start + 1000), ...(mode ? { mode } : {}) });
       if (start + 1000 < ids.length) await new Promise(resolve => setTimeout(resolve, 1100));
     }
-    toast({ title: "Submitted to Trendyol", description: "Check the batch results in History; approval is separate." });
+    toast({ title: mode === "stock" ? "Stock updates queued" : "Submitted to Trendyol", description: "Check the batch results in History; approval is separate." });
   };
   const statusBadge = (status: string) => <Badge variant="outline" className={status === "failed" ? "text-destructive border-destructive/30" : "text-muted-foreground"}>{status}</Badge>;
 
@@ -131,6 +141,10 @@ export function TrendyolWorkspace() {
       <TabsContent value="pricing"><AmazonPricing products={groups.mapped.map(pair => pair.product)} onSubmitted={load} /></TabsContent>
       <TabsContent value={productTab === "mapped" ? "mapped" : "products"} className="space-y-3">
         <ToolbarBar>
+          {productTab === "mapped" && <Button disabled={busy || !products.length} className="h-8 text-xs" onClick={() => run(async () => {
+            const result = await trendyol<{ queued: number }>({ action: "stock-push-all" });
+            toast({ title: "All local stock updates queued", description: `${result.queued} mapped products · stock only · prices unchanged` });
+          })}><Boxes className="h-3.5 w-3.5 mr-1" />Push all local stock</Button>}
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(loadInventory)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh stock</Button>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => {
             let inserted = 0, updated = 0, skipped = 0, page = 0, pages = 1;
@@ -148,6 +162,11 @@ export function TrendyolWorkspace() {
           })}><Upload className="h-3.5 w-3.5 mr-1" />Import listed products</Button>
           {progress && <span className="text-xs text-muted-foreground animate-pulse">{progress}</span>}
         </ToolbarBar>
+        {productTab === "mapped" && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline"><CheckCircle2 className="h-3 w-3 mr-1" />Automatic stock sync active</Badge>
+          <span>{stockQueue.filter(r => ["pending", "submitted"].includes(r.state)).length} pending · {stockQueue.filter(r => r.state === "failed").length} failed</span>
+          {stockQueue.some(r => r.state === "failed") && <Button variant="ghost" className="h-8 text-xs" onClick={() => setDetails(stockQueue.filter(r => r.state === "failed").map(r => r.last_error).join("\n\n"))}>Stock errors</Button>}
+        </div>}
         {productTab === "mapped" && <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>}
         {inventoryReady ? <ProductMatchingViews products={products} inventory={inventory} busy={busy} mappedView={productTab === "mapped"} selected={selected} setSelected={setSelected} onEdit={openEditor} onCreate={prepareProduct} onMap={(product, item) => { void run(() => mapProduct(product, item)); }} /> : <p role="status" className="text-xs text-muted-foreground py-8">{error ? "Inventory matching unavailable" : "Loading saved products and Saudi inventory…"}</p>}
       </TabsContent>
