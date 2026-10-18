@@ -482,6 +482,30 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
+              {canAccessRoute('/trendyol-sa') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Trendyol SA"
+                    className={`group relative w-full rounded-md transition-all duration-200 ${
+                      isActive("/trendyol-sa")
+                        ? "bg-primary/90 text-primary-foreground shadow-sm"
+                        : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <NavLink
+                      to="/trendyol-sa"
+                      end
+                      aria-label="Trendyol SA"
+                      className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                    >
+                      <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium text-sm">Trendyol SA</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {canAccessRoute('/market-purchases') && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
