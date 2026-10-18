@@ -3,6 +3,7 @@
 - Trendyol uses server-side production credentials and verified administrator sessions; never send marketplace credentials to the browser.
 - Trendyol stock-only sends use a protected versioned outbox, a global worker lease and capabilityless wake endpoint; inventory triggers enqueue latest Saudi sellable totals, batch completion precedes newer sends, and temporary retry scheduling ends after drain so closed browsers do not interrupt sync.
 - Manual stock pushes immediately wake the existing leased worker and monitor captured queue versions until provider confirmation; never bypass the outbox or report enqueueing as completion.
+- Bound stock-worker UUID filters and per-pass writes to small batches to avoid PostgREST URL limits; persist stage-specific interruptions so retries are not mistaken for provider progress.
 - Trendyol direct fetch requests must share the Supabase client's exported URL and publishable key; build-time environment variables may be absent in this external-Supabase project.
 - Keep shared Trendyol provider requests and stock calculations under functions/_shared/trendyol so both services deploy with consistent Saudi headers and credential redaction.
 - Trendyol fulfillment is a service-role-only transactional RPC with package locking and idempotency; external shipment notifications retry separately without deducting stock twice.

@@ -107,7 +107,13 @@ export function TrendyolWorkspace() {
           nextWake = Date.now() + 6000;
           await trendyol({ action: "stock-process" });
         }
-        if (stockTargets.length && Date.now() - started > 60000) setStockNotice("Trendyol is still processing; automatic retries remain active.");
+        if (stockTargets.length) {
+          const targetIds = new Set(stockTargets.map(target => target.id));
+          const interrupted = rows.find(row => targetIds.has(row.id) && row.last_error);
+          if (interrupted) setStockNotice(interrupted.last_error ?? "Stock sending interrupted");
+          else if (Date.now() - started > 60000) setStockNotice(current.confirming ? "Awaiting Trendyol confirmation; automatic checks remain active." : "Stock has not been confirmed yet; automatic sending remains active.");
+          else setStockNotice("");
+        }
       } catch (e) {
         if (!cancelled && stockTargets.length) setStockNotice(`Progress unavailable: ${e instanceof Error ? e.message : "Connection interrupted"}. Stock sync continues automatically.`);
       }
