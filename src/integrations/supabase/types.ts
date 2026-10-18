@@ -6130,6 +6130,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trendyol_amazon_prices: {
+        Row: {
+          asin: string
+          created_at: string
+          currency: string
+          fetched_at: string
+          id: string
+          last_error: string | null
+          price: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          currency?: string
+          fetched_at?: string
+          id?: string
+          last_error?: string | null
+          price?: number | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          currency?: string
+          fetched_at?: string
+          id?: string
+          last_error?: string | null
+          price?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trendyol_fulfilled_lines: {
         Row: {
           created_at: string
@@ -6202,6 +6241,33 @@ export type Database = {
           package_id?: string
           payload?: Json
           remote_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trendyol_pricing_settings: {
+        Row: {
+          created_at: string
+          fixed_sar: number
+          id: string
+          percentage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fixed_sar?: number
+          id?: string
+          percentage?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fixed_sar?: number
+          id?: string
+          percentage?: number
           updated_at?: string
           user_id?: string
         }

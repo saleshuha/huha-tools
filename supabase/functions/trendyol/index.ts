@@ -3,10 +3,13 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { SELLER_ID, STOREFRONT, trendyolRequest } from "./connection.ts";
 import { aggregateInventory, normalize } from "./domain.ts";
+import { calculatedPrice } from "./pricing.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("test-connection") }),
   z.object({ action: z.literal("inventory") }),
+  z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/) }),
+  z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), price: z.number().positive() })).min(1).max(100) }),
   z.object({ action: z.literal("catalog"), kind: z.enum(["categories", "brands", "attributes", "values"]), categoryId: z.number().int().positive().optional(), attributeId: z.number().int().positive().optional() }),
   z.object({ action: z.literal("publish"), ids: z.array(z.string().uuid()).min(1).max(1000) }),
   z.object({ action: z.literal("sync"), ids: z.array(z.string().uuid()).min(1).max(1000), mode: z.enum(["stock", "price", "both"]) }),
@@ -74,6 +77,50 @@ Deno.serve(async (req) => {
       return json({ connected: true, sellerId: SELLER_ID, storefront: STOREFRONT });
     }
     if (input.action === "inventory") return json({ items: await inventory() });
+    if (input.action === "amazon-price") {
+      const apiKey = Deno.env.get("ASIN_SPOTLIGHT_API_KEY");
+      if (!apiKey) return json({ error: "ASIN Spotlight API key is not configured" }, 503);
+      const local = await inventory();
+      if (!local.some(i => normalize(i.asin) === input.asin)) return json({ error: "ASIN is not in active Saudi inventory" }, 400);
+      const response = await fetch(`https://api.asinspotlight.com/v1/product?asin=${input.asin}&marketplace=sa`, { headers: { "x-api-key": apiKey }, signal: AbortSignal.timeout(90000) });
+      if (!response.ok) return json({ error: response.status === 429 ? "ASIN Spotlight rate or credit limit reached; remaining lookups stopped" : `ASIN Spotlight lookup failed (${response.status})` }, response.status >= 400 && response.status < 500 ? response.status : 502);
+      let result: any;
+      try { result = await response.json(); } catch { return json({ error: "ASIN Spotlight returned an unreadable response" }, 502); }
+      if (result.success !== true) return json({ error: "ASIN Spotlight could not complete this lookup" }, 502);
+      const raw = result.data?.bb_price;
+      const price = result.found === true && typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : null;
+      const row = { user_id: user.id, asin: input.asin, price, currency: "SAR", status: price !== null ? "available" : result.found === false ? "not-found" : "no-price", last_error: price === null ? "No current Amazon Buy Box price" : null, fetched_at: new Date().toISOString() };
+      const { data, error } = await db.from("trendyol_amazon_prices").upsert(row, { onConflict: "user_id,asin" }).select("*").single();
+      if (error) throw error;
+      return json({ item: data, usage: result.meta?.usage });
+    }
+    if (input.action === "pricing-submit") {
+      const ids = input.items.map(i => i.id);
+      if (new Set(ids).size !== ids.length) return json({ error: "Duplicate products selected" }, 400);
+      const { data: formula, error: formulaError } = await db.from("trendyol_pricing_settings").select("percentage,fixed_sar").eq("user_id", user.id).single();
+      if (formulaError || !formula) return json({ error: "Save your pricing formula first" }, 400);
+      const { data: products, error } = await db.from("trendyol_products").select("*").eq("user_id", user.id).eq("enabled", true).in("id", ids);
+      if (error) throw error;
+      if (products?.length !== ids.length) return json({ error: "Selected products are missing or disabled" }, 400);
+      const { data: prices, error: priceError } = await db.from("trendyol_amazon_prices").select("asin,price,status,currency").eq("user_id", user.id).in("asin", products.map(p => normalize(p.asin)));
+      if (priceError) throw priceError;
+      const balances = new Set((await inventory()).map(i => normalize(i.asin)));
+      const items = [];
+      for (const p of products) {
+        const cached = prices?.find(r => r.asin === normalize(p.asin));
+        const price = calculatedPrice(cached?.status === "available" && cached.currency === "SAR" ? Number(cached.price) : null, { percentage: Number(formula.percentage), fixed_sar: Number(formula.fixed_sar) });
+        if (!balances.has(normalize(p.asin)) || p.publish_status !== "approved" || price === null) return json({ error: `${p.asin}: approved mapping and saved Amazon price required` }, 409);
+        if (input.items.find(i => i.id === p.id)?.price !== price) return json({ error: "Prices or formula changed; refresh the preview before submitting" }, 409);
+        items.push({ barcode: p.barcode, salePrice: price, listPrice: Math.max(price, Number(p.list_price) || 0) });
+      }
+      const result = await call(`/integration/inventory/sellers/${SELLER_ID}/products/price-and-inventory`, "POST", { items });
+      await log("sync-amazon-price", { ...result, formula, items }, ids);
+      for (let i = 0; i < products.length; i++) {
+        const { error } = await db.from("trendyol_products").update({ sale_price: items[i].salePrice, list_price: items[i].listPrice }).eq("id", products[i].id).eq("user_id", user.id);
+        if (error) throw error;
+      }
+      return json(result);
+    }
     if (input.action === "catalog") {
       const paths = { categories: "/integration/product/product-categories", brands: "/integration/product/brands", attributes: `/integration/product/categories/${input.categoryId}/attributes`, values: `/integration/product/categories/${input.categoryId}/attributes/${input.attributeId}/values` };
       if (["attributes", "values"].includes(input.kind) && !input.categoryId || input.kind === "values" && !input.attributeId) return json({ error: "Category and attribute IDs are required" }, 400);
