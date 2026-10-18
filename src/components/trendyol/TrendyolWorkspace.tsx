@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, RefreshCw, Upload, Package, ShoppingBag, Boxes, Pencil, Plus, Search, History, Link2, Save } from "lucide-react";
 import { trendyol } from "./api";
+import { classifyProducts, productKey } from "./matching";
+import { ProductMatchingViews } from "./ProductMatchingViews";
 
 type Inventory = { asin: string; sku: string; title: string; quantity: number };
 type Product = { id: string; asin: string; sku: string; barcode: string; title: string; description: string; product_main_id: string; brand_id: number | null; category_id: number | null; sale_price: number; list_price: number; vat_rate: number; images: unknown; attributes: unknown; publish_status: string; enabled: boolean; last_error: string | null };
@@ -27,13 +29,14 @@ export function TrendyolWorkspace() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<Inventory[]>([]);
+  const [inventoryReady, setInventoryReady] = useState(false);
+  const [productTab, setProductTab] = useState("products");
   const [orders, setOrders] = useState<PackageRow[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
   const [edit, setEdit] = useState<Product | null>(null);
   const [imageText, setImageText] = useState("");
   const [attributeText, setAttributeText] = useState("[]");
@@ -63,24 +66,30 @@ export function TrendyolWorkspace() {
       }
       return all;
     };
-    const [p, o, r] = await Promise.all([fetchRows("trendyol_products"), fetchRows("trendyol_packages"), fetchRows("trendyol_sync_runs")]);
-    setProducts(p); setOrders(o); setRuns(r);
+    const [p, o, r, stock] = await Promise.all([fetchRows("trendyol_products"), fetchRows("trendyol_packages"), fetchRows("trendyol_sync_runs"), trendyol<{ items: Inventory[] }>({ action: "inventory" })]);
+    setProducts(p); setOrders(o); setRuns(r); setInventory(stock.items); setInventoryReady(true);
   }, []);
   useEffect(() => { load().catch(e => setError(e.message)); }, [load]);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setError("");
     try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); } finally { setBusy(false); setProgress(""); }
   };
-  const loadInventory = async () => { const result = await trendyol<{ items: Inventory[] }>({ action: "inventory" }); setInventory(result.items); return result.items; };
+  const loadInventory = async () => { const result = await trendyol<{ items: Inventory[] }>({ action: "inventory" }); setInventory(result.items); setInventoryReady(true); return result.items; };
   const openEditor = (p: Product) => {
     setEdit({ ...p }); setImageText((Array.isArray(p.images) ? p.images : []).map((v: any) => v.url).join("\n"));
     setAttributeText(JSON.stringify(p.attributes, null, 2)); setCatalogResult("");
   };
-  const openInventory = async () => {
-    const items = await loadInventory();
-    const first = items.find(i => i.sku && !products.some(p => p.asin === i.asin));
-    if (!first) { toast({ title: "No unmapped Saudi inventory with a SKU" }); return; }
-    openEditor({ ...empty, asin: first.asin, sku: first.sku, title: first.title.slice(0, 100), product_main_id: first.asin });
+  const groups = useMemo(() => classifyProducts(products, inventory), [products, inventory]);
+  const prepareProduct = (item: Inventory) => openEditor({ ...empty, asin: item.asin, sku: item.sku, title: item.title.slice(0, 100), product_main_id: item.asin });
+  const mapProduct = async (product: Product, item: Inventory) => {
+    if (groups.mapped.some(pair => productKey(pair.inventory.asin) === productKey(item.asin) && pair.product.id !== product.id)) throw new Error("This inventory product is already mapped");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sign in required");
+    const { data, error } = await supabase.from("trendyol_products").update({ asin: productKey(item.asin) }).eq("id", product.id).eq("user_id", user.id).select("id").single();
+    if (error) throw error;
+    if (!data) throw new Error("Mapping could not be saved");
+    setSelected(new Set()); setProductTab("mapped");
+    toast({ title: "Mapping saved", description: "Inventory quantities and serial numbers are unchanged." });
   };
   const save = async () => {
     if (!edit) return;
@@ -100,15 +109,13 @@ export function TrendyolWorkspace() {
   };
   const push = async (action: "publish" | "sync", mode?: "stock" | "price" | "both") => {
     const ids = [...selected]; if (!ids.length) throw new Error("Select products first");
+    if (ids.some(id => !groups.mapped.some(pair => pair.product.id === id))) throw new Error("Only mapped inventory products can be submitted");
     for (let start = 0; start < ids.length; start += 1000) {
       await trendyol({ action, ids: ids.slice(start, start + 1000), ...(mode ? { mode } : {}) });
       if (start + 1000 < ids.length) await new Promise(resolve => setTimeout(resolve, 1100));
     }
     toast({ title: "Submitted to Trendyol", description: "Check the batch results in History; approval is separate." });
   };
-  const visible = products.filter(p => `${p.asin} ${p.sku} ${p.title}`.toLowerCase().includes(search.toLowerCase()));
-  const balances = new Map(inventory.map(i => [i.asin, i.quantity]));
-  const toggle = (id: string) => setSelected(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const statusBadge = (status: string) => <Badge variant="outline" className={status === "failed" ? "text-destructive border-destructive/30" : "text-muted-foreground"}>{status}</Badge>;
 
   return <section className="space-y-4">
@@ -117,12 +124,11 @@ export function TrendyolWorkspace() {
       <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { await trendyol({ action: "test-connection" }); setConnected(true); await loadInventory(); toast({ title: "Saudi connection verified" }); })}>{connected ? <CheckCircle2 className="h-4 w-4 mr-2" /> : <Link2 className="h-4 w-4 mr-2" />}{connected ? "Connected · Test again" : "Test connection"}</Button>
     </div>
     {error && <div role="alert" className="border border-destructive/30 bg-destructive/10 text-destructive text-xs p-3 rounded-md break-words">{error}</div>}
-    <CompactStatBar items={[{ icon: Package, label: "Mapped products", value: products.length }, { icon: Boxes, label: "Sellable units", value: inventory.reduce((sum, i) => sum + i.quantity, 0) }, { icon: ShoppingBag, label: "Awaiting fulfillment", value: orders.filter(o => !o.fulfilled_at && ["Created", "Picking"].includes(o.remote_status)).length }, { icon: History, label: "Pending batches", value: runs.filter(r => r.status === "pending").length }]} />
-    <Tabs defaultValue="products">
-      <TabsList className="h-8"><TabsTrigger value="products" className="text-xs">Products</TabsTrigger><TabsTrigger value="orders" className="text-xs">Orders</TabsTrigger><TabsTrigger value="history" className="text-xs">History</TabsTrigger></TabsList>
-      <TabsContent value="products" className="space-y-3">
+    <CompactStatBar items={[{ icon: Package, label: "Mapped products", value: groups.mapped.length }, { icon: Boxes, label: "Sellable units", value: inventory.reduce((sum, i) => sum + i.quantity, 0) }, { icon: ShoppingBag, label: "Awaiting fulfillment", value: orders.filter(o => !o.fulfilled_at && ["Created", "Picking"].includes(o.remote_status)).length }, { icon: History, label: "Pending batches", value: runs.filter(r => r.status === "pending").length }]} />
+    <Tabs value={productTab} onValueChange={value => { setProductTab(value); setSelected(new Set()); }}>
+      <TabsList className="h-auto flex flex-wrap justify-start"><TabsTrigger value="products" className="text-xs">Product matching</TabsTrigger><TabsTrigger value="mapped" className="text-xs">Mapped products · {groups.mapped.length}</TabsTrigger><TabsTrigger value="orders" className="text-xs">Orders</TabsTrigger><TabsTrigger value="history" className="text-xs">History</TabsTrigger></TabsList>
+      <TabsContent value={productTab === "mapped" ? "mapped" : "products"} className="space-y-3">
         <ToolbarBar>
-          <div className="relative flex-1 min-w-40"><Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" /><Input aria-label="Search Trendyol products" placeholder="Search ASIN, SKU or product" value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs pl-8" /></div>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(loadInventory)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh stock</Button>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => {
             let inserted = 0, updated = 0, skipped = 0, page = 0, pages = 1;
@@ -139,13 +145,9 @@ export function TrendyolWorkspace() {
             toast({ title: "Trendyol products imported and saved", description: [`${inserted} new · ${updated} updated · ${skipped} skipped`, ...reasons.slice(0, 3)].join(" — ") });
           })}><Upload className="h-3.5 w-3.5 mr-1" />Import listed products</Button>
           {progress && <span className="text-xs text-muted-foreground animate-pulse">{progress}</span>}
-          <Button disabled={busy} className="h-8 text-xs" onClick={() => run(openInventory)}><Plus className="h-3.5 w-3.5 mr-1" />Map product</Button>
         </ToolbarBar>
-        <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>
-        <DataTableWrapper><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox aria-label="Select all visible Trendyol products" checked={visible.length > 0 && visible.every(p => selected.has(p.id))} onCheckedChange={checked => setSelected(old => { const next = new Set(old); visible.forEach(p => checked ? next.add(p.id) : next.delete(p.id)); return next; })} /></TableHead><TableHead>Product / SKU</TableHead><TableHead>Barcode</TableHead><TableHead>Stock</TableHead><TableHead>Sale price</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader><TableBody>
-          {visible.map(p => <TableRow key={p.id}><TableCell><Checkbox aria-label={`Select ${p.sku}`} checked={selected.has(p.id)} onCheckedChange={() => toggle(p.id)} /></TableCell><TableCell className="max-w-64"><p className="text-xs font-medium break-words">{p.title}</p><p className="text-xs text-muted-foreground break-all">{p.asin} · {p.sku}</p></TableCell><TableCell className="text-xs">{p.barcode}</TableCell><TableCell className="text-xs">{balances.get(p.asin) ?? "—"}</TableCell><TableCell className="text-xs whitespace-nowrap">{Number(p.sale_price).toFixed(2)} SAR</TableCell><TableCell>{statusBadge(p.publish_status)}{p.last_error && <p className="text-xs text-destructive max-w-48 break-words">{p.last_error}</p>}</TableCell><TableCell><Button variant="ghost" size="icon" aria-label={`Edit ${p.sku}`} className="h-8 w-8" onClick={() => openEditor(p)}><Pencil className="h-3.5 w-3.5" /></Button></TableCell></TableRow>)}
-          {!visible.length && <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-10">No Trendyol product mappings</TableCell></TableRow>}
-        </TableBody></Table></DataTableWrapper>
+        {productTab === "mapped" && <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>}
+        {inventoryReady ? <ProductMatchingViews products={products} inventory={inventory} busy={busy} mappedView={productTab === "mapped"} selected={selected} setSelected={setSelected} onEdit={openEditor} onCreate={prepareProduct} onMap={(product, item) => { void run(() => mapProduct(product, item)); }} /> : <p role="status" className="text-xs text-muted-foreground py-8">{error ? "Inventory matching unavailable" : "Loading saved products and Saudi inventory…"}</p>}
       </TabsContent>
       <TabsContent value="orders" className="space-y-3">
         <ToolbarBar><Label htmlFor="trendyol-start" className="text-xs">Orders since</Label><Input id="trendyol-start" type="date" className="h-8 text-xs w-40" value={startDate} onChange={e => setStartDate(e.target.value)} min={new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)} /><Button disabled={busy} className="h-8 text-xs" onClick={() => run(async () => {
@@ -163,7 +165,7 @@ export function TrendyolWorkspace() {
       <TabsContent value="history"><DataTableWrapper><Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Action</TableHead><TableHead>Status</TableHead><TableHead>Batch</TableHead><TableHead /></TableRow></TableHeader><TableBody>{runs.map(r => <TableRow key={r.id}><TableCell className="text-xs">{new Date(r.created_at).toLocaleString()}</TableCell><TableCell className="text-xs">{r.action}</TableCell><TableCell>{statusBadge(r.status)}</TableCell><TableCell className="text-xs max-w-48 break-all">{r.batch_id ?? "—"}</TableCell><TableCell><div className="flex gap-1">{r.batch_id && <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const result = await trendyol({ action: "batch", id: r.id }); setDetails(JSON.stringify(result, null, 2)); })}>Check batch</Button>}<Button variant="ghost" className="h-8 text-xs" onClick={() => setDetails(JSON.stringify(r.result, null, 2))}>Details</Button></div></TableCell></TableRow>)}{!runs.length && <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-10">No sync history</TableCell></TableRow>}</TableBody></Table></DataTableWrapper></TabsContent>
     </Tabs>
     <Dialog open={!!edit} onOpenChange={open => { if (!open) setEdit(null); }}><DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{edit?.id ? "Edit Trendyol product" : "Map Saudi inventory product"}</DialogTitle></DialogHeader>{edit && <div className="space-y-4">
-      {!edit.id && <div><Label className="text-xs" htmlFor="inventory-product">Inventory product</Label><select id="inventory-product" className="w-full h-8 border border-input rounded-md bg-background text-xs px-2" value={edit.asin} onChange={e => { const i = inventory.find(i => i.asin === e.target.value); if (i) setEdit({ ...edit, asin: i.asin, sku: i.sku, title: i.title.slice(0, 100), product_main_id: i.asin }); }}>{inventory.filter(i => i.sku && !products.some(p => p.asin === i.asin)).map(i => <option key={i.asin} value={i.asin}>{i.asin} · {i.sku} · {i.quantity} units</option>)}</select></div>}
+      {!edit.id && <div><Label className="text-xs" htmlFor="inventory-product">Inventory product</Label><select id="inventory-product" className="w-full h-8 border border-input rounded-md bg-background text-xs px-2" value={edit.asin} onChange={e => { const i = inventory.find(i => i.asin === e.target.value); if (i) setEdit({ ...edit, asin: i.asin, sku: i.sku, title: i.title.slice(0, 100), product_main_id: i.asin }); }}>{groups.inventoryOnly.filter(i => i.sku).map(i => <option key={i.asin} value={i.asin}>{i.asin} · {i.sku} · {i.quantity} units</option>)}</select></div>}
       <div className="grid sm:grid-cols-2 gap-3">{(["asin", "sku", "barcode", "product_main_id", "title"] as const).map(field => <div key={field}><Label htmlFor={`ty-${field}`} className="text-xs">{{ asin: "ASIN", sku: "SKU", barcode: "Trendyol barcode", product_main_id: "Model / Main product ID", title: "Title" }[field]}</Label><Input id={`ty-${field}`} className="h-8 text-xs" value={edit[field]} readOnly={field === "asin"} onChange={e => setEdit({ ...edit, [field]: e.target.value })} /></div>)}<div><Label htmlFor="ty-vat" className="text-xs">VAT %</Label><Input id="ty-vat" type="number" min={0} max={100} value={edit.vat_rate} className="h-8 text-xs" onChange={e => setEdit({ ...edit, vat_rate: Number(e.target.value) })} /></div><div><Label htmlFor="ty-sale" className="text-xs">Selling price (SAR)</Label><Input id="ty-sale" type="number" step="0.01" min={0} className="h-8 text-xs" value={edit.sale_price} onChange={e => setEdit({ ...edit, sale_price: Number(e.target.value) })} /></div><div><Label htmlFor="ty-list" className="text-xs">List price (SAR)</Label><Input id="ty-list" type="number" step="0.01" min={0} className="h-8 text-xs" value={edit.list_price} onChange={e => setEdit({ ...edit, list_price: Number(e.target.value) })} /></div></div>
       <div><Label htmlFor="ty-description" className="text-xs">Description</Label><Textarea id="ty-description" value={edit.description} className="text-xs" onChange={e => setEdit({ ...edit, description: e.target.value })} /></div>
       <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => {
