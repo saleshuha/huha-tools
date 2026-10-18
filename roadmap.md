@@ -1,6 +1,6 @@
 # Trendyol Saudi integration
 
-- [ ] Add matched, inventory-only and Trendyol-only product views, persistent mapping and a separate mapped-products price/stock workspace.
+- [x] Add matched, inventory-only and Trendyol-only product views, persistent mapping and a separate mapped-products price/stock workspace; three matching tests and desktop/mobile comparison-control checks passed.
 
 - [x] Verify Saudi seller API, product requirements and shipment workflow.
 - [x] Connect Trendyol credentials through existing Supabase; Saudi orders/categories/brands read access returned HTTP 200.
