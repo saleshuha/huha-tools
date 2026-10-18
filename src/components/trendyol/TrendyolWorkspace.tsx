@@ -50,6 +50,7 @@ export function TrendyolWorkspace() {
   const [providerCode, setProviderCode] = useState("");
   const [fulfill, setFulfill] = useState<PackageRow | null>(null);
   const [details, setDetails] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
 
   const load = useCallback(async () => {
     const fetchRows = async (table: "trendyol_products" | "trendyol_packages" | "trendyol_sync_runs") => {
