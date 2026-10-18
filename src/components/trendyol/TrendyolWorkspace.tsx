@@ -123,6 +123,11 @@ export function TrendyolWorkspace() {
         <ToolbarBar>
           <div className="relative flex-1 min-w-40"><Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" /><Input aria-label="Search Trendyol products" placeholder="Search ASIN, SKU or product" value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs pl-8" /></div>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(loadInventory)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh stock</Button>
+          <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => {
+            let inserted = 0, updated = 0, skipped = 0, page = 0, pages = 1;
+            while (page < pages) { const r = await trendyol({ action: "import-products", page }); inserted += r.inserted; updated += r.updated; skipped += r.skipped; pages = r.totalPages ?? 0; page++; if (page < pages) await new Promise(res => setTimeout(res, 1100)); }
+            toast({ title: "Trendyol products imported", description: `${inserted} new · ${updated} updated · ${skipped} skipped` });
+          })}><Upload className="h-3.5 w-3.5 mr-1" />Import listed products</Button>
           <Button disabled={busy} className="h-8 text-xs" onClick={() => run(openInventory)}><Plus className="h-3.5 w-3.5 mr-1" />Map product</Button>
         </ToolbarBar>
         <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>
