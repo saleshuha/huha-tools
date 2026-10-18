@@ -8,3 +8,4 @@
 - Host Trendyol on its dedicated /trendyol-sa page with separate sidebar navigation; reuse its isolated API client and workspace to preserve Shopify behavior.
 - Derive Trendyol comparison groups from normalized inventory ASINs and unique exact SKU/barcode matches; persist confirmed links by changing only the product's ASIN so remote identity and inventory stock stay intact.
 - Keep product matching and paginated comparison tables separate from the Trendyol workspace; allow marketplace price/stock submissions only from confirmed inventory mappings.
+- Keep Amazon pricing calculations in a shared pure module and validate cached prices server-side before explicit submission so previews and marketplace prices agree; ASIN Spotlight credentials remain server-only.
