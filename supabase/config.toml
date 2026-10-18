@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.noon-fbpi-webhook]
 verify_jwt = false
+
+[functions.trendyol-stock]
+verify_jwt = false

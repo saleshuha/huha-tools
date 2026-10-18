@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { SELLER_ID, trendyolRequest } from "../trendyol/connection.ts";
-import { stockItems, stockBatchOutcome } from "../trendyol/stock.ts";
+import { SELLER_ID, trendyolRequest } from "../_shared/trendyol/connection.ts";
+import { stockItems, stockBatchOutcome } from "../_shared/trendyol/stock.ts";
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

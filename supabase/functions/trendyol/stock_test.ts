@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { stockItems, stockBatchOutcome } from "./stock.ts";
+import { stockItems, stockBatchOutcome } from "../_shared/trendyol/stock.ts";
 
 Deno.test("Stock-only updates include every mapped marketplace status, without prices", () => {
   const products = ["approved", "pending-approval", "archived", "failed", "draft"].map((publish_status, i) => ({ id: String(i), asin: "B0TEST", barcode: String(i), publish_status, enabled: false, stock_sync_mapped: true }));

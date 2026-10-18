@@ -1,8 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
-import { SELLER_ID, STOREFRONT, trendyolRequest } from "./connection.ts";
-import { aggregateInventory, normalize } from "./domain.ts";
+import { SELLER_ID, STOREFRONT, trendyolRequest } from "../_shared/trendyol/connection.ts";
+import { aggregateInventory, normalize } from "../_shared/trendyol/domain.ts";
 import { calculatedPrices } from "./pricing.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
