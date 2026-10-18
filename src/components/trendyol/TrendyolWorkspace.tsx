@@ -69,7 +69,7 @@ export function TrendyolWorkspace() {
   useEffect(() => { load().catch(e => setError(e.message)); }, [load]);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setError("");
-    try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); } finally { setBusy(false); }
+    try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); } finally { setBusy(false); setProgress(""); }
   };
   const loadInventory = async () => { const result = await trendyol<{ items: Inventory[] }>({ action: "inventory" }); setInventory(result.items); return result.items; };
   const openEditor = (p: Product) => {
