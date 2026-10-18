@@ -1,5 +1,7 @@
 # Trendyol Saudi integration
 
+- [x] Explain blocked single/selected price submissions, refresh approval from the pricing tab, and confirm bulk submission of all eligible mapped prices; 16 tests passed. Live marketplace submission remains blocked by external authentication.
+
 - [x] Separate pending/fetched/all-item views and pending-only fetching from explicit refresh-all; reuse saved completed lookups by default in the service to prevent repeat credit usage.
 
 - [x] Improve Amazon price-fetch throughput with two concurrent lookups, targeted inventory reads, indexed price matching, progress and safe resume. Queue tests verify concurrency, stop, rate limits and isolated errors. Deployed; authenticated live speed check remains unavailable with external Supabase.

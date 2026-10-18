@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatedPrice, calculatedPrices, lookupAsins, pendingLookupAsins } from '../../../supabase/functions/trendyol/pricing';
+import { calculatedPrice, calculatedPrices, lookupAsins, pendingLookupAsins, priceSubmissionBlocker } from '../../../supabase/functions/trendyol/pricing';
+test('single and bulk submission accept only approved enabled products with valid prices', () => {
+ const good = { enabled: true, publish_status: 'approved', next: { salePrice: 26.6, listPrice: 41, valid: true } };
+ const products = [good, { ...good, publish_status: 'pending-approval' }, { ...good, enabled: false }, { ...good, next: { salePrice: null, listPrice: null, valid: false } }, { ...good, next: { salePrice: 41, listPrice: 26.6, valid: false } }];
+ assert.equal(priceSubmissionBlocker(good), null);
+ assert.deepEqual(products.map(priceSubmissionBlocker), [null, 'Trendyol approval required', 'Product disabled', 'Available Amazon price required', 'Original price must be at least sale price']);
+ assert.deepEqual(products.filter(p => priceSubmissionBlocker(p) === null), [good]);
+});
 test('percentage adjustment precedes fixed SAR addition', () => assert.equal(calculatedPrice(100, { percentage: 20, fixed_sar: 5 }), 125));
 test('signed percentage and fixed amounts support reductions', () => assert.equal(calculatedPrice(100, { percentage: -10, fixed_sar: -5 }), 85));
 test('missing or nonpositive prices are never submitted', () => {
