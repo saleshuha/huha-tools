@@ -18,6 +18,7 @@ import { trendyol } from "./api";
 import { classifyProducts, productKey } from "./matching";
 import { ProductMatchingViews } from "./ProductMatchingViews";
 import { AmazonPricing } from "./AmazonPricing";
+import { stockPushProgress, type StockQueueRow, type StockTarget } from "./stock-push-progress";
 
 type Inventory = { asin: string; sku: string; title: string; quantity: number };
 type Product = { id: string; asin: string; sku: string; barcode: string; title: string; description: string; product_main_id: string; brand_id: number | null; category_id: number | null; sale_price: number; list_price: number; vat_rate: number; images: unknown; attributes: unknown; publish_status: string; enabled: boolean; last_error: string | null };
@@ -55,7 +56,21 @@ export function TrendyolWorkspace() {
   const [fulfill, setFulfill] = useState<PackageRow | null>(null);
   const [details, setDetails] = useState<string | null>(null);
   const [progress, setProgress] = useState("");
-  const [stockQueue, setStockQueue] = useState<{ state: string; last_error: string | null }[]>([]);
+  const [stockQueue, setStockQueue] = useState<StockQueueRow[]>([]);
+  const [stockTargets, setStockTargets] = useState<StockTarget[]>([]);
+  const [stockNotice, setStockNotice] = useState("");
+  const stockProgress = stockPushProgress(stockTargets, stockQueue);
+  const stockPushing = stockTargets.length > 0;
+  const loadStockQueue = useCallback(async () => {
+    const queue: StockQueueRow[] = []; const seen = new Set<string>();
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase.from("trendyol_stock_queue").select("id,version,state,last_error").order("id", { ascending: true }).range(start, start + 999);
+      if (error) throw error;
+      for (const row of data ?? []) if (!seen.has(row.id)) { seen.add(row.id); queue.push(row); }
+      if ((data?.length ?? 0) < 1000) break;
+    }
+    setStockQueue(queue); return queue;
+  }, []);
 
   const load = useCallback(async () => {
     const fetchRows = async (table: "trendyol_products" | "trendyol_packages" | "trendyol_sync_runs") => {
@@ -69,17 +84,38 @@ export function TrendyolWorkspace() {
       return all;
     };
     const [p, o, r, stock] = await Promise.all([fetchRows("trendyol_products"), fetchRows("trendyol_packages"), fetchRows("trendyol_sync_runs"), trendyol<{ items: Inventory[] }>({ action: "inventory" })]);
-    const queue: { state: string; last_error: string | null }[] = []; const seenQueue = new Set<string>();
-    for (let start = 0; ; start += 1000) {
-      const { data, error } = await supabase.from("trendyol_stock_queue").select("id,state,last_error").order("id", { ascending: true }).range(start, start + 999);
-      if (error) throw error;
-      for (const row of data ?? []) if (!seenQueue.has(row.id)) { seenQueue.add(row.id); queue.push(row); }
-      if ((data?.length ?? 0) < 1000) break;
-    }
-    setStockQueue(queue);
+    await loadStockQueue();
     setProducts(p); setOrders(o); setRuns(r); setInventory(stock.items); setInventoryReady(true);
-  }, []);
+  }, [loadStockQueue]);
   useEffect(() => { load().catch(e => setError(e.message)); }, [load]);
+  useEffect(() => {
+    let cancelled = false; let timer: ReturnType<typeof setTimeout> | undefined;
+    let nextWake = 0; const started = Date.now();
+    const poll = async () => {
+      try {
+        const rows = await loadStockQueue();
+        if (cancelled) return;
+        const current = stockPushProgress(stockTargets, rows);
+        if (stockTargets.length && current.done) {
+          setStockNotice(`${current.completed}/${current.total} confirmed by Trendyol${current.failed ? ` · ${current.failed} failed` : ""}`);
+          setStockTargets([]);
+          toast({ title: current.failed ? "Stock push finished with errors" : "All local stock confirmed by Trendyol", description: `${current.completed} confirmed · ${current.failed} failed · prices unchanged`, variant: current.failed ? "destructive" : "default" });
+          void load().catch(e => setError(e.message));
+          return;
+        }
+        if (stockTargets.length && Date.now() >= nextWake && rows.some(row => ["pending", "submitted"].includes(row.state))) {
+          nextWake = Date.now() + 6000;
+          await trendyol({ action: "stock-process" });
+        }
+        if (stockTargets.length && Date.now() - started > 60000) setStockNotice("Trendyol is still processing; automatic retries remain active.");
+      } catch (e) {
+        if (!cancelled && stockTargets.length) setStockNotice(`Progress unavailable: ${e instanceof Error ? e.message : "Connection interrupted"}. Stock sync continues automatically.`);
+      }
+      if (!cancelled) timer = setTimeout(poll, stockTargets.length ? 3000 : 15000);
+    };
+    void poll();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [stockTargets, loadStockQueue, load, toast]);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setError("");
     try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Operation failed"); } finally { setBusy(false); setProgress(""); }
@@ -141,10 +177,12 @@ export function TrendyolWorkspace() {
       <TabsContent value="pricing"><AmazonPricing products={groups.mapped.map(pair => pair.product)} onSubmitted={load} /></TabsContent>
       <TabsContent value={productTab === "mapped" ? "mapped" : "products"} className="space-y-3">
         <ToolbarBar>
-          {productTab === "mapped" && <Button disabled={busy || !products.length} className="h-8 text-xs" onClick={() => run(async () => {
-            const result = await trendyol<{ queued: number }>({ action: "stock-push-all" });
-            toast({ title: "All local stock updates queued", description: `${result.queued} mapped products · stock only · prices unchanged` });
-          })}><Boxes className="h-3.5 w-3.5 mr-1" />Push all local stock</Button>}
+          {productTab === "mapped" && <Button disabled={busy || stockPushing || !products.length} className="h-8 text-xs" onClick={() => run(async () => {
+            setStockNotice(""); setProgress("Starting all-stock push…");
+            const result = await trendyol<{ queued: number; targets: StockTarget[] }>({ action: "stock-push-all" });
+            setStockTargets(result.targets);
+            if (!result.targets.length) toast({ title: "No mapped stock to send" });
+          })}>{stockPushing ? <RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin motion-reduce:animate-none" /> : <Boxes className="h-3.5 w-3.5 mr-1" />}{stockPushing ? "Pushing local stock…" : "Push all local stock"}</Button>}
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(loadInventory)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh stock</Button>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(async () => {
             let inserted = 0, updated = 0, skipped = 0, page = 0, pages = 1;
@@ -164,7 +202,8 @@ export function TrendyolWorkspace() {
         </ToolbarBar>
         {productTab === "mapped" && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="outline"><CheckCircle2 className="h-3 w-3 mr-1" />Automatic stock sync active</Badge>
-          <span>{stockQueue.filter(r => ["pending", "submitted"].includes(r.state)).length} pending · {stockQueue.filter(r => r.state === "failed").length} failed</span>
+          <span role="status" aria-live="polite">{stockPushing ? `${stockProgress.completed}/${stockProgress.total} confirmed · ${stockProgress.sending} sending · ${stockProgress.confirming} awaiting Trendyol confirmation · ${stockProgress.failed} failed` : `${stockQueue.filter(r => r.state === "completed").length} confirmed · ${stockQueue.filter(r => r.state === "pending").length} sending · ${stockQueue.filter(r => r.state === "submitted").length} awaiting Trendyol confirmation · ${stockQueue.filter(r => r.state === "failed").length} failed`}</span>
+          {stockNotice && <span className="basis-full break-words">{stockNotice}</span>}
           {stockQueue.some(r => r.state === "failed") && <Button variant="ghost" className="h-8 text-xs" onClick={() => setDetails(stockQueue.filter(r => r.state === "failed").map(r => r.last_error).join("\n\n"))}>Stock errors</Button>}
         </div>}
         {productTab === "mapped" && <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>}

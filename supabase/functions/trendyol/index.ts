@@ -9,6 +9,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("test-connection") }),
   z.object({ action: z.literal("inventory") }),
   z.object({ action: z.literal("stock-push-all") }),
+  z.object({ action: z.literal("stock-process") }),
   z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/), refresh: z.boolean().default(false) }),
   z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), salePrice: z.number().positive(), listPrice: z.number().positive() })).min(1).max(100) }),
   z.object({ action: z.literal("catalog"), kind: z.enum(["categories", "brands", "attributes", "values"]), categoryId: z.number().int().positive().optional(), attributeId: z.number().int().positive().optional() }),
@@ -78,10 +79,29 @@ Deno.serve(async (req) => {
       return json({ connected: true, sellerId: SELLER_ID, storefront: STOREFRONT });
     }
     if (input.action === "inventory") return json({ items: await inventory() });
+    const wakeStock = () => {
+      EdgeRuntime.waitUntil(fetch(`${url}/functions/v1/trendyol-stock`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: AbortSignal.timeout(90000),
+      }).then(async response => {
+        await response.text();
+        if (!response.ok) console.error("Immediate stock wake failed", response.status);
+      }).catch(() => console.error("Immediate stock wake unavailable; durable retry remains active")));
+    };
+    if (input.action === "stock-process") { wakeStock(); return json({ processing: true }); }
     if (input.action === "stock-push-all" || input.action === "sync" && input.mode === "stock") {
       const { data: queued, error } = await db.rpc("queue_trendyol_stock", { p_user_id: user.id, p_ids: input.action === "sync" ? [...new Set(input.ids)] : null });
       if (error) throw error;
-      return json({ queued });
+      if (queued) wakeStock();
+      const targets: { id: string; version: number }[] = []; const seen = new Set<string>();
+      for (let start = 0; ; start += 1000) {
+        let query = db.from("trendyol_stock_queue").select("id,version,trendyol_products!inner(stock_sync_mapped)").eq("user_id", user.id).eq("trendyol_products.stock_sync_mapped", true);
+        if (input.action === "sync") query = query.in("product_id", input.ids);
+        const { data, error: targetError } = await query.order("id", { ascending: true }).range(start, start + 999);
+        if (targetError) throw targetError;
+        for (const row of data ?? []) if (!seen.has(row.id)) { seen.add(row.id); targets.push({ id: row.id, version: row.version }); }
+        if ((data?.length ?? 0) < 1000) break;
+      }
+      return json({ queued, targets });
     }
     if (input.action === "amazon-price") {
       if (!input.refresh) {
