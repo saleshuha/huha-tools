@@ -77,6 +77,7 @@ import NoonFinancialStatements from "./pages/NoonFinancialStatements";
 import MarketPurchases from "./pages/MarketPurchases";
 import MarketPurchasePublic from "./pages/MarketPurchasePublic";
 import ShopifySyncPage from "./pages/ShopifySyncPage";
+import TrendyolSAPage from "./pages/TrendyolSAPage";
 import NoonFBPIPage from "./pages/NoonFBPIPage";
 import AsinSalesHealth from "./pages/AsinSalesHealth";
 import StockAudit from "./pages/StockAudit";
@@ -345,6 +346,7 @@ const App = () => {
                          <Route path="/market-purchases" element={<MarketPurchases />} />
                          <Route path="/market-purchase/:token" element={<MarketPurchasePublic />} />
                          <Route path="/shopify-sync" element={<ShopifySyncPage />} />
+                          <Route path="/trendyol-sa" element={<TrendyolSAPage />} />
                          <Route path="/noon-fbpi" element={<NoonFBPIPage />} />
                          <Route path="/asin-sales-health" element={<AsinSalesHealth />} />
                          <Route path="/stock-audit" element={<StockAudit />} />
