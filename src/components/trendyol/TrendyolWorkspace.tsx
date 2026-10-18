@@ -17,6 +17,7 @@ import { CheckCircle2, RefreshCw, Upload, Package, ShoppingBag, Boxes, Pencil, P
 import { trendyol } from "./api";
 import { classifyProducts, productKey } from "./matching";
 import { ProductMatchingViews } from "./ProductMatchingViews";
+import { AmazonPricing } from "./AmazonPricing";
 
 type Inventory = { asin: string; sku: string; title: string; quantity: number };
 type Product = { id: string; asin: string; sku: string; barcode: string; title: string; description: string; product_main_id: string; brand_id: number | null; category_id: number | null; sale_price: number; list_price: number; vat_rate: number; images: unknown; attributes: unknown; publish_status: string; enabled: boolean; last_error: string | null };
@@ -126,7 +127,8 @@ export function TrendyolWorkspace() {
     {error && <div role="alert" className="border border-destructive/30 bg-destructive/10 text-destructive text-xs p-3 rounded-md break-words">{error}</div>}
     <CompactStatBar items={[{ icon: Package, label: "Mapped products", value: groups.mapped.length }, { icon: Boxes, label: "Sellable units", value: inventory.reduce((sum, i) => sum + i.quantity, 0) }, { icon: ShoppingBag, label: "Awaiting fulfillment", value: orders.filter(o => !o.fulfilled_at && ["Created", "Picking"].includes(o.remote_status)).length }, { icon: History, label: "Pending batches", value: runs.filter(r => r.status === "pending").length }]} />
     <Tabs value={productTab} onValueChange={value => { setProductTab(value); setSelected(new Set()); }}>
-      <TabsList className="h-auto flex flex-wrap justify-start"><TabsTrigger value="products" className="text-xs">Product matching</TabsTrigger><TabsTrigger value="mapped" className="text-xs">Mapped products · {groups.mapped.length}</TabsTrigger><TabsTrigger value="orders" className="text-xs">Orders</TabsTrigger><TabsTrigger value="history" className="text-xs">History</TabsTrigger></TabsList>
+      <TabsList className="h-auto flex flex-wrap justify-start"><TabsTrigger value="products" className="text-xs">Product matching</TabsTrigger><TabsTrigger value="mapped" className="text-xs">Mapped products · {groups.mapped.length}</TabsTrigger><TabsTrigger value="pricing" className="text-xs">Amazon pricing</TabsTrigger><TabsTrigger value="orders" className="text-xs">Orders</TabsTrigger><TabsTrigger value="history" className="text-xs">History</TabsTrigger></TabsList>
+      <TabsContent value="pricing"><AmazonPricing products={groups.mapped.map(pair => pair.product)} onSubmitted={load} /></TabsContent>
       <TabsContent value={productTab === "mapped" ? "mapped" : "products"} className="space-y-3">
         <ToolbarBar>
           <Button disabled={busy} variant="outline" className="h-8 text-xs" onClick={() => run(loadInventory)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh stock</Button>
