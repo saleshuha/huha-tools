@@ -1,5 +1,7 @@
 # Trendyol Saudi integration
 
+- [ ] Fix stalled all-stock worker Bad Request and verify existing queued products reach Trendyol; show actual sending failures.
+
 - [x] Make manual all-stock push immediately wake the leased sender and show live version-aware sending/confirmation progress, preserving automatic durable sync. Both functions deployed; 28 tests passed; app check OK. Actual signed-in marketplace delivery remains blocked by external Supabase browser authentication.
 
 - [x] Add all-mapped-products stock-only push without approval filtering, and event-driven automatic stock synchronization on inventory changes with durable processing and errors. Both services deployed; 25 tests passed, empty worker/security checks passed, no idle retry job, app check OK. Authenticated marketplace delivery remains blocked by external Supabase browser authentication.
