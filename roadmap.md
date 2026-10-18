@@ -1,6 +1,6 @@
 # Trendyol Saudi integration
 
-- [ ] Explain blocked single/selected price submissions, refresh approval from the pricing tab, and confirm bulk submission of all eligible mapped prices.
+- [x] Explain blocked single/selected price submissions, refresh approval from the pricing tab, and confirm bulk submission of all eligible mapped prices; 16 tests passed. Live marketplace submission remains blocked by external authentication.
 
 - [x] Separate pending/fetched/all-item views and pending-only fetching from explicit refresh-all; reuse saved completed lookups by default in the service to prevent repeat credit usage.
 
