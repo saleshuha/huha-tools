@@ -8,7 +8,7 @@ import { calculatedPrices } from "./pricing.ts";
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("test-connection") }),
   z.object({ action: z.literal("inventory") }),
-  z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/) }),
+  z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/), refresh: z.boolean().default(false) }),
   z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), salePrice: z.number().positive(), listPrice: z.number().positive() })).min(1).max(100) }),
   z.object({ action: z.literal("catalog"), kind: z.enum(["categories", "brands", "attributes", "values"]), categoryId: z.number().int().positive().optional(), attributeId: z.number().int().positive().optional() }),
   z.object({ action: z.literal("publish"), ids: z.array(z.string().uuid()).min(1).max(1000) }),
@@ -78,6 +78,11 @@ Deno.serve(async (req) => {
     }
     if (input.action === "inventory") return json({ items: await inventory() });
     if (input.action === "amazon-price") {
+      if (!input.refresh) {
+        const { data: cached, error: cacheError } = await db.from("trendyol_amazon_prices").select("*").eq("user_id", user.id).eq("asin", input.asin).maybeSingle();
+        if (cacheError) throw cacheError;
+        if (cached) return json({ item: cached, cached: true });
+      }
       const apiKey = Deno.env.get("ASIN_SPOTLIGHT_API_KEY");
       if (!apiKey) return json({ error: "ASIN Spotlight API key is not configured" }, 503);
       // Validate only matching rows, rather than downloading the whole inventory per lookup.

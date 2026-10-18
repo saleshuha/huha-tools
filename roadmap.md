@@ -1,5 +1,7 @@
 # Trendyol Saudi integration
 
+- [x] Separate pending/fetched/all-item views and pending-only fetching from explicit refresh-all; reuse saved completed lookups by default in the service to prevent repeat credit usage.
+
 - [x] Improve Amazon price-fetch throughput with two concurrent lookups, targeted inventory reads, indexed price matching, progress and safe resume. Queue tests verify concurrency, stop, rate limits and isolated errors. Deployed; authenticated live speed check remains unavailable with external Supabase.
 
 - [x] Add separate saved original-price and sale-price formulas, preview both and submit both to Trendyol; original-below-sale is blocked. Deployed, schema verified and nine pricing/matching tests passed.

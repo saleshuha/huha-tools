@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToolbarBar } from "@/components/ui/toolbar-bar";
 import { DataTableWrapper } from "@/components/ui/data-table-wrapper";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { RefreshCw, Save, Send, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { trendyol, TrendyolApiError } from "./api";
 import { fetchPriceQueue } from "./price-fetch-queue";
-import { calculatedPrices, lookupAsins, type DualPricingFormula } from "../../../supabase/functions/trendyol/pricing";
+import { calculatedPrices, lookupAsins, pendingLookupAsins, type DualPricingFormula } from "../../../supabase/functions/trendyol/pricing";
 
 type Product = { id: string; asin: string; title: string; sale_price: number; list_price: number; publish_status: string; enabled: boolean };
 type PriceRow = { id: string; asin: string; price: number | null; status: string; fetched_at: string; last_error: string | null };
@@ -26,6 +27,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const [confirmFetchAll, setConfirmFetchAll] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [priceView, setPriceView] = useState("all");
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
@@ -54,19 +56,22 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
     const byAsin = new Map(prices.map(r => [r.asin, r]));
     return products.map(p => { const cached = byAsin.get(p.asin.trim().toUpperCase()); return { ...p, cached, next: calculatedPrices(cached?.status === "available" ? Number(cached.price) : null, formula) }; });
   }, [products, prices, percentage, fixed, originalPercentage, originalFixed]);
-  const filtered = rows.filter(r => `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
+  const pendingAsins = pendingLookupAsins(products, null, prices);
+  const selectedPending = pendingLookupAsins(products, selected, prices);
+  const filtered = rows.filter(r => (priceView === "all" || (priceView === "pending" ? !r.cached : !!r.cached)) && `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
   const pages = Math.max(1, Math.ceil(filtered.length / 50)); const current = Math.min(page, pages - 1); const visible = filtered.slice(current * 50, current * 50 + 50);
   const picked = rows.filter(r => selected.has(r.id));
   const eligible = picked.length > 0 && picked.every(r => r.next.valid && r.publish_status === "approved" && r.enabled);
   const execute = async (fn: () => Promise<void>) => { setBusy(true); setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Pricing operation failed"); } finally { setBusy(false); } };
   const toggle = (id: string, checked: boolean) => setSelected(s => { const next = new Set(s); checked ? next.add(id) : next.delete(id); return next; });
-  const fetchPrices = async (all: boolean, resume?: string[]) => {
-    stop.current = false; const asins = resume ?? lookupAsins(products, all ? null : selected);
-    if (!asins.length) throw new Error("No valid Amazon ASINs to fetch");
+  const fetchPrices = async (mode: "pending" | "selected" | "all", resume?: string[]) => {
+    stop.current = false;
+    const asins = resume ?? (mode === "all" ? lookupAsins(products, null) : pendingLookupAsins(products, mode === "selected" ? selected : null, prices));
+    if (!asins.length) { setProgress("No pending Amazon prices to fetch"); return; }
     let failures = 0; let firstError = ""; const started = Date.now();
     setRemaining([]);
     const result = await fetchPriceQueue({ asins, stopped: () => stop.current,
-      lookup: asin => trendyol<{ item: PriceRow }>({ action: "amazon-price", asin }),
+      lookup: asin => trendyol<{ item: PriceRow }>({ action: "amazon-price", asin, refresh: mode === "all" }),
       saved: (asin, response) => setPrices(previous => [...previous.filter(r => r.asin !== asin), response.item]),
       failed: (_asin, e) => {
         failures++; firstError ||= e instanceof Error ? e.message : "Price lookup failed";
@@ -93,10 +98,12 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
     </ToolbarBar>
     <ToolbarBar>
       <Input aria-label="Search Amazon pricing" placeholder="Search ASIN or product" className="h-8 text-xs max-w-64" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
+      <Select value={priceView} onValueChange={value => { setPriceView(value); setPage(0); }}><SelectTrigger aria-label="Amazon price status" className="h-8 text-xs w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All items</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="fetched">Fetched</SelectItem></SelectContent></Select>
       <span className="text-xs text-muted-foreground">{selected.size} selected</span>
-      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !selected.size} onClick={() => execute(() => fetchPrices(false))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch selected prices</Button>
-      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !products.length} onClick={() => setConfirmFetchAll(true)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch all Amazon prices</Button>
-      {!busy && remaining.length > 0 && <Button variant="outline" className="h-8 text-xs" onClick={() => execute(() => fetchPrices(true, remaining))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Resume {remaining.length} remaining</Button>}
+      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !selectedPending.length} onClick={() => execute(() => fetchPrices("selected"))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch selected pending ({selectedPending.length})</Button>
+      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !pendingAsins.length} onClick={() => execute(() => fetchPrices("pending"))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch pending ({pendingAsins.length})</Button>
+      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !products.length} onClick={() => setConfirmFetchAll(true)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh all prices</Button>
+      {!busy && remaining.length > 0 && <Button variant="outline" className="h-8 text-xs" onClick={() => execute(() => fetchPrices("pending", remaining.filter(asin => pendingAsins.includes(asin))))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Resume pending</Button>}
       {busy && <Button variant="outline" className="h-8 text-xs" onClick={() => { stop.current = true; }}><Square className="h-3.5 w-3.5 mr-1" />Stop after active lookups</Button>}
       <Button className="h-8 text-xs" disabled={busy || !valid || dirty || !eligible} onClick={() => setConfirm(true)}><Send className="h-3.5 w-3.5 mr-1" />Submit preview prices</Button>
       {progress && <span role="status" className="text-xs text-muted-foreground">{progress}</span>}
@@ -106,7 +113,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
       {!visible.length && <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-10">{ready ? "No mapped products" : "Loading saved prices…"}</TableCell></TableRow>}
     </TableBody></Table></DataTableWrapper>
     <div className="flex items-center justify-end gap-2 text-xs"><span>{filtered.length} products · {current + 1}/{pages}</span><Button size="icon" variant="outline" className="h-8 w-8" aria-label="Previous pricing page" disabled={current === 0} onClick={() => setPage(current - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button size="icon" variant="outline" className="h-8 w-8" aria-label="Next pricing page" disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}><ChevronRight className="h-4 w-4" /></Button></div>
-    <Dialog open={confirmFetchAll} onOpenChange={setConfirmFetchAll}><DialogContent><DialogHeader><DialogTitle>Fetch all Amazon prices?</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Refresh {lookupAsins(products, null).length} unique ASINs across all mapped products, including other pages and search results. Each successful lookup uses one ASIN Spotlight credit, even if no product is found.</p><DialogFooter><Button variant="outline" onClick={() => setConfirmFetchAll(false)}>Cancel</Button><Button disabled={busy} onClick={() => { setConfirmFetchAll(false); void execute(() => fetchPrices(true)); }}>Confirm fetch all</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={confirmFetchAll} onOpenChange={setConfirmFetchAll}><DialogContent><DialogHeader><DialogTitle>Refresh all Amazon prices?</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Refresh {lookupAsins(products, null).length} unique ASINs, including already fetched products. Each successful lookup uses one ASIN Spotlight credit, even if no product is found.</p><DialogFooter><Button variant="outline" onClick={() => setConfirmFetchAll(false)}>Cancel</Button><Button disabled={busy} onClick={() => { setConfirmFetchAll(false); void execute(() => fetchPrices("all")); }}>Confirm refresh all</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={confirm} onOpenChange={open => { if (!busy) setConfirm(open); }}><DialogContent><DialogHeader><DialogTitle>Submit both prices for {picked.length} products?</DialogTitle></DialogHeader><div className="max-h-72 overflow-auto text-xs space-y-2">{picked.map(r => <div key={r.id}><p>{r.asin}</p><p>Original: {money(r.list_price)} → {money(r.next.listPrice)}</p><p>Sale: {money(r.sale_price)} → {money(r.next.salePrice)}</p></div>)}</div><DialogFooter><Button variant="outline" disabled={busy} onClick={() => setConfirm(false)}>Cancel</Button><Button disabled={busy || !valid || dirty || !eligible} onClick={() => execute(async () => {
       for (let i = 0; i < picked.length; i += 100) {
         setProgress(`Submitting ${i + 1}–${Math.min(i + 100, picked.length)}/${picked.length}`);
