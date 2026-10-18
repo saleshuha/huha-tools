@@ -1,6 +1,7 @@
 # Trendyol Saudi integration
 
 - [ ] Add separate saved original-price and sale-price formulas, preview both and submit both to Trendyol.
+- [ ] Add Fetch all Amazon prices across all mapped products, independent of selection and pagination.
 
 - [x] Connect ASIN Spotlight, save Amazon Saudi ASIN prices, and add a saved percentage-plus-fixed pricing formula with preview and explicit Trendyol price submission. Six pricing/matching tests passed; live Amazon.sa lookup returned 21 SAR. Function deployed; signed-in persistence/submission checks remain blocked by external authentication.
 
