@@ -1,0 +1,1 @@
+CREATE POLICY trendyol_stock_worker_service ON public.trendyol_stock_worker FOR ALL TO service_role USING(true) WITH CHECK(true);
