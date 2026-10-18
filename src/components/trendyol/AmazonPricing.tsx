@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { RefreshCw, Save, Send, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { trendyol, TrendyolApiError } from "./api";
 import { fetchPriceQueue } from "./price-fetch-queue";
-import { calculatedPrices, lookupAsins, pendingLookupAsins, type DualPricingFormula } from "../../../supabase/functions/trendyol/pricing";
+import { calculatedPrices, lookupAsins, pendingLookupAsins, priceSubmissionBlocker, type DualPricingFormula } from "../../../supabase/functions/trendyol/pricing";
 
 type Product = { id: string; asin: string; title: string; sale_price: number; list_price: number; publish_status: string; enabled: boolean };
 type PriceRow = { id: string; asin: string; price: number | null; status: string; fetched_at: string; last_error: string | null };
@@ -35,6 +35,8 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const [progress, setProgress] = useState("");
   const [remaining, setRemaining] = useState<string[]>([]);
   const [confirm, setConfirm] = useState(false);
+  const [submitIds, setSubmitIds] = useState<string[]>([]);
+  const [submitSkipped, setSubmitSkipped] = useState(0);
   const stop = useRef(false);
   useEffect(() => { let active = true; (async () => {
     const rows: PriceRow[] = []; const seen = new Set<string>();
@@ -61,7 +63,21 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const filtered = rows.filter(r => (priceView === "all" || (priceView === "pending" ? !r.cached : !!r.cached)) && `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
   const pages = Math.max(1, Math.ceil(filtered.length / 50)); const current = Math.min(page, pages - 1); const visible = filtered.slice(current * 50, current * 50 + 50);
   const picked = rows.filter(r => selected.has(r.id));
-  const eligible = picked.length > 0 && picked.every(r => r.next.valid && r.publish_status === "approved" && r.enabled);
+  const eligibleRows = rows.filter(r => priceSubmissionBlocker(r) === null);
+  const eligiblePicked = picked.filter(r => priceSubmissionBlocker(r) === null);
+  const submitting = rows.filter(r => submitIds.includes(r.id));
+  const openSubmission = (scope: typeof rows) => {
+    const allowed = scope.filter(r => priceSubmissionBlocker(r) === null);
+    setSubmitIds(allowed.map(r => r.id)); setSubmitSkipped(scope.length - allowed.length); setConfirm(true);
+  };
+  const checkApproval = async () => {
+    const targets = picked.length ? picked : rows;
+    for (let i = 0; i < targets.length; i += 50) {
+      setProgress(`Checking approval ${i + 1}–${Math.min(i + 50, targets.length)}/${targets.length}`);
+      await trendyol({ action: "approval", ids: targets.slice(i, i + 50).map(r => r.id) });
+    }
+    await onSubmitted(); setProgress("Approval statuses refreshed");
+  };
   const execute = async (fn: () => Promise<void>) => { setBusy(true); setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Pricing operation failed"); } finally { setBusy(false); } };
   const toggle = (id: string, checked: boolean) => setSelected(s => { const next = new Set(s); checked ? next.add(id) : next.delete(id); return next; });
   const fetchPrices = async (mode: "pending" | "selected" | "all", resume?: string[]) => {
@@ -105,24 +121,43 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
       <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !products.length} onClick={() => setConfirmFetchAll(true)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh all prices</Button>
       {!busy && remaining.length > 0 && <Button variant="outline" className="h-8 text-xs" onClick={() => execute(() => fetchPrices("pending", remaining.filter(asin => pendingAsins.includes(asin))))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Resume pending</Button>}
       {busy && <Button variant="outline" className="h-8 text-xs" onClick={() => { stop.current = true; }}><Square className="h-3.5 w-3.5 mr-1" />Stop after active lookups</Button>}
-      <Button className="h-8 text-xs" disabled={busy || !valid || dirty || !eligible} onClick={() => setConfirm(true)}><Send className="h-3.5 w-3.5 mr-1" />Submit preview prices</Button>
+      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !rows.length} onClick={() => execute(checkApproval)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Check approval {picked.length ? "for selected" : "for all"}</Button>
+      <Button className="h-8 text-xs" disabled={busy || !ready || !valid || dirty || !eligiblePicked.length} onClick={() => openSubmission(picked)}><Send className="h-3.5 w-3.5 mr-1" />Submit selected prices ({eligiblePicked.length})</Button>
+      <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !valid || dirty || !eligibleRows.length} onClick={() => openSubmission(rows)}><Send className="h-3.5 w-3.5 mr-1" />Push all eligible prices ({eligibleRows.length})</Button>
       {progress && <span role="status" className="text-xs text-muted-foreground">{progress}</span>}
     </ToolbarBar>
+    <div role="status" className="text-xs text-muted-foreground space-y-1">
+      {dirty && <p>Save formulas before submitting prices.</p>}
+      {!valid && <p className="text-destructive">Enter valid original and sale formulas.</p>}
+      <p>{eligibleRows.length} ready to submit · {rows.length - eligibleRows.length} blocked · {picked.length - eligiblePicked.length} selected blocked</p>
+      {rows.some(r => r.publish_status !== "approved") && <p>Unapproved products cannot receive price updates. Check approval to refresh their status; products still pending must be approved by Trendyol.</p>}
+    </div>
     <DataTableWrapper><Table><TableHeader><TableRow><TableHead className="w-10"><Checkbox aria-label="Select visible pricing products" disabled={busy} checked={visible.length > 0 && visible.every(r => selected.has(r.id))} onCheckedChange={checked => setSelected(s => { const next = new Set(s); visible.forEach(r => checked === true ? next.add(r.id) : next.delete(r.id)); return next; })} /></TableHead><TableHead>Product / ASIN</TableHead><TableHead>Amazon.sa Buy Box</TableHead><TableHead>Last fetched</TableHead><TableHead>Current original / sale</TableHead><TableHead>Preview original</TableHead><TableHead>Preview sale</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>
       {visible.map(r => <TableRow key={r.id}><TableCell><Checkbox aria-label={`Select ${r.asin}`} checked={selected.has(r.id)} disabled={busy} onCheckedChange={v => toggle(r.id, v === true)} /></TableCell><TableCell className="text-xs max-w-72"><p className="line-clamp-2">{r.title}</p><a className="text-primary" href={`https://www.amazon.sa/dp/${encodeURIComponent(r.asin)}`} target="_blank" rel="noreferrer">{r.asin}</a></TableCell><TableCell className="text-xs">{money(r.cached?.price ?? null)}</TableCell><TableCell className="text-xs">{r.cached ? new Date(r.cached.fetched_at).toLocaleString() : "—"}</TableCell><TableCell className="text-xs"><p>{money(r.list_price)}</p><p>{money(r.sale_price)}</p></TableCell><TableCell className="text-xs font-medium">{valid ? money(r.next.listPrice) : "Invalid formula"}</TableCell><TableCell className="text-xs font-medium">{valid ? money(r.next.salePrice) : "Invalid formula"}</TableCell><TableCell className="text-xs text-muted-foreground">{r.cached?.last_error ?? r.cached?.status ?? "Not fetched"}{r.next.salePrice !== null && r.next.listPrice !== null && !r.next.valid && <p className="text-destructive">Original below sale</p>}<p>{r.publish_status}</p></TableCell></TableRow>)}
       {!visible.length && <TableRow><TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-10">{ready ? "No mapped products" : "Loading saved prices…"}</TableCell></TableRow>}
     </TableBody></Table></DataTableWrapper>
     <div className="flex items-center justify-end gap-2 text-xs"><span>{filtered.length} products · {current + 1}/{pages}</span><Button size="icon" variant="outline" className="h-8 w-8" aria-label="Previous pricing page" disabled={current === 0} onClick={() => setPage(current - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button size="icon" variant="outline" className="h-8 w-8" aria-label="Next pricing page" disabled={current + 1 >= pages} onClick={() => setPage(current + 1)}><ChevronRight className="h-4 w-4" /></Button></div>
     <Dialog open={confirmFetchAll} onOpenChange={setConfirmFetchAll}><DialogContent><DialogHeader><DialogTitle>Refresh all Amazon prices?</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Refresh {lookupAsins(products, null).length} unique ASINs, including already fetched products. Each successful lookup uses one ASIN Spotlight credit, even if no product is found.</p><DialogFooter><Button variant="outline" onClick={() => setConfirmFetchAll(false)}>Cancel</Button><Button disabled={busy} onClick={() => { setConfirmFetchAll(false); void execute(() => fetchPrices("all")); }}>Confirm refresh all</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={confirm} onOpenChange={open => { if (!busy) setConfirm(open); }}><DialogContent><DialogHeader><DialogTitle>Submit both prices for {picked.length} products?</DialogTitle></DialogHeader><div className="max-h-72 overflow-auto text-xs space-y-2">{picked.map(r => <div key={r.id}><p>{r.asin}</p><p>Original: {money(r.list_price)} → {money(r.next.listPrice)}</p><p>Sale: {money(r.sale_price)} → {money(r.next.salePrice)}</p></div>)}</div><DialogFooter><Button variant="outline" disabled={busy} onClick={() => setConfirm(false)}>Cancel</Button><Button disabled={busy || !valid || dirty || !eligible} onClick={() => execute(async () => {
-      for (let i = 0; i < picked.length; i += 100) {
-        setProgress(`Submitting ${i + 1}–${Math.min(i + 100, picked.length)}/${picked.length}`);
-        await trendyol({ action: "pricing-submit", items: picked.slice(i, i + 100).map(r => ({ id: r.id, salePrice: r.next.salePrice, listPrice: r.next.listPrice })) });
-        const submittedIds = new Set(picked.slice(i, i + 100).map(r => r.id));
-        setSelected(previous => new Set([...previous].filter(id => !submittedIds.has(id))));
-        setProgress(`${Math.min(i + 100, picked.length)}/${picked.length} products submitted · Check History`);
+    <Dialog open={confirm} onOpenChange={open => { if (!busy) setConfirm(open); }}><DialogContent><DialogHeader><DialogTitle>Submit both prices for {submitting.length} products?</DialogTitle></DialogHeader><p className="text-xs text-muted-foreground">{submitSkipped} blocked products skipped. Original and sale prices only; stock is unchanged.</p><div className="max-h-72 overflow-auto text-xs space-y-2">{submitting.map(r => <div key={r.id}><p>{r.asin}</p><p>Original: {money(r.list_price)} → {money(r.next.listPrice)}</p><p>Sale: {money(r.sale_price)} → {money(r.next.salePrice)}</p></div>)}</div><DialogFooter><Button variant="outline" disabled={busy} onClick={() => setConfirm(false)}>Cancel</Button><Button disabled={busy || !valid || dirty || !submitting.length || submitting.some(r => priceSubmissionBlocker(r) !== null)} onClick={() => execute(async () => {
+      let submitted = 0;
+      try {
+        for (let i = 0; i < submitting.length; i += 100) {
+          const batch = submitting.slice(i, i + 100);
+          setProgress(`Submitting ${i + 1}–${i + batch.length}/${submitting.length}`);
+          await trendyol({ action: "pricing-submit", items: batch.map(r => ({ id: r.id, salePrice: r.next.salePrice, listPrice: r.next.listPrice })) });
+          submitted += batch.length;
+          const submittedIds = new Set(batch.map(r => r.id));
+          setSelected(previous => new Set([...previous].filter(id => !submittedIds.has(id))));
+          setSubmitIds(previous => previous.filter(id => !submittedIds.has(id)));
+          setProgress(`${submitted}/${submitting.length} products submitted · Check History`);
+        }
+      } catch (e) {
+        setProgress(`${submitted} submitted · ${submitting.length - submitted} not confirmed · Check History before retrying`);
+        setConfirm(false);
+        if (submitted) await onSubmitted().catch(() => {});
+        throw e;
       }
-      setConfirm(false); setSelected(new Set()); setProgress("Prices submitted · Check History for batch results"); await onSubmitted();
+      setConfirm(false); setProgress(`${submitted} prices submitted · ${submitSkipped} skipped · Check History for batch results`); await onSubmitted();
     })}>Confirm submission</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }

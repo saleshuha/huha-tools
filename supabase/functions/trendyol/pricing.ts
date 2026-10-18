@@ -1,5 +1,12 @@
 export type PricingFormula = { percentage: number; fixed_sar: number };
 export type DualPricingFormula = PricingFormula & { original_percentage: number; original_fixed_sar: number };
+export function priceSubmissionBlocker(product: { enabled: boolean; publish_status: string; next: { salePrice: number | null; listPrice: number | null; valid: boolean } }): string | null {
+  if (!product.enabled) return "Product disabled";
+  if (product.publish_status !== "approved") return "Trendyol approval required";
+  if (product.next.salePrice === null || product.next.listPrice === null) return "Available Amazon price required";
+  if (!product.next.valid) return "Original price must be at least sale price";
+  return null;
+}
 export function calculatedPrices(price: number | null, formula: DualPricingFormula) {
   const salePrice = calculatedPrice(price, formula);
   const listPrice = calculatedPrice(price, { percentage: formula.original_percentage, fixed_sar: formula.original_fixed_sar });
