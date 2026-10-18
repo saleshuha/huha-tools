@@ -1,5 +1,8 @@
 # Trendyol Saudi integration
 
+- [x] Add separate saved original-price and sale-price formulas, preview both and submit both to Trendyol; original-below-sale is blocked. Deployed, schema verified and nine pricing/matching tests passed.
+- [x] Add Fetch all Amazon prices across all mapped products, independent of selection and pagination, with credit confirmation, progress and stop; lookup scope test passed.
+
 - [x] Connect ASIN Spotlight, save Amazon Saudi ASIN prices, and add a saved percentage-plus-fixed pricing formula with preview and explicit Trendyol price submission. Six pricing/matching tests passed; live Amazon.sa lookup returned 21 SAR. Function deployed; signed-in persistence/submission checks remain blocked by external authentication.
 
 - [x] Add matched, inventory-only and Trendyol-only product views, persistent mapping and a separate mapped-products price/stock workspace; three matching tests and desktop/mobile comparison-control checks passed.

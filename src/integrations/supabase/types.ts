@@ -6251,6 +6251,8 @@ export type Database = {
           created_at: string
           fixed_sar: number
           id: string
+          original_fixed_sar: number
+          original_percentage: number
           percentage: number
           updated_at: string
           user_id: string
@@ -6259,6 +6261,8 @@ export type Database = {
           created_at?: string
           fixed_sar?: number
           id?: string
+          original_fixed_sar?: number
+          original_percentage?: number
           percentage?: number
           updated_at?: string
           user_id: string
@@ -6267,6 +6271,8 @@ export type Database = {
           created_at?: string
           fixed_sar?: number
           id?: string
+          original_fixed_sar?: number
+          original_percentage?: number
           percentage?: number
           updated_at?: string
           user_id?: string
