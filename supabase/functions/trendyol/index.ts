@@ -147,6 +147,48 @@ Deno.serve(async (req) => {
       }
       return json(result);
     }
+    if (input.action === "import-products") {
+      const result = await call(`/integration/product/sellers/${SELLER_ID}/products?page=${input.page}&size=500`);
+      const remote = (result.content ?? []) as any[];
+      const { data: existing, error: existingError } = await db.from("trendyol_products").select("id,asin,sku,barcode").eq("user_id", user.id);
+      if (existingError) throw existingError;
+      const byBarcode = new Map((existing ?? []).map(r => [r.barcode, r]));
+      const asinTaken = new Map((existing ?? []).map(r => [normalize(r.asin), r.barcode]));
+      const skuTaken = new Map((existing ?? []).map(r => [normalize(r.sku), r.barcode]));
+      let inserted = 0, updated = 0, skipped = 0;
+      for (const p of remote) {
+        const barcode = String(p.barcode ?? "").trim();
+        if (!barcode) { skipped++; continue; }
+        const stockCode = String(p.stockCode ?? "").trim();
+        const key = normalize(stockCode || barcode);
+        const match = byBarcode.get(barcode);
+        const status = p.archived ? "archived" : p.approved ? "approved" : "pending-approval";
+        const fields = {
+          title: String(p.title ?? "").slice(0, 100) || barcode,
+          description: String(p.description ?? "").slice(0, 30000) || String(p.title ?? barcode),
+          product_main_id: String(p.productMainId ?? barcode).slice(0, 40),
+          brand_id: p.brandId ?? null, category_id: p.categoryId ?? null,
+          sale_price: Number(p.salePrice ?? 0), list_price: Number(p.listPrice ?? p.salePrice ?? 0),
+          vat_rate: Number(p.vatRate ?? 15), images: Array.isArray(p.images) ? p.images.slice(0, 8) : [],
+          attributes: Array.isArray(p.attributes) ? p.attributes : [],
+          publish_status: status, last_error: null,
+        };
+        if (match) {
+          const { error } = await db.from("trendyol_products").update(fields).eq("id", match.id);
+          if (error) { skipped++; continue; }
+          updated++;
+        } else {
+          // Avoid collisions: asin/sku are unique per user, so only insert when free.
+          if (asinTaken.has(key) || skuTaken.has(key)) { skipped++; continue; }
+          const { error } = await db.from("trendyol_products").insert({ ...fields, user_id: user.id, barcode, asin: key, sku: key, enabled: true });
+          if (error) { skipped++; continue; }
+          asinTaken.set(key, barcode); skuTaken.set(key, barcode);
+          inserted++;
+        }
+      }
+      await log("import-products", { count: remote.length, inserted, updated, skipped, page: input.page });
+      return json({ count: remote.length, inserted, updated, skipped, totalPages: result.totalPages, page: input.page });
+    }
     if (input.action === "import-orders") {
       if (input.startDate < Date.now() - 90 * 86400000 || input.startDate > Date.now()) return json({ error: "Use an order date within the last 90 days" }, 400);
       const result = await call(`/integration/order/sellers/${SELLER_ID}/orders?page=${input.page}&size=200&startDate=${input.startDate}&endDate=${Date.now()}&orderByField=PackageLastModifiedDate&orderByDirection=ASC`);
