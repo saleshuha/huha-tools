@@ -9,7 +9,8 @@ import { DataTableWrapper } from "@/components/ui/data-table-wrapper";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RefreshCw, Save, Send, ChevronLeft, ChevronRight, Square } from "lucide-react";
-import { trendyol } from "./api";
+import { trendyol, TrendyolApiError } from "./api";
+import { fetchPriceQueue } from "./price-fetch-queue";
 import { calculatedPrices, lookupAsins, type DualPricingFormula } from "../../../supabase/functions/trendyol/pricing";
 
 type Product = { id: string; asin: string; title: string; sale_price: number; list_price: number; publish_status: string; enabled: boolean };
@@ -30,6 +31,7 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
+  const [remaining, setRemaining] = useState<string[]>([]);
   const [confirm, setConfirm] = useState(false);
   const stop = useRef(false);
   useEffect(() => { let active = true; (async () => {
@@ -48,25 +50,33 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
   const formula = { percentage: Number(percentage), fixed_sar: Number(fixed), original_percentage: Number(originalPercentage), original_fixed_sar: Number(originalFixed) };
   const valid = [percentage, fixed, originalPercentage, originalFixed].every(v => v.trim() !== "" && Number.isFinite(Number(v))) && [formula.percentage, formula.original_percentage].every(v => v >= -100 && v <= 1000) && [formula.fixed_sar, formula.original_fixed_sar].every(v => Math.abs(v) <= 10000);
   const dirty = !saved || (Object.keys(formula) as (keyof DualPricingFormula)[]).some(key => saved[key] !== formula[key]);
-  const rows = useMemo(() => products.map(p => { const cached = prices.find(r => r.asin === p.asin.trim().toUpperCase()); return { ...p, cached, next: calculatedPrices(cached?.status === "available" ? Number(cached.price) : null, formula) }; }), [products, prices, percentage, fixed, originalPercentage, originalFixed]);
+  const rows = useMemo(() => {
+    const byAsin = new Map(prices.map(r => [r.asin, r]));
+    return products.map(p => { const cached = byAsin.get(p.asin.trim().toUpperCase()); return { ...p, cached, next: calculatedPrices(cached?.status === "available" ? Number(cached.price) : null, formula) }; });
+  }, [products, prices, percentage, fixed, originalPercentage, originalFixed]);
   const filtered = rows.filter(r => `${r.asin} ${r.title}`.toLowerCase().includes(search.toLowerCase()));
   const pages = Math.max(1, Math.ceil(filtered.length / 50)); const current = Math.min(page, pages - 1); const visible = filtered.slice(current * 50, current * 50 + 50);
   const picked = rows.filter(r => selected.has(r.id));
   const eligible = picked.length > 0 && picked.every(r => r.next.valid && r.publish_status === "approved" && r.enabled);
   const execute = async (fn: () => Promise<void>) => { setBusy(true); setError(""); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Pricing operation failed"); } finally { setBusy(false); } };
   const toggle = (id: string, checked: boolean) => setSelected(s => { const next = new Set(s); checked ? next.add(id) : next.delete(id); return next; });
-  const fetchPrices = async (all: boolean) => {
-    stop.current = false; const asins = lookupAsins(products, all ? null : selected); let count = 0;
+  const fetchPrices = async (all: boolean, resume?: string[]) => {
+    stop.current = false; const asins = resume ?? lookupAsins(products, all ? null : selected);
     if (!asins.length) throw new Error("No valid Amazon ASINs to fetch");
-    try {
-      for (const asin of asins) {
-        if (stop.current) break;
-        setProgress(`Fetching ${count + 1}/${asins.length} · ${asin}`);
-        const result = await trendyol<{ item: PriceRow }>({ action: "amazon-price", asin });
-        setPrices(previous => [...previous.filter(r => r.asin !== asin), result.item]); count++;
-      }
-      setProgress(`${count}/${asins.length} lookups saved${stop.current ? " · Stopped" : ""}`);
-    } catch (e) { setProgress(`${count}/${asins.length} lookups saved · Stopped on error`); throw e; }
+    let failures = 0; let firstError = ""; const started = Date.now();
+    setRemaining([]);
+    const result = await fetchPriceQueue({ asins, stopped: () => stop.current,
+      lookup: asin => trendyol<{ item: PriceRow }>({ action: "amazon-price", asin }),
+      saved: (asin, response) => setPrices(previous => [...previous.filter(r => r.asin !== asin), response.item]),
+      failed: (_asin, e) => {
+        failures++; firstError ||= e instanceof Error ? e.message : "Price lookup failed";
+        if (e instanceof TrendyolApiError && [401, 402, 403, 429, 503].includes(e.status)) stop.current = true;
+      },
+      progress: (completed, active) => setProgress(`${completed}/${asins.length} checked · ${active} fetching · ${Math.round((Date.now() - started) / 1000)}s`),
+    });
+    setRemaining(result.remaining);
+    setProgress(`${result.saved}/${asins.length} lookups saved${failures ? ` · ${failures} failed` : ""}${stop.current ? " · Stopped" : ""}${result.remaining.length ? ` · ${result.remaining.length} remaining` : ""}`);
+    if (firstError) setError(firstError);
   };
   return <div className="space-y-3">
     {error && <p role="alert" className="text-xs text-destructive border border-destructive/30 rounded-md p-3">{error}</p>}
@@ -86,7 +96,8 @@ export function AmazonPricing({ products, onSubmitted }: { products: Product[]; 
       <span className="text-xs text-muted-foreground">{selected.size} selected</span>
       <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !selected.size} onClick={() => execute(() => fetchPrices(false))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch selected prices</Button>
       <Button variant="outline" className="h-8 text-xs" disabled={busy || !ready || !products.length} onClick={() => setConfirmFetchAll(true)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Fetch all Amazon prices</Button>
-      {busy && <Button variant="outline" className="h-8 text-xs" onClick={() => { stop.current = true; }}><Square className="h-3.5 w-3.5 mr-1" />Stop after current</Button>}
+      {!busy && remaining.length > 0 && <Button variant="outline" className="h-8 text-xs" onClick={() => execute(() => fetchPrices(true, remaining))}><RefreshCw className="h-3.5 w-3.5 mr-1" />Resume {remaining.length} remaining</Button>}
+      {busy && <Button variant="outline" className="h-8 text-xs" onClick={() => { stop.current = true; }}><Square className="h-3.5 w-3.5 mr-1" />Stop after active lookups</Button>}
       <Button className="h-8 text-xs" disabled={busy || !valid || dirty || !eligible} onClick={() => setConfirm(true)}><Send className="h-3.5 w-3.5 mr-1" />Submit preview prices</Button>
       {progress && <span role="status" className="text-xs text-muted-foreground">{progress}</span>}
     </ToolbarBar>
