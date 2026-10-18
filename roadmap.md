@@ -1,5 +1,7 @@
 # Trendyol Saudi integration
 
+- [ ] Connect ASIN Spotlight, save Amazon Saudi ASIN prices, and add a saved pricing formula with preview and explicit Trendyol price submission. Requires ASIN Spotlight credentials and formula choice.
+
 - [x] Add matched, inventory-only and Trendyol-only product views, persistent mapping and a separate mapped-products price/stock workspace; three matching tests and desktop/mobile comparison-control checks passed.
 
 - [x] Verify Saudi seller API, product requirements and shipment workflow.
