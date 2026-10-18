@@ -3,13 +3,13 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { SELLER_ID, STOREFRONT, trendyolRequest } from "./connection.ts";
 import { aggregateInventory, normalize } from "./domain.ts";
-import { calculatedPrice } from "./pricing.ts";
+import { calculatedPrices } from "./pricing.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("test-connection") }),
   z.object({ action: z.literal("inventory") }),
   z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/) }),
-  z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), price: z.number().positive() })).min(1).max(100) }),
+  z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), salePrice: z.number().positive(), listPrice: z.number().positive() })).min(1).max(100) }),
   z.object({ action: z.literal("catalog"), kind: z.enum(["categories", "brands", "attributes", "values"]), categoryId: z.number().int().positive().optional(), attributeId: z.number().int().positive().optional() }),
   z.object({ action: z.literal("publish"), ids: z.array(z.string().uuid()).min(1).max(1000) }),
   z.object({ action: z.literal("sync"), ids: z.array(z.string().uuid()).min(1).max(1000), mode: z.enum(["stock", "price", "both"]) }),
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     if (input.action === "pricing-submit") {
       const ids = input.items.map(i => i.id);
       if (new Set(ids).size !== ids.length) return json({ error: "Duplicate products selected" }, 400);
-      const { data: formula, error: formulaError } = await db.from("trendyol_pricing_settings").select("percentage,fixed_sar").eq("user_id", user.id).single();
+      const { data: formula, error: formulaError } = await db.from("trendyol_pricing_settings").select("percentage,fixed_sar,original_percentage,original_fixed_sar").eq("user_id", user.id).single();
       if (formulaError || !formula) return json({ error: "Save your pricing formula first" }, 400);
       const { data: products, error } = await db.from("trendyol_products").select("*").eq("user_id", user.id).eq("enabled", true).in("id", ids);
       if (error) throw error;
@@ -108,10 +108,12 @@ Deno.serve(async (req) => {
       const items = [];
       for (const p of products) {
         const cached = prices?.find(r => r.asin === normalize(p.asin));
-        const price = calculatedPrice(cached?.status === "available" && cached.currency === "SAR" ? Number(cached.price) : null, { percentage: Number(formula.percentage), fixed_sar: Number(formula.fixed_sar) });
-        if (!balances.has(normalize(p.asin)) || p.publish_status !== "approved" || price === null) return json({ error: `${p.asin}: approved mapping and saved Amazon price required` }, 409);
-        if (input.items.find(i => i.id === p.id)?.price !== price) return json({ error: "Prices or formula changed; refresh the preview before submitting" }, 409);
-        items.push({ barcode: p.barcode, salePrice: price, listPrice: Math.max(price, Number(p.list_price) || 0) });
+        const pair = calculatedPrices(cached?.status === "available" && cached.currency === "SAR" ? Number(cached.price) : null, { percentage: Number(formula.percentage), fixed_sar: Number(formula.fixed_sar), original_percentage: Number(formula.original_percentage), original_fixed_sar: Number(formula.original_fixed_sar) });
+        if (!balances.has(normalize(p.asin)) || p.publish_status !== "approved" || pair.salePrice === null || pair.listPrice === null) return json({ error: `${p.asin}: approved mapping and saved Amazon price required` }, 409);
+        if (!pair.valid) return json({ error: `${p.asin}: original price must be at least sale price` }, 400);
+        const preview = input.items.find(i => i.id === p.id);
+        if (preview?.salePrice !== pair.salePrice || preview?.listPrice !== pair.listPrice) return json({ error: "Prices or formulas changed; refresh the preview before submitting" }, 409);
+        items.push({ barcode: p.barcode, salePrice: pair.salePrice, listPrice: pair.listPrice });
       }
       const result = await call(`/integration/inventory/sellers/${SELLER_ID}/products/price-and-inventory`, "POST", { items });
       await log("sync-amazon-price", { ...result, formula, items }, ids);
