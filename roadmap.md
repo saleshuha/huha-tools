@@ -1,6 +1,6 @@
 # Trendyol Saudi integration
 
-- [ ] Add all-mapped-products stock-only push without approval filtering, and event-driven automatic stock synchronization on inventory changes with durable processing and errors.
+- [x] Add all-mapped-products stock-only push without approval filtering, and event-driven automatic stock synchronization on inventory changes with durable processing and errors. Both services deployed; 25 tests passed, empty worker/security checks passed, no idle retry job, app check OK. Authenticated marketplace delivery remains blocked by external Supabase browser authentication.
 
 - [x] Explain blocked single/selected price submissions, refresh approval from the pricing tab, and confirm bulk submission of all eligible mapped prices; 16 tests passed. Live marketplace submission remains blocked by external authentication.
 
