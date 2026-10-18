@@ -112,7 +112,8 @@ export function TrendyolWorkspace() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in required");
     const { id, ...fields } = edit;
-    const payload = { ...fields, asin: edit.asin.trim().toUpperCase(), sku: edit.sku.trim().toUpperCase(), barcode: edit.barcode.trim(), images, attributes: attrs, user_id: user.id, stock_sync_mapped: true };
+    const payload = { ...fields, asin: edit.asin.trim().toUpperCase(), sku: edit.sku.trim().toUpperCase(), barcode: edit.barcode.trim(), images, attributes: attrs, user_id: user.id,
+      ...(inventory.some(i => productKey(i.asin) === productKey(edit.asin)) ? { stock_sync_mapped: true } : {}) };
     const result = id ? await supabase.from("trendyol_products").update(payload).eq("id", id) : await supabase.from("trendyol_products").insert(payload);
     if (result.error) throw result.error;
     setEdit(null); toast({ title: "Product mapping saved" });
