@@ -37,7 +37,7 @@ Deno.serve(async req => {
       const result = response.data as any;
       const outcome = stockBatchOutcome(result);
       if (outcome === "submitted") {
-        check((await db.from("trendyol_stock_queue").update({ next_attempt_at: new Date(Date.now() + 60000).toISOString() }).eq("batch_id", batchId)).error);
+        check((await db.from("trendyol_stock_queue").update({ next_attempt_at: new Date(Date.now() + 5000).toISOString() }).eq("batch_id", batchId)).error);
         continue;
       }
       check((await db.from("trendyol_sync_runs").update({ status: outcome, result }).eq("batch_id", batchId)).error);
@@ -87,7 +87,7 @@ Deno.serve(async req => {
         break;
       }
       // Preserve new versions that arrived in-flight; mark all as submitted until this batch completes.
-      for (const row of rows) check((await db.from("trendyol_stock_queue").update({ state: "submitted", batch_id: result.batchRequestId, sent_version: row.version, next_attempt_at: new Date(Date.now() + 60000).toISOString(), last_error: null }).eq("id", row.id)).error);
+      for (const row of rows) check((await db.from("trendyol_stock_queue").update({ state: "submitted", batch_id: result.batchRequestId, sent_version: row.version, next_attempt_at: new Date(Date.now() + 5000).toISOString(), last_error: null }).eq("id", row.id)).error);
       check((await db.from("trendyol_sync_runs").insert({ user_id: userId, action: "sync-stock-auto", status: "pending", batch_id: result.batchRequestId, product_ids: rows.map(r => r.product_id), result: { ...result, items } })).error);
       submitted += items.length;
       await new Promise(resolve => setTimeout(resolve, 1100));
