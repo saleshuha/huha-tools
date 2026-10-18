@@ -13,6 +13,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("batch"), id: z.string().uuid() }),
   z.object({ action: z.literal("approval"), ids: z.array(z.string().uuid()).min(1).max(50) }),
   z.object({ action: z.literal("import-orders"), page: z.number().int().min(0).max(10000).default(0), startDate: z.number().int().positive() }),
+  z.object({ action: z.literal("import-products"), page: z.number().int().min(0).max(10000).default(0) }),
   z.object({ action: z.literal("fulfill"), id: z.string().uuid() }),
   z.object({ action: z.literal("invoice"), id: z.string().uuid(), invoiceNumber: z.string().trim().min(1).max(100) }),
   z.object({ action: z.literal("tracking"), id: z.string().uuid(), trackingNumber: z.string().trim().min(1).max(100), providerCode: z.string().trim().min(1).max(100) }),
