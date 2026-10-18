@@ -1,6 +1,7 @@
 # Project architecture
 
 - Trendyol uses server-side production credentials and verified administrator sessions; never send marketplace credentials to the browser.
+- Trendyol stock-only sends use a protected versioned outbox, a global worker lease and capabilityless wake endpoint; inventory triggers enqueue latest Saudi sellable totals, batch completion precedes newer sends, and temporary retry scheduling ends after drain so closed browsers do not interrupt sync.
 - Trendyol direct fetch requests must share the Supabase client's exported URL and publishable key; build-time environment variables may be absent in this external-Supabase project.
 - Keep Trendyol provider requests in its connection module so Saudi headers and credential redaction remain consistent.
 - Trendyol fulfillment is a service-role-only transactional RPC with package locking and idempotency; external shipment notifications retry separately without deducting stock twice.

@@ -8,6 +8,7 @@ import { calculatedPrices } from "./pricing.ts";
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("test-connection") }),
   z.object({ action: z.literal("inventory") }),
+  z.object({ action: z.literal("stock-push-all") }),
   z.object({ action: z.literal("amazon-price"), asin: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{10}$/), refresh: z.boolean().default(false) }),
   z.object({ action: z.literal("pricing-submit"), items: z.array(z.object({ id: z.string().uuid(), salePrice: z.number().positive(), listPrice: z.number().positive() })).min(1).max(100) }),
   z.object({ action: z.literal("catalog"), kind: z.enum(["categories", "brands", "attributes", "values"]), categoryId: z.number().int().positive().optional(), attributeId: z.number().int().positive().optional() }),
@@ -77,6 +78,11 @@ Deno.serve(async (req) => {
       return json({ connected: true, sellerId: SELLER_ID, storefront: STOREFRONT });
     }
     if (input.action === "inventory") return json({ items: await inventory() });
+    if (input.action === "stock-push-all" || input.action === "sync" && input.mode === "stock") {
+      const { data: queued, error } = await db.rpc("queue_trendyol_stock", { p_user_id: user.id, p_ids: input.action === "sync" ? [...new Set(input.ids)] : null });
+      if (error) throw error;
+      return json({ queued });
+    }
     if (input.action === "amazon-price") {
       if (!input.refresh) {
         const { data: cached, error: cacheError } = await db.from("trendyol_amazon_prices").select("*").eq("user_id", user.id).eq("asin", input.asin).maybeSingle();
