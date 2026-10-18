@@ -94,11 +94,10 @@ Deno.serve(async (req) => {
       if (queued) wakeStock();
       const targets: { id: string; version: number }[] = []; const seen = new Set<string>();
       for (let start = 0; ; start += 1000) {
-        let query = db.from("trendyol_stock_queue").select("id,version,trendyol_products!inner(stock_sync_mapped)").eq("user_id", user.id).eq("trendyol_products.stock_sync_mapped", true);
-        if (input.action === "sync") query = query.in("product_id", input.ids);
+        const query = db.from("trendyol_stock_queue").select("id,product_id,version,trendyol_products!inner(stock_sync_mapped)").eq("user_id", user.id).eq("trendyol_products.stock_sync_mapped", true);
         const { data, error: targetError } = await query.order("id", { ascending: true }).range(start, start + 999);
         if (targetError) throw targetError;
-        for (const row of data ?? []) if (!seen.has(row.id)) { seen.add(row.id); targets.push({ id: row.id, version: row.version }); }
+        for (const row of data ?? []) if (!seen.has(row.id) && (input.action !== "sync" || input.ids.includes(row.product_id))) { seen.add(row.id); targets.push({ id: row.id, version: row.version }); }
         if ((data?.length ?? 0) < 1000) break;
       }
       return json({ queued, targets });

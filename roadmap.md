@@ -1,5 +1,7 @@
 # Trendyol Saudi integration
 
+- [x] Fix stalled all-stock worker Bad Request with bounded UUID filters/per-pass writes and stage-specific errors. Both services deployed; 30 tests passed; app check OK. Verified three real 100-product batches accepted by Trendyol and queue advancing; final marketplace application awaits Trendyol batch completion.
+
 - [x] Make manual all-stock push immediately wake the leased sender and show live version-aware sending/confirmation progress, preserving automatic durable sync. Both functions deployed; 28 tests passed; app check OK. Actual signed-in marketplace delivery remains blocked by external Supabase browser authentication.
 
 - [x] Add all-mapped-products stock-only push without approval filtering, and event-driven automatic stock synchronization on inventory changes with durable processing and errors. Both services deployed; 25 tests passed, empty worker/security checks passed, no idle retry job, app check OK. Authenticated marketplace delivery remains blocked by external Supabase browser authentication.
@@ -23,4 +25,4 @@
 - [x] Add paginated order import and transactional local fulfillment, stock history, package/line replay guards, Picking/invoice/tracking notifications.
 - [x] Add batch history, error details, retry Picking, mapping settings and integration documentation.
 - [x] Run five stock-domain tests, deploy the function and verify the app compiles; public browser redirects to sign-in without errors.
-- [ ] Verify authenticated workspace and actual product creation/approval, price/stock push and order fulfillment. Blockers: external Supabase does not supply a test browser session; seller currently has zero orders; no real product mapping/approval supplied. No live marketplace writes were made.
+- [ ] Verify authenticated workspace, product creation/approval, price submission and order fulfillment. Blockers: external Supabase does not supply a test browser session and seller currently has zero orders. Stock submission verified through live 100-product batches; final stock application awaits Trendyol processing.

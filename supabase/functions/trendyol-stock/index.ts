@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { SELLER_ID, trendyolRequest } from "../_shared/trendyol/connection.ts";
 import { stockItems, stockBatchOutcome } from "../_shared/trendyol/stock.ts";
+import { stockWorkRows } from "../_shared/trendyol/stock-work.ts";
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -23,6 +24,8 @@ Deno.serve(async req => {
   const deadline = Date.now() + 80000;
   const check = (error: { message: string } | null) => { if (error) throw new Error(error.message); };
   let submitted = 0;
+  let stage = "Read submitted batches";
+  let workingRows: { id: string; version: number }[] = [];
   try {
     // Reconcile old batches before sending a newer version of the same product.
     const { data: active, error: activeError } = await db.from("trendyol_stock_queue").select("*").eq("state", "submitted").lte("next_attempt_at", new Date().toISOString()).order("id", { ascending: true }).limit(1000);
@@ -51,20 +54,25 @@ Deno.serve(async req => {
       }
     }
     while (Date.now() < deadline) {
+      stage = "Read queued stock";
       const { data: pending, error } = await db.from("trendyol_stock_queue").select("*").eq("state", "pending").lte("next_attempt_at", new Date().toISOString()).order("id", { ascending: true }).limit(1000);
       check(error);
       if (!pending?.length) break;
       const userId = pending[0].user_id;
-      const rows = pending.filter(r => r.user_id === userId);
+      const rows = stockWorkRows(pending);
+      workingRows = rows;
+      stage = "Verify stock owner";
       const { data: admin, error: roleError } = await db.rpc("has_role", { _user_id: userId, _role: "admin" });
       check(roleError);
       if (!admin) {
         check((await db.from("trendyol_stock_queue").update({ state: "failed", last_error: "Administrator access removed" }).in("id", rows.map(r => r.id))).error);
         continue;
       }
+      stage = "Load mapped products";
       const { data: products, error: productError } = await db.from("trendyol_products").select("id,asin,barcode,stock_sync_mapped").eq("user_id", userId).in("id", rows.map(r => r.product_id));
       check(productError);
       const inventory: any[] = []; const seen = new Set<string>();
+      stage = "Load Saudi stock";
       for (let start = 0; ; start += 1000) {
         const { data, error } = await db.from("asin_inventory").select("id,asin,quantity,status,country,is_active").eq("user_id", userId).eq("country", "KSA").or("is_active.is.null,is_active.eq.true").order("id", { ascending: true }).range(start, start + 999);
         check(error);
@@ -77,6 +85,7 @@ Deno.serve(async req => {
         check((await db.from("trendyol_stock_queue").update({ state: "failed", last_error: "Inventory mapping required" }).in("id", ids)).error);
         continue;
       }
+      stage = "Submit stock to Trendyol";
       const response = await trendyolRequest(`/integration/inventory/sellers/${SELLER_ID}/products/price-and-inventory`, "POST", { items });
       const result = response.data as any;
       if (!response.ok || !result?.batchRequestId) {
@@ -87,14 +96,19 @@ Deno.serve(async req => {
         break;
       }
       // Preserve new versions that arrived in-flight; mark all as submitted until this batch completes.
+      stage = "Save Trendyol batch";
       for (const row of rows) check((await db.from("trendyol_stock_queue").update({ state: "submitted", batch_id: result.batchRequestId, sent_version: row.version, next_attempt_at: new Date(Date.now() + 5000).toISOString(), last_error: null }).eq("id", row.id)).error);
       check((await db.from("trendyol_sync_runs").insert({ user_id: userId, action: "sync-stock-auto", status: "pending", batch_id: result.batchRequestId, product_ids: rows.map(r => r.product_id), result: { ...result, items } })).error);
       submitted += items.length;
+      workingRows = [];
       await new Promise(resolve => setTimeout(resolve, 1100));
     }
     return json({ submitted });
   } catch (error) {
-    console.error("Stock processor failed", error instanceof Error ? error.message : "Unknown error");
+    const message = `${stage}: ${error instanceof Error ? error.message : "Unknown error"}`;
+    console.error("Stock processor failed", message);
+    // Make interruptions visible without discarding the durable retry or overwriting newer stock.
+    for (const row of workingRows) await db.from("trendyol_stock_queue").update({ last_error: `Stock sending interrupted (${stage}); retry scheduled`, next_attempt_at: new Date(Date.now() + 60000).toISOString() }).eq("id", row.id).eq("version", row.version).eq("state", "pending");
     return json({ error: "Stock processing interrupted; pending updates will retry" }, 500);
   } finally {
     await db.rpc("release_trendyol_stock_worker", { p_token: lease });

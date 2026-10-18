@@ -1,5 +1,22 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { stockItems, stockBatchOutcome } from "../_shared/trendyol/stock.ts";
+import { stockWorkRows } from "../_shared/trendyol/stock-work.ts";
+
+Deno.test("1878 queued products drain in bounded UUID filters without omissions", () => {
+  let remaining = Array.from({ length: 1878 }, (_, i) => ({ user_id: "admin", id: String(i) }));
+  const processed: string[] = [];
+  while (remaining.length) {
+    const batch = stockWorkRows(remaining);
+    assertEquals(batch.length <= 100, true);
+    processed.push(...batch.map(row => row.id));
+    remaining = remaining.slice(batch.length);
+  }
+  assertEquals(processed.length, 1878);
+  assertEquals(new Set(processed).size, 1878);
+});
+Deno.test("bounded stock work never mixes administrator inventory", () => {
+  assertEquals(stockWorkRows([{ user_id: "a", id: "1" }, { user_id: "b", id: "2" }, { user_id: "a", id: "3" }]).map(row => row.id), ["1", "3"]);
+});
 
 Deno.test("Stock-only updates include every mapped marketplace status, without prices", () => {
   const products = ["approved", "pending-approval", "archived", "failed", "draft"].map((publish_status, i) => ({ id: String(i), asin: "B0TEST", barcode: String(i), publish_status, enabled: false, stock_sync_mapped: true }));
