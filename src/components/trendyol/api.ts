@@ -1,11 +1,11 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 export async function trendyol<T = any>(body: Record<string, unknown>): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Sign in to use Trendyol");
-  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trendyol`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/trendyol`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${session.access_token}` },
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify(body),
   });
   const text = await response.text();
