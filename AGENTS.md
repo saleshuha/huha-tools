@@ -9,3 +9,4 @@
 - Derive Trendyol comparison groups from normalized inventory ASINs and unique exact SKU/barcode matches; persist confirmed links by changing only the product's ASIN so remote identity and inventory stock stay intact.
 - Keep product matching and paginated comparison tables separate from the Trendyol workspace; allow marketplace price/stock submissions only from confirmed inventory mappings.
 - Keep Amazon pricing calculations in a shared pure module and validate cached prices server-side before explicit submission so previews and marketplace prices agree; ASIN Spotlight credentials remain server-only.
+- Run Amazon lookups through a bounded two-worker queue without automatic billable retries, drain active requests on stop and validate only matching inventory rows server-side; this avoids serial latency and repeated inventory downloads.

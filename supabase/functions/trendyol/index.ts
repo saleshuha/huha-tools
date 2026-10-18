@@ -80,8 +80,12 @@ Deno.serve(async (req) => {
     if (input.action === "amazon-price") {
       const apiKey = Deno.env.get("ASIN_SPOTLIGHT_API_KEY");
       if (!apiKey) return json({ error: "ASIN Spotlight API key is not configured" }, 503);
-      const local = await inventory();
-      if (!local.some(i => normalize(i.asin) === input.asin)) return json({ error: "ASIN is not in active Saudi inventory" }, 400);
+      // Validate only matching rows, rather than downloading the whole inventory per lookup.
+      const { data: local, error: inventoryError } = await db.from("asin_inventory").select("asin")
+        .eq("user_id", user.id).eq("country", "KSA").or("is_active.is.null,is_active.eq.true")
+        .ilike("asin", `%${input.asin}%`);
+      if (inventoryError) throw inventoryError;
+      if (!local?.some(i => normalize(i.asin) === input.asin)) return json({ error: "ASIN is not in active Saudi inventory" }, 400);
       const response = await fetch(`https://api.asinspotlight.com/v1/product?asin=${input.asin}&marketplace=sa`, { headers: { "x-api-key": apiKey }, signal: AbortSignal.timeout(90000) });
       if (!response.ok) return json({ error: response.status === 429 ? "ASIN Spotlight rate or credit limit reached; remaining lookups stopped" : `ASIN Spotlight lookup failed (${response.status})` }, response.status >= 400 && response.status < 500 ? response.status : 502);
       let result: any;
