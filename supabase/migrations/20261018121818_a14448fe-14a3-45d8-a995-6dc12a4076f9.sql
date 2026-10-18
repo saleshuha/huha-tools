@@ -1,0 +1,2 @@
+ALTER TABLE public.trendyol_pricing_settings ADD COLUMN original_percentage numeric NOT NULL DEFAULT 0 CHECK (original_percentage BETWEEN -100 AND 1000), ADD COLUMN original_fixed_sar numeric NOT NULL DEFAULT 0 CHECK (original_fixed_sar BETWEEN -10000 AND 10000);
+UPDATE public.trendyol_pricing_settings SET original_percentage=percentage, original_fixed_sar=fixed_sar;
