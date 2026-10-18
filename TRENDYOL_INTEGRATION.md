@@ -16,8 +16,6 @@ Select products → **Create products**. Up to 1,000 products per request. HTTP 
 
 Available stock sums active `KSA` inventory rows with status `in-stock`, across serial/bin rows sharing normalized ASIN. Reserved/damaged/disabled/non-Saudi stock is excluded. SKU and ASIN normalization uses uppercase/trim. Serial numbers remain unchanged. Missing/disabled inventory blocks a push rather than silently using a stale quantity.
 
-## Orders and fulfillment
-
 ## Amazon price reference and formula
 
 **Amazon pricing** shows confirmed inventory mappings, saved Amazon Buy Box prices, lookup timestamps, current Trendyol prices and calculated previews. Select rows (50 per page) and choose **Fetch Amazon prices**. Lookups are sequential, deduplicated by normalized ASIN, and saved immediately; Stop completes the current request first. Reloading the page reads saved data without spending new credits. A new lookup replaces the previous reference; missing products/prices become unavailable rather than silently reusing an old value.
