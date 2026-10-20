@@ -37,7 +37,7 @@ export function ProductMatchingViews<T extends ListedProduct>({ products, invent
   const options = available.filter(item => `${item.asin} ${item.sku} ${item.title}`.toLowerCase().includes(mappingSearch.toLowerCase()));
   const exportList = (field: "asin" | "sku" | "title") => {
     const values = filtered.map(row => {
-      if (field === "asin") return row.inventory?.asin ?? "";
+      if (field === "asin") return row.inventory?.asin || row.product?.asin || "";
       if (field === "sku") return row.inventory?.sku || row.product?.sku || "";
       return row.inventory?.title || row.product?.title || "";
     }).filter(Boolean);
