@@ -160,6 +160,26 @@ export function TrendyolWorkspace() {
     if (result.error) throw result.error;
     setEdit(null); toast({ title: "Product mapping saved" });
   };
+  const bulkMapProducts = async (pairs: { product: Product; inventory: Inventory }[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sign in required");
+    const eligible = new Map(groups.matches.map(pair => [pair.product.id, productKey(pair.inventory.asin)]));
+    let saved = 0;
+    const failures: string[] = [];
+    for (const [index, pair] of pairs.entries()) {
+      setProgress(`Confirming mappings ${index + 1}/${pairs.length} · ${saved} saved`);
+      if (eligible.get(pair.product.id) !== productKey(pair.inventory.asin)) {
+        failures.push(`${pair.product.sku}: match is no longer available`);
+        continue;
+      }
+      const { data, error } = await supabase.from("trendyol_products").update({ asin: productKey(pair.inventory.asin), stock_sync_mapped: true }).eq("id", pair.product.id).eq("user_id", user.id).eq("asin", pair.product.asin).select("id").single();
+      if (error || !data) failures.push(`${pair.product.sku}: ${error?.message ?? "Mapping changed; refresh and retry"}`);
+      else saved++;
+    }
+    setSelected(new Set());
+    toast({ title: failures.length ? "Bulk mapping finished with errors" : "Bulk mapping confirmed", description: `${saved}/${pairs.length} saved · ${failures.length} failed`, variant: failures.length ? "destructive" : "default" });
+    if (failures.length) setError(failures.slice(0, 5).join(" · "));
+  };
   const push = async (action: "publish" | "sync", mode?: "stock" | "price" | "both") => {
     const ids = [...selected]; if (!ids.length) throw new Error("Select products first");
     if (ids.some(id => !groups.mapped.some(pair => pair.product.id === id))) throw new Error("Only mapped inventory products can be submitted");
@@ -213,7 +233,7 @@ export function TrendyolWorkspace() {
           {stockQueue.some(r => r.state === "failed") && <Button variant="ghost" className="h-8 text-xs" onClick={() => setDetails(stockQueue.filter(r => r.state === "failed").map(r => r.last_error).join("\n\n"))}>Stock errors</Button>}
         </div>}
         {productTab === "mapped" && <div className="flex flex-wrap gap-2 items-center"><span className="text-xs text-muted-foreground">{selected.size} selected</span><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("publish"))}><Upload className="h-3.5 w-3.5 mr-1" />Create products</Button><Button disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(async () => { const ids = [...selected]; for (let i = 0; i < ids.length; i += 50) await trendyol({ action: "approval", ids: ids.slice(i, i + 50) }); })}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Check approval</Button>{(["stock", "price", "both"] as const).map(mode => <Button key={mode} disabled={busy || !selected.size} variant="outline" className="h-8 text-xs" onClick={() => run(() => push("sync", mode))}><RefreshCw className="h-3.5 w-3.5 mr-1" />{mode === "both" ? "Sync price & stock" : `Sync ${mode}`}</Button>)}</div>}
-        {inventoryReady ? <ProductMatchingViews products={products} inventory={inventory} busy={busy} mappedView={productTab === "mapped"} selected={selected} setSelected={setSelected} onEdit={openEditor} onCreate={prepareProduct} onMap={(product, item) => { void run(() => mapProduct(product, item)); }} /> : <p role="status" className="text-xs text-muted-foreground py-8">{error ? "Inventory matching unavailable" : "Loading saved products and Saudi inventory…"}</p>}
+        {inventoryReady ? <ProductMatchingViews products={products} inventory={inventory} busy={busy} mappedView={productTab === "mapped"} selected={selected} setSelected={setSelected} onEdit={openEditor} onCreate={prepareProduct} onMap={(product, item) => { void run(() => mapProduct(product, item)); }} onBulkMap={pairs => { void run(() => bulkMapProducts(pairs)); }} /> : <p role="status" className="text-xs text-muted-foreground py-8">{error ? "Inventory matching unavailable" : "Loading saved products and Saudi inventory…"}</p>}
       </TabsContent>
       <TabsContent value="orders" className="space-y-3">
         <ToolbarBar><Label htmlFor="trendyol-start" className="text-xs">Orders since</Label><Input id="trendyol-start" type="date" className="h-8 text-xs w-40" value={startDate} onChange={e => setStartDate(e.target.value)} min={new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)} /><Button disabled={busy} className="h-8 text-xs" onClick={() => run(async () => {

@@ -22,4 +22,14 @@ describe("Trendyol product separation", () => {
     deepStrictEqual(result.trendyolOnly.map(p => p.id), ["one", "two", "extra"]);
     deepStrictEqual(result.inventoryOnly.map(p => p.asin), ["B01"]);
   });
+  it("confirms all exact matches across pages without changing inventory quantities", () => {
+    const inventory = Array.from({ length: 60 }, (_, i) => local(`B${i}`, `SKU${i}`, i + 1));
+    const products = inventory.map((item, i) => remote(`${i}`, `TY${i}`, item.sku));
+    const pairs = classifyProducts(products, inventory).matches;
+    strictEqual(pairs.length, 60);
+    const confirmed = classifyProducts(pairs.map(pair => ({ ...pair.product, asin: pair.inventory.asin })), inventory);
+    strictEqual(confirmed.mapped.length, 60);
+    strictEqual(confirmed.matches.length, 0);
+    deepStrictEqual(confirmed.mapped.map(pair => pair.inventory.quantity), Array.from({ length: 60 }, (_, i) => i + 1));
+  });
 });
