@@ -7,7 +7,9 @@ import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@
 import { DataTableWrapper } from "@/components/ui/data-table-wrapper";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Link2, Pencil, Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link2, Pencil, Plus, Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { exportToCSV } from "@/utils/csv";
 import { classifyProducts, productKey, type LocalProduct, type ListedProduct } from "./matching";
 
 type Props<T extends ListedProduct> = {
@@ -33,9 +35,21 @@ export function ProductMatchingViews<T extends ListedProduct>({ products, invent
   const selectable = visible.flatMap(row => row.product ? [row.product.id] : []);
   const available = inventory.filter(item => !groups.mapped.some(pair => productKey(pair.inventory.asin) === productKey(item.asin)));
   const options = available.filter(item => `${item.asin} ${item.sku} ${item.title}`.toLowerCase().includes(mappingSearch.toLowerCase()));
+  const exportList = (field: "asin" | "sku" | "title") => {
+    const values = filtered.map(row => {
+      if (field === "asin") return row.inventory?.asin ?? "";
+      if (field === "sku") return row.inventory?.sku || row.product?.sku || "";
+      return row.inventory?.title || row.product?.title || "";
+    }).filter(Boolean);
+    const name = mappedView ? "mapped" : view === "matches" ? "matched" : view === "inventory" ? "inventory-only" : "trendyol-only";
+    exportToCSV(values.map(value => ({ [field.toUpperCase()]: value })), [field.toUpperCase()], `trendyol-${name}-${field}-${new Date().toISOString().split("T")[0]}.csv`);
+  };
   return <div className="space-y-3">
     {!mappedView && <Tabs value={view} onValueChange={value => { setView(value); setPage(0); }}><TabsList className="h-auto flex flex-wrap justify-start gap-1"><TabsTrigger className="text-xs" value="matches">Matched · {groups.matches.length}</TabsTrigger><TabsTrigger className="text-xs" value="inventory">Inventory only · {groups.inventoryOnly.length}</TabsTrigger><TabsTrigger className="text-xs" value="trendyol">Trendyol only · {groups.trendyolOnly.length}</TabsTrigger></TabsList></Tabs>}
-    <div className="relative max-w-lg"><Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" /><Input aria-label="Search product matching" className="h-8 text-xs pl-8" placeholder="Search ASIN, SKU, barcode or product" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></div>
+    <div className="flex flex-wrap items-center gap-2"><div className="relative max-w-lg flex-1"><Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" /><Input aria-label="Search product matching" className="h-8 text-xs pl-8" placeholder="Search ASIN, SKU, barcode or product" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></div>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="h-8 text-xs" disabled={!filtered.length}><Download className="h-3.5 w-3.5 mr-1" />Export list ({filtered.length})</Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+        {(["asin", "sku", "title"] as const).map(field => <DropdownMenuItem key={field} className="text-xs" onClick={() => exportList(field)}>Export {field === "title" ? "titles" : `${field.toUpperCase()}s`} only</DropdownMenuItem>)}
+      </DropdownMenuContent></DropdownMenu></div>
     <DataTableWrapper><Table><TableHeader><TableRow>
       {mappedView && <TableHead className="w-10"><Checkbox aria-label="Select mapped products on this page" checked={selectable.length > 0 && selectable.every(id => selected.has(id))} onCheckedChange={checked => { const next = new Set(selected); selectable.forEach(id => checked ? next.add(id) : next.delete(id)); setSelected(next); }} /></TableHead>}
       <TableHead>Our inventory / ASIN / SKU</TableHead><TableHead>Trendyol product / SKU / barcode</TableHead><TableHead>Local stock</TableHead><TableHead>Sale price</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead>
