@@ -231,8 +231,15 @@ Deno.serve(async (req) => {
       return json(result);
     }
     if (input.action === "import-products") {
-      const result = await call(`/integration/product/sellers/${SELLER_ID}/products?page=${input.page}&size=500`);
-      const remote = (result.content ?? []) as any[];
+      // Product v2: the legacy listing endpoint is retired (HTTP 426 brownout).
+      // Approved and unapproved products are listed separately and require a date range.
+      const query = `page=${input.page}&size=500&dateQueryType=CREATED_DATE&startDate=0&endDate=${Date.now()}`;
+      const [approvedResult, unapprovedResult] = await Promise.all([
+        call(`/integration/product/sellers/${SELLER_ID}/products/approved?${query}`),
+        call(`/integration/product/sellers/${SELLER_ID}/products/unapproved?${query}`),
+      ]);
+      const result = { totalPages: Math.max(approvedResult.totalPages ?? 1, unapprovedResult.totalPages ?? 1) };
+      const remote = [...(approvedResult.content ?? []), ...(unapprovedResult.content ?? [])] as any[];
       const { data: existing, error: existingError } = await db.from("trendyol_products").select("id,asin,sku,barcode").eq("user_id", user.id);
       if (existingError) throw existingError;
       const byBarcode = new Map((existing ?? []).map(r => [r.barcode, r]));
