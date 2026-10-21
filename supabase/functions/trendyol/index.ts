@@ -233,10 +233,11 @@ Deno.serve(async (req) => {
     if (input.action === "import-products") {
       // Product v2: the legacy listing endpoint is retired (HTTP 426 brownout).
       // Approved and unapproved products are listed separately and require a date range.
-      const query = `page=${input.page}&size=100&dateQueryType=CREATED_DATE&startDate=0&endDate=${Date.now()}`;
+      // Each v2 listing endpoint accepts a different dateQueryType enum.
+      const range = `page=${input.page}&size=100&startDate=0&endDate=${Date.now()}`;
       const [approvedResult, unapprovedResult] = await Promise.all([
-        call(`/integration/product/sellers/${SELLER_ID}/products/approved?${query}`),
-        call(`/integration/product/sellers/${SELLER_ID}/products/unapproved?${query}`),
+        call(`/integration/product/sellers/${SELLER_ID}/products/approved?${range}&dateQueryType=VARIANT_CREATED_DATE`),
+        call(`/integration/product/sellers/${SELLER_ID}/products/unapproved?${range}&dateQueryType=CREATED_DATE`),
       ]);
       const result = { totalPages: Math.max(approvedResult.totalPages ?? 1, unapprovedResult.totalPages ?? 1) };
       const remote = [...(approvedResult.content ?? []), ...(unapprovedResult.content ?? [])] as any[];
