@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     if (input.action === "import-products") {
       // Product v2: the legacy listing endpoint is retired (HTTP 426 brownout).
       // Approved and unapproved products are listed separately and require a date range.
-      const query = `page=${input.page}&size=500&dateQueryType=CREATED_DATE&startDate=0&endDate=${Date.now()}`;
+      const query = `page=${input.page}&size=100&dateQueryType=CREATED_DATE&startDate=0&endDate=${Date.now()}`;
       const [approvedResult, unapprovedResult] = await Promise.all([
         call(`/integration/product/sellers/${SELLER_ID}/products/approved?${query}`),
         call(`/integration/product/sellers/${SELLER_ID}/products/unapproved?${query}`),
