@@ -46,6 +46,7 @@ Frontend calls `POST {Supabase URL}/functions/v1/trendyol` with its user Bearer 
 
 Provider endpoints:
 
+- List: `GET /integration/product/sellers/1360871/products/approved` and `.../products/unapproved` (Product v2; the legacy listing endpoint was retired with HTTP 426)
 - Create: `POST /integration/product/sellers/1360871/v2/products`
 - Stock/price: `POST /integration/inventory/sellers/1360871/products/price-and-inventory`
 - Batch: `GET /integration/product/sellers/1360871/products/batch-requests/{batchId}`
